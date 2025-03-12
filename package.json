@@ -1,0 +1,32 @@
+{
+  "name": "construction-planner",
+  "version": "1.0.0",
+  "description": "A web application for planning and visualizing construction projects.",
+  "type": "module",
+  "main": "vite.config.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "vercel-build": "echo 'Using static asset deployment'",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "construction",
+    "planning",
+    "visualization",
+    "project management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/rbush": "^3.0.0",
+    "terser": "^5.39.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  },
+  "dependencies": {
+    "@pixi/math": "^7.3.2",
+    "jspdf": "^3.0.0",
+    "rbush": "^3.0.1"
+  }
+}

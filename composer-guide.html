@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dingplan Composer Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 0.5in;
+        }
+        h1 {
+            color: #2a5885;
+            text-align: center;
+            margin-bottom: 0.3in;
+            font-size: 24px;
+        }
+        h2 {
+            color: #2a5885;
+            margin-top: 0.2in;
+            margin-bottom: 0.1in;
+            font-size: 18px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 3px;
+        }
+        .section {
+            margin-bottom: 0.2in;
+        }
+        .two-col {
+            display: flex;
+            gap: 0.2in;
+        }
+        .col {
+            flex: 1;
+        }
+        ul, ol {
+            margin-top: 0.05in;
+            margin-bottom: 0.05in;
+            padding-left: 0.2in;
+        }
+        li {
+            margin-bottom: 0.05in;
+        }
+        .examples {
+            background: #f5f5f5;
+            padding: 0.1in;
+            border-radius: 5px;
+        }
+        .examples p {
+            margin: 0.05in 0;
+        }
+        .example {
+            font-family: monospace;
+            color: #2a5885;
+        }
+        .note {
+            font-style: italic;
+            font-size: 14px;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 0.05in;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        @media print {
+            body {
+                padding: 0;
+            }
+            @page {
+                size: letter;
+                margin: 0.5in;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Dingplan Composer Guide</h1>
+    
+    <div class="section">
+        <h2>Introduction</h2>
+        <p>The Composer is a natural language interface that allows you to quickly create construction sequences from templates or build custom task schedules. This guide explains how to use the Composer effectively.</p>
+    </div>
+    
+    <div class="two-col">
+        <div class="col">
+            <div class="section">
+                <h2>Using Templates</h2>
+                <p>The system has modular templates organized by building type and construction phase:</p>
+                <ul>
+                    <li><strong>Industrial Building Components</strong>: site_prep, foundation, steel, envelope, mep, equipment, interior, safety, utilities, commissioning</li>
+                    <li><strong>Specialized Structures</strong>: siteclearing, foundations, structure, facade, mep, systems, interiors, access, sitework, completion</li>
+                    <li><strong>General Components</strong>: foundation, steelstructure, mepzone, interiorzone, facadezone</li>
+                </ul>
+                
+                <div class="examples">
+                    <p class="example">"Create industrial foundation in Zone 1"</p>
+                    <p class="example">"Add specialized facade work to the project"</p>
+                    <p class="example">"Setup MEP for all zones"</p>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Multi-Zone Implementation</h2>
+                <p>Apply templates across multiple zones at once:</p>
+                <div class="examples">
+                    <p class="example">"Add industrial steel erection in all zones"</p>
+                    <p class="example">"Create MEP for each zone"</p>
+                </div>
+                <p class="note">Use phrases like "in all zones" or "for each zone" to apply across zones.</p>
+            </div>
+        </div>
+        
+        <div class="col">
+            <div class="section">
+                <h2>Commands & Examples</h2>
+                <table>
+                    <tr>
+                        <th>To Do This</th>
+                        <th>Say This</th>
+                    </tr>
+                    <tr>
+                        <td>List all templates</td>
+                        <td>"Show available templates"</td>
+                    </tr>
+                    <tr>
+                        <td>View zones</td>
+                        <td>"List all zones"</td>
+                    </tr>
+                    <tr>
+                        <td>Create single task</td>
+                        <td>"Create a framing task that takes 3 days"</td>
+                    </tr>
+                    <tr>
+                        <td>Adjust timeline</td>
+                        <td>"Create a quick foundation template"</td>
+                    </tr>
+                    <tr>
+                        <td>Delete task</td>
+                        <td>"Delete task [task ID]"</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>Tips & Tricks</h2>
+                <ul>
+                    <li><strong>Natural language:</strong> The system understands conversational requests</li>
+                    <li><strong>Keyword matching:</strong> Use industry terms to find relevant templates</li>
+                    <li><strong>Combining templates:</strong> Sequence templates to create complete project plans</li>
+                    <li><strong>Duration modifiers:</strong> Use words like "quick", "detailed", or "standard"</li>
+                    <li><strong>Specific dates:</strong> Include start dates like "beginning June 1st"</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Template Sequence Example</h2>
+        <p>Building a complete industrial building sequence:</p>
+        <ol>
+            <li>"Create industrial site prep in Zone 1 starting June 1st"</li>
+            <li>"Add industrial foundation after site prep"</li>
+            <li>"Create industrial steel erection following the foundation work"</li>
+            <li>"Add industrial envelope after steel is complete"</li>
+            <li>"Create industrial MEP rough-in after envelope"</li>
+            <li>"Add interior work starting after MEP is 50% complete"</li>
+        </ol>
+    </div>
+    
+    <p class="note">To create a PDF from this guide: Open in your browser and use Print > Save as PDF</p>
+</body>
+</html> 

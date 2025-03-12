@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toolbar Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        .test-button {
+            margin: 10px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .test-button:hover {
+            background-color: #45a049;
+        }
+        .results {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Toolbar Functionality Test</h1>
+    
+    <div>
+        <button id="test-button" class="test-button">Test Canvas App Availability</button>
+        <button id="add-task-test" class="test-button">Test Add Task</button>
+    </div>
+    
+    <div class="results">
+        <h2>Test Results:</h2>
+        <div id="result-container"></div>
+    </div>
+
+    <script>
+        // Add a message to the results container
+        function addResult(message) {
+            const resultContainer = document.getElementById('result-container');
+            const resultElement = document.createElement('p');
+            resultElement.textContent = message;
+            resultContainer.appendChild(resultElement);
+        }
+
+        // Test button click handler
+        document.getElementById('test-button').addEventListener('click', function() {
+            if (window.canvasApp) {
+                addResult('SUCCESS: Canvas app is available in the global scope.');
+                console.log('Canvas app:', window.canvasApp);
+                
+                // Test if methods exist
+                if (typeof window.canvasApp.showAddTaskDialog === 'function') {
+                    addResult('SUCCESS: showAddTaskDialog method is available.');
+                } else {
+                    addResult('ERROR: showAddTaskDialog method is NOT available.');
+                }
+                
+                if (typeof window.canvasApp.showSwimlaneDialog === 'function') {
+                    addResult('SUCCESS: showSwimlaneDialog method is available.');
+                } else {
+                    addResult('ERROR: showSwimlaneDialog method is NOT available.');
+                }
+            } else {
+                addResult('ERROR: Canvas app is NOT available in the global scope.');
+            }
+        });
+
+        // Test add task button
+        document.getElementById('add-task-test').addEventListener('click', function() {
+            addResult('Attempting to call showAddTaskDialog...');
+            try {
+                if (window.canvasApp && typeof window.canvasApp.showAddTaskDialog === 'function') {
+                    window.canvasApp.showAddTaskDialog();
+                    addResult('Method called successfully.');
+                } else {
+                    addResult('ERROR: Unable to call method, not available.');
+                }
+            } catch (error) {
+                addResult(`ERROR: ${error.message}`);
+                console.error(error);
+            }
+        });
+
+        // Check availability on load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                addResult('Initial check: ' + (window.canvasApp ? 'Canvas app is available' : 'Canvas app is NOT available'));
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 
