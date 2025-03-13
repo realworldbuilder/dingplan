@@ -1297,7 +1297,23 @@ export class Canvas {
     const startDate = new Date(Math.min(...this.taskManager.getAllTasks().map(t => t.startDate.getTime())));
     const endDate = new Date(Math.max(...this.taskManager.getAllTasks().map(t => t.getEndDate().getTime())));
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const dayWidth = chartWidth / totalDays;
+    
+    // Determine if we should use daily or weekly display based on total days
+    const useWeeklyDisplay = totalDays > 42; // Switch to weekly for more than 6 weeks
+    
+    // Calculate appropriate unit width
+    let dayWidth, unitLabel, unitCount;
+    if (useWeeklyDisplay) {
+      // Calculate total weeks
+      unitCount = Math.ceil(totalDays / 7);
+      dayWidth = chartWidth / (unitCount * 7);
+      unitLabel = 'Week';
+    } else {
+      // Use daily display
+      unitCount = totalDays;
+      dayWidth = chartWidth / totalDays;
+      unitLabel = 'Day';
+    }
 
     // Page specific variables
     let currentY = timelineStartY + 5;
@@ -1306,11 +1322,18 @@ export class Canvas {
     
     // Function to add header and timeline to a page
     const addPageHeaderAndTimeline = () => {
-      // Add title and date
+      // Add title and date with Dingplan branding
       const today = new Date();
-      pdf.setFontSize(16);
-      pdf.text('Construction Schedule', 15, 15);
+      pdf.setFontSize(20);
+      pdf.setTextColor(0, 121, 255); // Dingplan blue color
+      pdf.text('Dingplan', 15, 15);
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(80, 80, 80); // Gray for subtitle
+      pdf.text('Construction Schedule', 45, 15);
+      
       pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
       pdf.text(`Generated: ${today.toLocaleDateString('en-US', { 
         weekday: 'long',
         year: 'numeric',
@@ -1332,17 +1355,30 @@ export class Canvas {
         pdf.setDrawColor(200, 200, 200);
         pdf.line(x, timelineStartY, x, pageHeight - margin);
 
-        // First of month label
+        // First of month label or week label
         if (currentDate.getDate() === 1 || currentDate.getTime() === startDate.getTime()) {
           pdf.setFontSize(8);
           pdf.setTextColor(0, 0, 0);
-          pdf.text(currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), 
-            x, timelineStartY - 3, { align: 'center' });
+          
+          // Draw month name
+          const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          pdf.text(monthLabel, x, timelineStartY - 3, { align: 'center' });
         }
 
-        // Day label and grid
-        pdf.setFontSize(6);
-        pdf.text(currentDate.getDate().toString(), x, timelineStartY - 1, { align: 'center' });
+        // If using weekly display, add week labels
+        if (useWeeklyDisplay) {
+          // Show week markers only at the beginning of each week
+          if (currentDate.getDay() === 0 || currentDate.getTime() === startDate.getTime()) {
+            // Calculate week number within the chart
+            const weekNum = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+            pdf.setFontSize(6);
+            pdf.text(`W${weekNum}`, x, timelineStartY - 1, { align: 'center' });
+          }
+        } else {
+          // Daily display - show day number
+          pdf.setFontSize(6);
+          pdf.text(currentDate.getDate().toString(), x, timelineStartY - 1, { align: 'center' });
+        }
 
         // Weekend highlighting
         if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
@@ -1364,6 +1400,15 @@ export class Canvas {
       const footerY = pageHeight - 5;
       pdf.setFontSize(8);
       pdf.text(`Page ${pageNum}${totalPages > 0 ? ' of ' + totalPages : ''}`, pageWidth - margin, footerY, { align: 'right' });
+      
+      // Add Dingplan URL at bottom left
+      pdf.setTextColor(100, 100, 100);
+      pdf.text('dingplan.vercel.app', margin, footerY);
+      
+      // Add timeframe info
+      pdf.setTextColor(100, 100, 100);
+      const timeframeText = useWeeklyDisplay ? 'Weekly View' : 'Daily View';
+      pdf.text(timeframeText, pageWidth / 2, footerY, { align: 'center' });
       
       // Add legend at the bottom if it's the last Gantt chart page
       if (isLastPage) {
@@ -1512,10 +1557,17 @@ export class Canvas {
     pdf.addPage('landscape');
     pageNum++;
     
-    // Add title to histogram page
-    pdf.setFontSize(16);
-    pdf.text('Resource Utilization', 15, 15);
+    // Add title to histogram page with Dingplan branding
+    pdf.setFontSize(20);
+    pdf.setTextColor(0, 121, 255); // Dingplan blue color
+    pdf.text('Dingplan', 15, 15);
+    
+    pdf.setFontSize(12);
+    pdf.setTextColor(80, 80, 80); // Gray for subtitle
+    pdf.text('Resource Utilization', 45, 15);
+    
     pdf.setFontSize(8);
+    pdf.setTextColor(100, 100, 100);
     pdf.text('Daily crew size by trade', 15, 20);
     
     // Calculate resource data from tasks
@@ -1600,12 +1652,23 @@ export class Canvas {
       const x = histogramMargin + i * barWidth;
       const dateKey = currentDay.toISOString().split('T')[0];
       
-      // Draw date label for first of month or first date
-      if (currentDay.getDate() === 1 || i === 0) {
-        pdf.setFontSize(6);
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          x + barWidth / 2, histogramStartY + histogramHeight + 5, { align: 'center' });
+      // Adapt the x-axis labels for daily/weekly display
+      if (useWeeklyDisplay) {
+        // For weekly display, show the first day of each week
+        if (currentDay.getDay() === 0 || i === 0) {
+          pdf.setFontSize(6);
+          pdf.setTextColor(0, 0, 0);
+          const weekNum = Math.floor(i / 7) + 1;
+          pdf.text(`W${weekNum}`, x + barWidth * 3.5, histogramStartY + histogramHeight + 5, { align: 'center' });
+        }
+      } else {
+        // For daily display, show dates as before
+        if (currentDay.getDate() === 1 || i === 0) {
+          pdf.setFontSize(6);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            x + barWidth / 2, histogramStartY + histogramHeight + 5, { align: 'center' });
+        }
       }
       
       // Weekend highlighting
@@ -1647,9 +1710,18 @@ export class Canvas {
     // Add footer to histogram page (last page)
     pdf.setFontSize(8);
     pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
+    
+    // Add Dingplan URL at bottom left on histogram page too
+    pdf.setTextColor(100, 100, 100);
+    pdf.text('dingplan.vercel.app', margin, pageHeight - 5);
+    
+    // Add timeframe info
+    pdf.setTextColor(100, 100, 100);
+    const timeframeText = useWeeklyDisplay ? 'Weekly View' : 'Daily View';
+    pdf.text(timeframeText, pageWidth / 2, pageHeight - 5, { align: 'center' });
 
-    // Save the PDF
-    pdf.save('construction-schedule.pdf');
+    // Save the PDF with Dingplan in the file name
+    pdf.save('dingplan-construction-schedule.pdf');
   }
 
   private hexToRGB(hex: string): [number, number, number] {
