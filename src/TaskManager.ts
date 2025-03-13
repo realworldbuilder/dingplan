@@ -1082,9 +1082,9 @@ export class TaskManager {
     for (const swimlane of this.swimlanes) {
       for (const task of swimlane.tasks) {
         // Skip tasks that are filtered out by trade
-        if (task.tradeId && task.color) {
-          const isTradeVisible = this.tradeFilters.has(task.color) ? 
-            this.tradeFilters.get(task.color) : true;
+        if (task.tradeId) {
+          const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
+            this.tradeFilters.get(task.tradeId) : true;
           
           if (!isTradeVisible) {
             continue; // Skip this task as it's filtered out
@@ -1125,8 +1125,8 @@ export class TaskManager {
         // Skip tasks that have been filtered out by trade
         // If no filter exists for this trade color, default to showing it
         if (task.tradeId && task.color) {
-          const isTradeVisible = this.tradeFilters.has(task.color) ? 
-            this.tradeFilters.get(task.color) : true;
+          const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
+            this.tradeFilters.get(task.tradeId) : true;
           
           if (!isTradeVisible) {
             return; // Skip drawing this task
@@ -1149,8 +1149,8 @@ export class TaskManager {
     this.selectedTasks.forEach(task => {
       // Skip highlighting filtered tasks
       if (task.tradeId && task.color) {
-        const isTradeVisible = this.tradeFilters.has(task.color) ? 
-          this.tradeFilters.get(task.color) : true;
+        const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
+          this.tradeFilters.get(task.tradeId) : true;
         
         if (!isTradeVisible) {
           return; // Skip highlighting this task
@@ -1414,10 +1414,10 @@ export class TaskManager {
     }
     
     return this.tasks.filter(task => {
-      if (!task.tradeId || !task.color) return true;
+      if (!task.tradeId) return true;
       
-      const isTradeVisible = this.tradeFilters.has(task.color) ? 
-        this.tradeFilters.get(task.color) : true;
+      const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
+        this.tradeFilters.get(task.tradeId) : true;
       
       return isTradeVisible;
     });

@@ -33,7 +33,7 @@ export class Sidebar {
     
     // Initialize all trades as visible
     this.trades.forEach(trade => {
-      this.tradeFilters.set(trade.color, true);
+      this.tradeFilters.set(trade.id, true);
     });
   }
 
@@ -499,11 +499,11 @@ export class Sidebar {
                 </div>
                 <div class="trade-filter-list">
                   ${this.trades.map(trade => `
-                    <div class="trade-filter-item" data-color="${trade.color}">
+                    <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
                       <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
                       <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
-                      <div class="trade-filter-toggle active" data-color="${trade.color}"></div>
-                      <button class="trade-filter-delete" data-color="${trade.color}">×</button>
+                      <div class="trade-filter-toggle active" data-id="${trade.id}"></div>
+                      <button class="trade-filter-delete" data-id="${trade.id}">×</button>
                     </div>
                   `).join('')}
                 </div>
@@ -811,14 +811,14 @@ export class Sidebar {
       });
     }
     
-    // Trade filter toggles - Improved event handling with propagation stopping
+    // Add trade filter toggle event listeners
     const tradeToggles = this.element.querySelectorAll('.trade-filter-toggle');
     tradeToggles.forEach(toggle => {
       toggle.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent bubbling
         
         const toggleElement = e.currentTarget as HTMLElement;
-        const color = toggleElement.dataset.color;
+        const tradeId = toggleElement.dataset.id;
         const isActive = toggleElement.classList.contains('active');
         
         // Toggle active state
@@ -830,9 +830,9 @@ export class Sidebar {
           parentItem.classList.toggle('disabled', isActive);
         }
         
-        if (color) {
+        if (tradeId) {
           // Update filter state - create a new map to ensure event fires
-          this.tradeFilters.set(color, !isActive);
+          this.tradeFilters.set(tradeId, !isActive);
           
           // Ensure filter changes are propagated
           this.notifyFilterChanged();
@@ -858,11 +858,11 @@ export class Sidebar {
       input.addEventListener('change', (e) => {
         const inputElement = e.currentTarget as HTMLInputElement;
         const tradeItem = inputElement.closest('.trade-filter-item');
-        const color = tradeItem?.getAttribute('data-color');
+        const tradeId = tradeItem?.getAttribute('data-id');
         
-        if (color) {
+        if (tradeId) {
           // Update trade name in the trades array
-          const trade = this.trades.find(t => t.color === color);
+          const trade = this.trades.find(t => t.id === tradeId);
           if (trade) {
             trade.name = inputElement.value;
           }
@@ -875,8 +875,8 @@ export class Sidebar {
     deleteButtons.forEach(button => {
       button.addEventListener('click', (e) => {
         e.stopPropagation();
-        const color = (e.currentTarget as HTMLElement).dataset.color;
-        this.deleteTrade(color);
+        const tradeId = (e.currentTarget as HTMLElement).dataset.id;
+        this.deleteTrade(tradeId);
       });
     });
     
@@ -894,8 +894,8 @@ export class Sidebar {
       selectAllButton.addEventListener('click', () => {
         const toggles = this.element.querySelectorAll('.trade-filter-toggle');
         toggles.forEach(toggle => {
-          const color = (toggle as HTMLElement).dataset.color;
-          if (color) {
+          const tradeId = (toggle as HTMLElement).dataset.id;
+          if (tradeId) {
             // Update toggle UI
             toggle.classList.add('active');
             
@@ -906,7 +906,7 @@ export class Sidebar {
             }
             
             // Update filter state
-            this.tradeFilters.set(color, true);
+            this.tradeFilters.set(tradeId, true);
           }
         });
         
@@ -921,8 +921,8 @@ export class Sidebar {
       clearAllButton.addEventListener('click', () => {
         const toggles = this.element.querySelectorAll('.trade-filter-toggle');
         toggles.forEach(toggle => {
-          const color = (toggle as HTMLElement).dataset.color;
-          if (color) {
+          const tradeId = (toggle as HTMLElement).dataset.id;
+          if (tradeId) {
             // Update toggle UI
             toggle.classList.remove('active');
             
@@ -933,7 +933,7 @@ export class Sidebar {
             }
             
             // Update filter state
-            this.tradeFilters.set(color, false);
+            this.tradeFilters.set(tradeId, false);
           }
         });
         
@@ -1106,40 +1106,40 @@ export class Sidebar {
         if (!tradeItem) return;
         
         // Get original color from the data attribute
-        const color = tradeItem.getAttribute('data-color');
-        if (!color) return;
+        const tradeId = tradeItem.getAttribute('data-id');
+        if (!tradeId) return;
         
         // Update the data-color attribute
-        tradeItem.setAttribute('data-color', colorHex);
+        tradeItem.setAttribute('data-color', tradeId);
         
         // Also update the toggle data-color
         const toggle = tradeItem.querySelector('.trade-filter-toggle');
         if (toggle) {
-          toggle.setAttribute('data-color', colorHex);
+          toggle.setAttribute('data-color', tradeId);
         }
         
         // Update in the delete button
         const deleteBtn = tradeItem.querySelector('.trade-filter-delete');
         if (deleteBtn) {
-          deleteBtn.setAttribute('data-color', colorHex);
+          deleteBtn.setAttribute('data-color', tradeId);
         }
         
         // Update the trade in the trades array
         const tradeName = (tradeItem.querySelector('.trade-filter-name') as HTMLInputElement).value;
-        const index = this.trades.findIndex(t => t.color === color);
+        const index = this.trades.findIndex(t => t.id === tradeId);
         
         if (index !== -1) {
           // Update in our filters map
-          const isVisible = this.tradeFilters.get(color) || false;
-          this.tradeFilters.delete(color);
-          this.tradeFilters.set(colorHex, isVisible);
+          const isVisible = this.tradeFilters.get(tradeId) || false;
+          this.tradeFilters.delete(tradeId);
+          this.tradeFilters.set(tradeId, isVisible);
           
           // Update in the trades array - keep the existing ID or generate a new one
-          const existingId = this.trades[index].id || this.generateTradeId(tradeName, colorHex);
+          const existingId = this.trades[index].id || this.generateTradeId(tradeName, tradeId);
           this.trades[index] = { 
             id: existingId,
             name: tradeName, 
-            color: colorHex 
+            color: tradeId 
           };
           
           // Notify about filter change
@@ -1170,22 +1170,22 @@ export class Sidebar {
     }, 10);
   }
   
-  private deleteTrade(color: string | undefined) {
-    if (!color) return;
+  private deleteTrade(tradeId: string | undefined) {
+    if (!tradeId) return;
     
     // Confirm deletion
     const confirmDelete = confirm('Are you sure you want to remove this trade?');
     if (!confirmDelete) return;
     
     // Find the trade
-    const index = this.trades.findIndex(t => t.color === color);
+    const index = this.trades.findIndex(t => t.id === tradeId);
     if (index === -1) return;
     
     // Remove from trades array
     this.trades.splice(index, 1);
     
     // Remove from filters map
-    this.tradeFilters.delete(color);
+    this.tradeFilters.delete(tradeId);
     
     // Notify about filter change
     this.notifyFilterChanged();
@@ -1210,7 +1210,7 @@ export class Sidebar {
     });
     
     // Add to filters map (default to visible)
-    this.tradeFilters.set(randomColor, true);
+    this.tradeFilters.set(tradeId, true);
     
     // Update UI
     this.updateTradeList();
@@ -1242,11 +1242,11 @@ export class Sidebar {
     if (!tradeList) return;
     
     tradeList.innerHTML = this.trades.map(trade => `
-      <div class="trade-filter-item" data-color="${trade.color}">
+      <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
         <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
         <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
-        <div class="trade-filter-toggle ${this.tradeFilters.get(trade.color) ? 'active' : ''}" data-color="${trade.color}"></div>
-        <button class="trade-filter-delete" data-color="${trade.color}">×</button>
+        <div class="trade-filter-toggle ${this.tradeFilters.get(trade.id) ? 'active' : ''}" data-id="${trade.id}"></div>
+        <button class="trade-filter-delete" data-id="${trade.id}">×</button>
       </div>
     `).join('');
     
@@ -1271,7 +1271,7 @@ export class Sidebar {
         e.stopPropagation();
         
         const toggleElement = e.currentTarget as HTMLElement;
-        const color = toggleElement.dataset.color;
+        const tradeId = toggleElement.dataset.id;
         const isActive = toggleElement.classList.contains('active');
         
         // Toggle active state
@@ -1283,9 +1283,9 @@ export class Sidebar {
           parentItem.classList.toggle('disabled', isActive);
         }
         
-        if (color) {
+        if (tradeId) {
           // Update filter state
-          this.tradeFilters.set(color, !isActive);
+          this.tradeFilters.set(tradeId, !isActive);
           
           // Ensure filter changes are propagated
           this.notifyFilterChanged();
@@ -1302,11 +1302,11 @@ export class Sidebar {
       input.addEventListener('change', (e) => {
         const inputElement = e.currentTarget as HTMLInputElement;
         const tradeItem = inputElement.closest('.trade-filter-item');
-        const color = tradeItem?.getAttribute('data-color');
+        const tradeId = tradeItem?.getAttribute('data-id');
         
-        if (color) {
+        if (tradeId) {
           // Update trade name in the trades array
-          const trade = this.trades.find(t => t.color === color);
+          const trade = this.trades.find(t => t.id === tradeId);
           if (trade) {
             trade.name = inputElement.value;
           }
@@ -1319,8 +1319,8 @@ export class Sidebar {
     deleteButtons.forEach(button => {
       button.addEventListener('click', (e) => {
         e.stopPropagation();
-        const color = (e.currentTarget as HTMLElement).dataset.color;
-        this.deleteTrade(color);
+        const tradeId = (e.currentTarget as HTMLElement).dataset.id;
+        this.deleteTrade(tradeId);
       });
     });
   }

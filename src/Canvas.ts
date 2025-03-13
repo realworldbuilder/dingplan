@@ -81,6 +81,12 @@ export class Canvas {
     
     this.taskManager = new TaskManager(this.timeAxis);
     
+    // Connect the sidebar trade filters to the task manager
+    this.sidebar.onTradeFiltersChanged((filters) => {
+      this.taskManager.setTradeFilters(filters);
+      this.render(); // Redraw canvas to reflect filtered tasks
+    });
+    
     // Initialize resource histogram
     this.resourceHistogram = new ResourceHistogram(this.timeAxis);
     
