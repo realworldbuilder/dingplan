@@ -282,6 +282,105 @@ class Composer {
           type: "object",
           properties: {}
         }
+      },
+      {
+        name: "createSwimlane",
+        description: "Create a new swimlane/zone for organizing tasks",
+        parameters: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Unique identifier for the swimlane"
+            },
+            name: {
+              type: "string",
+              description: "Display name for the swimlane"
+            },
+            color: {
+              type: "string",
+              description: "Color for the swimlane (hex code)"
+            }
+          },
+          required: ["id", "name", "color"]
+        }
+      },
+      {
+        name: "updateSwimlane",
+        description: "Update an existing swimlane properties",
+        parameters: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "ID of the swimlane to update"
+            },
+            name: {
+              type: "string",
+              description: "New name for the swimlane"
+            },
+            color: {
+              type: "string",
+              description: "New color for the swimlane (hex code)"
+            }
+          },
+          required: ["id"]
+        }
+      },
+      {
+        name: "reorderSwimlanes",
+        description: "Change the order of swimlanes in the plan",
+        parameters: {
+          type: "object",
+          properties: {
+            swimlaneIds: {
+              type: "array",
+              description: "Array of swimlane IDs in the desired order",
+              items: {
+                type: "string"
+              }
+            }
+          },
+          required: ["swimlaneIds"]
+        }
+      },
+      {
+        name: "adjustPlan",
+        description: "Make high-level adjustments to the construction plan",
+        parameters: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              description: "Type of adjustment to make",
+              enum: ["shiftDates", "scaleDurations", "addBuffer", "optimizeSequence"]
+            },
+            affectedTaskIds: {
+              type: "array",
+              description: "IDs of tasks to adjust (empty for all tasks)",
+              items: {
+                type: "string"
+              }
+            },
+            startDate: {
+              type: "string",
+              description: "New start date for shifting (YYYY-MM-DD)"
+            },
+            endDate: {
+              type: "string",
+              description: "Target end date for adjustments (YYYY-MM-DD)"
+            },
+            scaleFactor: {
+              type: "number",
+              description: "Factor to scale durations by (e.g., 0.8 for 20% shorter)"
+            },
+            bufferDays: {
+              type: "integer",
+              description: "Number of buffer days to add between tasks"
+            }
+          },
+          required: ["action"]
+        }
       }
     ];
   }
@@ -517,41 +616,50 @@ class Composer {
         messages: [
           {
             role: "system",
-            content: `You are a commercial construction sequence planning assistant that helps users plan large-scale construction projects such as high-rise buildings, data centers, and industrial facilities.
+            content: `You are a friendly, conversational construction planning assistant for Dingplan, an interactive construction planning tool. You help users create and manage construction project timelines for commercial and industrial projects.
+
+YOUR CAPABILITIES:
+1. Create individual tasks or entire construction sequences
+2. Apply predefined construction templates
+3. Manage project zones (swimlanes) for organizing work areas
+4. Make high-level plan adjustments and optimizations
+5. Provide expert guidance on construction planning
 
 TEMPLATES:
-The app has predefined commercial construction sequence templates. Each template represents a typical construction sequence that can be placed within your project schedule. Use the createFromTemplate function with the exact template name from this list: ${availableTemplates.join(", ")}
+The app has predefined commercial construction sequence templates representing typical construction phases. Use createFromTemplate with these templates: ${availableTemplates.join(", ")}
 
-Templates are designed for:
-- Commercial/Industrial construction (not residential)
-- Large-scale projects
-- Modular construction sequences 
-- Professional construction teams
+SWIMLANE MANAGEMENT:
+You can help users organize their project by:
+- Creating new swimlanes (zones) with the createSwimlane function
+- Updating existing swimlane properties with updateSwimlane
+- Reordering swimlanes with reorderSwimlanes
+- Suggesting logical organization of project elements into swimlanes
 
-ASSISTANT BEHAVIOR:
-- When a user mentions any templates or related terms, use the createFromTemplate function.
-- HOWEVER, you should also provide helpful guidance along with executing functions:
-  * Offer brief explanations of what you're doing and why
-  * Suggest related templates or next steps that might be useful
-  * Ask clarifying questions when the user's request is ambiguous
-  * Provide tips on how to make better use of the available templates
-  * Recommend best practices for construction sequencing
+PLAN ADJUSTMENTS:
+You can help optimize construction plans through:
+- Shifting project dates (e.g., to accommodate delays)
+- Scaling task durations (to accelerate or extend timelines)
+- Adding buffer time between tasks for risk management
+- Optimizing sequences to minimize trade switching
 
-RESPONSE FORMAT:
-Your responses should have two parts:
-1. GUIDANCE: A brief message to help the user understand what you're doing or to ask for clarification
-2. FUNCTION: The function call to execute the user's request
+CONVERSATION STYLE:
+- Be warm and approachable, using natural conversational language
+- Ask clarifying questions when information is missing
+- Offer suggestions and alternatives beyond what the user explicitly requests
+- Explain construction concepts in clear, accessible terms
+- Anticipate the user's needs and suggest next steps
+- Reference specific construction best practices when relevant
 
-For example, if a user asks for a "foundation template," your response might be:
-"I'll create a foundation sequence for you. This includes excavation, formwork, reinforcement, and concrete pouring. Consider adding underground utilities next. Which zone would you like to place this sequence in?"
-[followed by the createFromTemplate function call]
+GUIDANCE APPROACH:
+- First address the user's immediate request
+- Then provide helpful context about what you've done
+- Suggest logical next steps in their planning process
+- Highlight any risks or considerations they should be aware of
+- Offer specific recommendations based on construction industry standards
 
 ${isExplicitTaskRequest ? "NOTE: The user has explicitly requested a single task, not a template." : ""}
 
-Focus on being practical and helpful while prioritizing function execution for construction planning.
-
-DATE HANDLING:
-I can understand various date expressions. You can use phrases like "today", "tomorrow", "yesterday", "next Monday", "this Monday", "in X days", "X days from now", etc.`
+Always strive to be both helpful and educational, balancing efficient task execution with providing valuable planning insights.`
           },
           {
             role: "user",
@@ -588,36 +696,44 @@ I can understand various date expressions. You can use phrases like "today", "to
   }
 
   private async handleFunctionCall(functionCall: FunctionCall): Promise<string> {
+    const name = functionCall.name;
+    let args: any = {};
+    
     try {
-      this.debug('Handling function call', functionCall);
-      
-      const functionName = functionCall.name;
-      const args = JSON.parse(functionCall.arguments);
-
-      switch (functionName) {
-        case 'createTask':
-          return this.createTask(args);
-        case 'createMultipleTasks':
-          return this.createMultipleTasks(args);
-        case 'createTaskSequence':
-          return this.createTaskSequence(args);
-        case 'createFromTemplate':
-          return this.createFromTemplate(args);
-        case 'addDependency':
-          return this.addDependency(args);
-        case 'listTasks':
-          return this.listTasks(args);
-        case 'deleteTask':
-          return this.deleteTask(args);
-        case 'listTemplates':
-          return this.listTemplates();
-        case 'listSwimlanes':
-          return this.listSwimlanes();
-        default:
-          return `Unknown function: ${functionName}`;
-      }
-    } catch (error: unknown) {
-      return this.handleError('handling function call', error);
+      args = JSON.parse(functionCall.arguments);
+    } catch (e) {
+      return `Error parsing arguments: ${e}`;
+    }
+    
+    this.debug(`Handling function call: ${name}`, args);
+    
+    switch (name) {
+      case "createTask":
+        return this.createTask(args);
+      case "createMultipleTasks":
+        return this.createMultipleTasks(args);
+      case "createTaskSequence":
+        return this.createTaskSequence(args);
+      case "createFromTemplate":
+        return this.createFromTemplate(args);
+      case "addDependency":
+        return this.addDependency(args);
+      case "listTasks":
+        return this.listTasks(args);
+      case "deleteTask":
+        return this.deleteTask(args);
+      case "listSwimlanes":
+        return this.listSwimlanes();
+      case "createSwimlane":
+        return this.createSwimlane(args);
+      case "updateSwimlane":
+        return this.updateSwimlane(args);
+      case "reorderSwimlanes":
+        return this.reorderSwimlanes(args);
+      case "adjustPlan":
+        return this.adjustPlan(args);
+      default:
+        return `Unknown function: ${name}`;
     }
   }
 
@@ -1487,6 +1603,227 @@ I can understand various date expressions. You can use phrases like "today", "to
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[Composer Error] ${operation}: ${errorMessage}`, error);
     return `Error during ${operation}: ${errorMessage}`;
+  }
+
+  // Add new methods for swimlane management
+  
+  private createSwimlane(args: any): string {
+    try {
+      const { id, name, color } = args;
+      
+      // Check if a swimlane with this ID already exists
+      const existingSwimlaneIds = this.getSwimlaneIds();
+      if (existingSwimlaneIds.includes(id)) {
+        return `A swimlane with ID '${id}' already exists. Please use a different ID.`;
+      }
+      
+      // Add the new swimlane
+      this.canvas.taskManager.addSwimlane(id, name, color);
+      
+      return `Successfully created a new swimlane '${name}' with ID '${id}'.`;
+    } catch (error) {
+      return this.handleError("creating swimlane", error);
+    }
+  }
+  
+  private updateSwimlane(args: any): string {
+    try {
+      const { id, name, color } = args;
+      
+      // Check if swimlane exists
+      const existingSwimlaneIds = this.getSwimlaneIds();
+      if (!existingSwimlaneIds.includes(id)) {
+        return `Swimlane with ID '${id}' not found. Available swimlanes: ${existingSwimlaneIds.join(', ')}`;
+      }
+      
+      // Update the swimlane - this method would need to be implemented in TaskManager
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      const swimlaneIndex = swimlanes.findIndex(s => s.id === id);
+      
+      if (swimlaneIndex >= 0) {
+        if (name) {
+          swimlanes[swimlaneIndex].name = name;
+        }
+        if (color) {
+          swimlanes[swimlaneIndex].color = color;
+        }
+        
+        // Trigger a re-render
+        this.canvas.render();
+        
+        return `Successfully updated swimlane '${id}'.`;
+      } else {
+        return `Could not update swimlane '${id}'.`;
+      }
+    } catch (error) {
+      return this.handleError("updating swimlane", error);
+    }
+  }
+  
+  private reorderSwimlanes(args: any): string {
+    try {
+      const { swimlaneIds } = args;
+      
+      // Check if all provided IDs exist
+      const existingSwimlaneIds = this.getSwimlaneIds();
+      const missingIds = swimlaneIds.filter((id: string) => !existingSwimlaneIds.includes(id));
+      
+      if (missingIds.length > 0) {
+        return `The following swimlane IDs were not found: ${missingIds.join(', ')}`;
+      }
+      
+      // Ensure all existing swimlanes are included
+      const missingExistingIds = existingSwimlaneIds.filter(id => !swimlaneIds.includes(id));
+      if (missingExistingIds.length > 0) {
+        return `The following existing swimlanes are missing from your order: ${missingExistingIds.join(', ')}`;
+      }
+      
+      // Reorder swimlanes - this functionality would need to be implemented in TaskManager
+      const reorderedSwimlanes = swimlaneIds.map((id: string) => 
+        this.canvas.taskManager.swimlanes.find(s => s.id === id)!
+      );
+      
+      // Update the swimlanes array and recalculate Y positions
+      this.canvas.taskManager.swimlanes.length = 0;
+      
+      reorderedSwimlanes.forEach((swimlane, index) => {
+        swimlane.y = index * this.canvas.taskManager.SWIMLANE_HEIGHT;
+        this.canvas.taskManager.swimlanes.push(swimlane);
+      });
+      
+      // Trigger a re-render
+      this.canvas.render();
+      
+      return `Successfully reordered the swimlanes.`;
+    } catch (error) {
+      return this.handleError("reordering swimlanes", error);
+    }
+  }
+  
+  private adjustPlan(args: any): string {
+    try {
+      const { action, affectedTaskIds, startDate, endDate, scaleFactor, bufferDays } = args;
+      
+      // Get tasks to modify
+      let tasksToModify: any[] = [];
+      if (affectedTaskIds && affectedTaskIds.length > 0) {
+        // Use specified tasks
+        tasksToModify = affectedTaskIds.map((id: string) => this.canvas.taskManager.getTask(id))
+          .filter((task: any) => task !== undefined);
+        
+        if (tasksToModify.length === 0) {
+          return "None of the specified tasks were found.";
+        }
+      } else {
+        // Use all tasks
+        tasksToModify = this.canvas.taskManager.getAllTasks();
+      }
+      
+      switch (action) {
+        case "shiftDates":
+          if (!startDate) {
+            return "startDate is required for shifting dates.";
+          }
+          
+          const newStartDate = new Date(startDate);
+          
+          // Find the earliest task
+          const earliestTask = tasksToModify.reduce((earliest, task) => {
+            return !earliest || task.startDate < earliest.startDate ? task : earliest;
+          }, null);
+          
+          if (earliestTask) {
+            // Calculate offset
+            const offset = newStartDate.getTime() - earliestTask.startDate.getTime();
+            
+            // Shift all tasks
+            tasksToModify.forEach(task => {
+              const taskNewDate = new Date(task.startDate.getTime() + offset);
+              task.startDate = taskNewDate;
+            });
+            
+            this.canvas.render();
+            return `Successfully shifted ${tasksToModify.length} tasks to start from ${newStartDate.toLocaleDateString()}.`;
+          }
+          break;
+          
+        case "scaleDurations":
+          if (!scaleFactor) {
+            return "scaleFactor is required for scaling durations.";
+          }
+          
+          tasksToModify.forEach(task => {
+            task.duration = Math.max(1, Math.round(task.duration * scaleFactor));
+          });
+          
+          this.canvas.render();
+          return `Successfully scaled durations of ${tasksToModify.length} tasks by a factor of ${scaleFactor}.`;
+          
+        case "addBuffer":
+          if (!bufferDays) {
+            return "bufferDays is required for adding buffer.";
+          }
+          
+          // Sort tasks by start date
+          const sortedTasks = [...tasksToModify].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+          
+          // Add buffer days between tasks (skip the first task)
+          for (let i = 1; i < sortedTasks.length; i++) {
+            const task = sortedTasks[i];
+            const offset = bufferDays * i * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+            const newStartDate = new Date(task.startDate.getTime() + offset);
+            task.startDate = newStartDate;
+          }
+          
+          this.canvas.render();
+          return `Successfully added ${bufferDays} buffer days between ${tasksToModify.length} tasks.`;
+          
+        case "optimizeSequence":
+          // Sort tasks by trade to minimize trade switches
+          // This would implement a basic optimization to group tasks by trade
+          
+          // Group tasks by trade
+          const tasksByTrade: {[key: string]: any[]} = {};
+          tasksToModify.forEach(task => {
+            if (!tasksByTrade[task.tradeId]) {
+              tasksByTrade[task.tradeId] = [];
+            }
+            tasksByTrade[task.tradeId].push(task);
+          });
+          
+          // Sort tasks within each trade group by start date
+          Object.values(tasksByTrade).forEach(tasks => {
+            tasks.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+          });
+          
+          // Flatten the groups back into a sequence
+          const optimizedTasks = Object.values(tasksByTrade).flat();
+          
+          // Now resequence the tasks with minimal trade switches
+          let currentDate = optimizedTasks[0].startDate;
+          
+          for (let i = 0; i < optimizedTasks.length; i++) {
+            const task = optimizedTasks[i];
+            task.startDate = new Date(currentDate);
+            
+            // Calculate end date
+            const endDate = task.getEndDate();
+            
+            // Set next task to start after this one
+            currentDate = new Date(endDate);
+          }
+          
+          this.canvas.render();
+          return `Successfully optimized the sequence of ${tasksToModify.length} tasks to minimize trade switches.`;
+          
+        default:
+          return `Unknown action: ${action}. Supported actions: shiftDates, scaleDurations, addBuffer, optimizeSequence.`;
+      }
+      
+      return "Adjustment completed.";
+    } catch (error) {
+      return this.handleError("adjusting plan", error);
+    }
   }
 }
 

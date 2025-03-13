@@ -51,9 +51,9 @@ export class TaskManager {
     this.tasks = [];
     
     // Initialize with default swimlanes - keeping these
-    this.addSwimlane("swimlane1", "SWIMLANE 1", "#4338ca");
-    this.addSwimlane("swimlane2", "SWIMLANE 2", "#0891b2");
-    this.addSwimlane("swimlane3", "SWIMLANE 3", "#059669");
+    this.addSwimlane("zone1", "ZONE 1", "#4338ca");
+    this.addSwimlane("zone2", "ZONE 2", "#0891b2");
+    this.addSwimlane("zone3", "ZONE 3", "#059669");
 
     // Add keyboard listener for mode switching and shortcuts
     document.addEventListener('keydown', (e) => {
@@ -113,7 +113,7 @@ export class TaskManager {
     return this.selectedTasks.size > 0;
   }
 
-  addTask(config: TaskConfig, swimlaneId: string = "swimlane1"): Task {
+  addTask(config: TaskConfig, swimlaneId: string = "zone1"): Task {
     // Find the swimlane
     const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
     if (!swimlane) {
@@ -1082,9 +1082,9 @@ export class TaskManager {
     for (const swimlane of this.swimlanes) {
       for (const task of swimlane.tasks) {
         // Skip tasks that are filtered out by trade
-        if (task.tradeId) {
-          const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
-            this.tradeFilters.get(task.tradeId) : true;
+        if (task.tradeId && task.color) {
+          const isTradeVisible = this.tradeFilters.has(task.color) ? 
+            this.tradeFilters.get(task.color) : true;
           
           if (!isTradeVisible) {
             continue; // Skip this task as it's filtered out
@@ -1125,8 +1125,8 @@ export class TaskManager {
         // Skip tasks that have been filtered out by trade
         // If no filter exists for this trade color, default to showing it
         if (task.tradeId && task.color) {
-          const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
-            this.tradeFilters.get(task.tradeId) : true;
+          const isTradeVisible = this.tradeFilters.has(task.color) ? 
+            this.tradeFilters.get(task.color) : true;
           
           if (!isTradeVisible) {
             return; // Skip drawing this task
@@ -1149,8 +1149,8 @@ export class TaskManager {
     this.selectedTasks.forEach(task => {
       // Skip highlighting filtered tasks
       if (task.tradeId && task.color) {
-        const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
-          this.tradeFilters.get(task.tradeId) : true;
+        const isTradeVisible = this.tradeFilters.has(task.color) ? 
+          this.tradeFilters.get(task.color) : true;
         
         if (!isTradeVisible) {
           return; // Skip highlighting this task
@@ -1414,10 +1414,10 @@ export class TaskManager {
     }
     
     return this.tasks.filter(task => {
-      if (!task.tradeId) return true;
+      if (!task.tradeId || !task.color) return true;
       
-      const isTradeVisible = this.tradeFilters.has(task.tradeId) ? 
-        this.tradeFilters.get(task.tradeId) : true;
+      const isTradeVisible = this.tradeFilters.has(task.color) ? 
+        this.tradeFilters.get(task.color) : true;
       
       return isTradeVisible;
     });
@@ -1511,254 +1511,6 @@ export class TaskManager {
           endDateElement.textContent = endDate.toLocaleDateString();
         }
       }
-    }
-  }
-
-  /**
-   * Export the current state for persistence
-   */
-  exportState(): any {
-    // Export swimlanes with their tasks
-    const exportedSwimlanes = this.swimlanes.map(swimlane => {
-      return {
-        id: swimlane.id,
-        name: swimlane.name,
-        y: swimlane.y,
-        height: swimlane.height,
-        color: swimlane.color,
-        wbsId: swimlane.wbsId,
-        taskIds: swimlane.tasks.map(task => task.id)
-      };
-    });
-    
-    // Export tasks
-    const exportedTasks = this.tasks.map(task => ({
-      id: task.id,
-      name: task.name,
-      startDate: task.startDate,
-      duration: task.duration,
-      crewSize: task.crewSize,
-      color: task.color,
-      tradeId: task.tradeId,
-      dependencies: task.dependencies,
-      progress: task.progress,
-      status: task.status,
-      workOnSaturday: task.workOnSaturday,
-      workOnSunday: task.workOnSunday,
-      xerTaskId: task.xerTaskId
-    }));
-    
-    // Export task positions (combining all swimlanes)
-    const exportedTaskPositions: Record<string, { x: number, y: number, swimlaneId: string }> = {};
-    this.swimlanes.forEach(swimlane => {
-      swimlane.taskPositions.forEach((position, taskId) => {
-        exportedTaskPositions[taskId] = { 
-          x: position.x,
-          y: position.y,
-          swimlaneId: swimlane.id
-        };
-      });
-    });
-    
-    // Export trade filters
-    const exportedTradeFilters: Record<string, boolean> = {};
-    this.tradeFilters.forEach((value, key) => {
-      exportedTradeFilters[key] = value;
-    });
-    
-    return {
-      swimlanes: exportedSwimlanes,
-      tasks: exportedTasks,
-      taskPositions: exportedTaskPositions,
-      tradeFilters: exportedTradeFilters
-    };
-  }
-
-  /**
-   * Import state from persistence
-   */
-  importState(state: any): void {
-    if (!state) return;
-    
-    try {
-      // Clear current state
-      this.tasks = [];
-      this.selectedTasks.clear();
-      this.selectedTasksInOrder = [];
-      
-      // Since swimlanes is a readonly property, we need to empty it without reassigning
-      while (this.swimlanes.length > 0) {
-        this.swimlanes.pop();
-      }
-      
-      // Recreate tasks
-      const tasks: Task[] = [];
-      if (state.tasks && Array.isArray(state.tasks)) {
-        state.tasks.forEach((taskData: any) => {
-          // Convert date string to Date object if needed
-          let startDate = taskData.startDate;
-          if (typeof startDate === 'string') {
-            startDate = new Date(startDate);
-          }
-          
-          const task = new Task({
-            id: taskData.id,
-            name: taskData.name,
-            startDate: startDate,
-            duration: taskData.duration,
-            crewSize: taskData.crewSize,
-            color: taskData.color,
-            tradeId: taskData.tradeId,
-            dependencies: taskData.dependencies || [],
-            progress: taskData.progress,
-            status: taskData.status,
-            xerTaskId: taskData.xerTaskId,
-            workOnSaturday: taskData.workOnSaturday,
-            workOnSunday: taskData.workOnSunday
-          });
-          tasks.push(task);
-        });
-      }
-      this.tasks = tasks;
-      
-      // Recreate swimlanes
-      if (state.swimlanes && Array.isArray(state.swimlanes)) {
-        state.swimlanes.forEach((swimlaneData: any) => {
-          // Convert old 'zone' IDs to 'swimlane' IDs for consistency
-          let swimlaneId = swimlaneData.id;
-          if (swimlaneId.startsWith('zone')) {
-            swimlaneId = swimlaneId.replace('zone', 'swimlane');
-          }
-          
-          // Also update names from "ZONE" to "SWIMLANE"
-          let swimlaneName = swimlaneData.name;
-          if (swimlaneName.includes('ZONE')) {
-            swimlaneName = swimlaneName.replace('ZONE', 'SWIMLANE');
-          }
-          
-          const swimlane: Swimlane = {
-            id: swimlaneId,
-            name: swimlaneName,
-            y: swimlaneData.y,
-            height: swimlaneData.height || this.SWIMLANE_HEIGHT,
-            color: swimlaneData.color,
-            tasks: [],
-            taskPositions: new Map(),
-            wbsId: swimlaneData.wbsId
-          };
-          
-          // Add tasks to this swimlane
-          if (swimlaneData.taskIds && Array.isArray(swimlaneData.taskIds)) {
-            swimlaneData.taskIds.forEach((taskId: string) => {
-              const task = this.tasks.find(t => t.id === taskId);
-              if (task) {
-                swimlane.tasks.push(task);
-              }
-            });
-          }
-          
-          this.swimlanes.push(swimlane);
-        });
-      }
-      
-      // If no swimlanes were loaded, add default ones
-      if (this.swimlanes.length === 0) {
-        this.addSwimlane("swimlane1", "SWIMLANE 1", "#4338ca");
-        this.addSwimlane("swimlane2", "SWIMLANE 2", "#0891b2");
-        this.addSwimlane("swimlane3", "SWIMLANE 3", "#059669");
-      }
-      
-      // Restore task positions
-      if (state.taskPositions && typeof state.taskPositions === 'object') {
-        Object.entries(state.taskPositions).forEach(([taskId, posData]: [string, any]) => {
-          // Find the swimlane for this task
-          let swimlaneId = posData.swimlaneId;
-          
-          // Convert old 'zone' IDs to 'swimlane' IDs for consistency
-          if (swimlaneId && swimlaneId.startsWith('zone')) {
-            swimlaneId = swimlaneId.replace('zone', 'swimlane');
-          }
-          
-          const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
-          
-          if (swimlane) {
-            swimlane.taskPositions.set(taskId, { 
-              x: typeof posData.x === 'number' ? posData.x : 0, 
-              y: typeof posData.y === 'number' ? posData.y : 0 
-            });
-          }
-        });
-      }
-      
-      // Now ensure all swimlane IDs are updated for consistency
-      this.renameSwimlanesIfNeeded();
-      
-      // Restore trade filters
-      this.tradeFilters.clear();
-      if (state.tradeFilters && typeof state.tradeFilters === 'object') {
-        Object.entries(state.tradeFilters).forEach(([tradeId, isVisible]: [string, any]) => {
-          this.tradeFilters.set(tradeId, Boolean(isVisible));
-        });
-      } else {
-        // If no trade filters in saved state, set all trades to visible by default
-        Trades.getAllTrades().forEach(trade => {
-          this.tradeFilters.set(trade.id, true);
-        });
-      }
-      
-      console.log('Successfully imported state:', {
-        tasks: this.tasks.length,
-        swimlanes: this.swimlanes.length,
-        tradeFilters: this.tradeFilters.size
-      });
-    } catch (error) {
-      console.error('Error importing state:', error);
-    }
-  }
-
-  // Method to update old zone IDs to swimlane IDs for consistency
-  renameSwimlanesIfNeeded(): void {
-    // Check if we have old "zone" IDs and rename them
-    const swimlanesWithOldIds = this.swimlanes.filter(lane => 
-      lane.id.startsWith('zone'));
-    
-    if (swimlanesWithOldIds.length > 0) {
-      console.log('Converting old zone IDs to swimlane IDs for consistency');
-      
-      // Create a map of old ID to new ID
-      const idMapping: Record<string, string> = {};
-      
-      // Update the swimlane IDs
-      swimlanesWithOldIds.forEach(lane => {
-        const oldId = lane.id;
-        // Convert zone1 to swimlane1, etc.
-        const newId = oldId.replace('zone', 'swimlane');
-        idMapping[oldId] = newId;
-        
-        // Update the ID
-        lane.id = newId;
-        
-        // Also update the name if it contains "ZONE"
-        if (lane.name.includes('ZONE')) {
-          lane.name = lane.name.replace('ZONE', 'SWIMLANE');
-        }
-      });
-      
-      // For task positions in swimlanes, we also need to update any references
-      this.swimlanes.forEach(lane => {
-        // No need to do anything for task positions, they're keyed by task ID
-      });
-      
-      // Update any task references to swimlanes
-      this.tasks.forEach(task => {
-        // If the task has a swimlaneId property, update it
-        const taskAny = task as any;
-        if (taskAny.swimlaneId && idMapping[taskAny.swimlaneId]) {
-          taskAny.swimlaneId = idMapping[taskAny.swimlaneId];
-        }
-      });
-      
-      console.log('Swimlane IDs updated:', idMapping);
     }
   }
 }

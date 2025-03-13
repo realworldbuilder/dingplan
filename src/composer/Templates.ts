@@ -506,6 +506,29 @@ export const TEMPLATES: Record<string, SequenceTemplate> = {
       { name: "Final Inspection & Punch List", duration: 3, tradeId: "management", crewSize: 3, dependsOnPrevious: true }
     ]
   },
+  
+  // Add new template for substation build-out sequence
+  substation_buildout: {
+    name: "Substation Build-Out Sequence",
+    description: "Complete construction sequence for electrical substations",
+    aliases: ["substation", "electrical substation", "power substation", "utility substation", "transformer yard"],
+    tasks: [
+      { name: "Site Preparation", duration: 5, tradeId: "demolition", crewSize: 6, dependsOnPrevious: false },
+      { name: "Foundations & Pads", duration: 10, tradeId: "concrete", crewSize: 8, dependsOnPrevious: true },
+      { name: "Grounding Grid", duration: 7, tradeId: "electrical", crewSize: 6, dependsOnPrevious: true },
+      { name: "Equipment Pads", duration: 5, tradeId: "concrete", crewSize: 6, dependsOnPrevious: true },
+      { name: "Control Building Construction", duration: 15, tradeId: "framing", crewSize: 8, dependsOnPrevious: false },
+      { name: "Steel Structure Erection", duration: 8, tradeId: "framing", crewSize: 10, dependsOnPrevious: true },
+      { name: "Bus & Insulator Installation", duration: 12, tradeId: "electrical", crewSize: 8, dependsOnPrevious: true },
+      { name: "Transformer Installation", duration: 5, tradeId: "electrical", crewSize: 6, dependsOnPrevious: true },
+      { name: "Switchgear Installation", duration: 7, tradeId: "electrical", crewSize: 8, dependsOnPrevious: true },
+      { name: "Control & Protection Wiring", duration: 10, tradeId: "electrical", crewSize: 10, dependsOnPrevious: true },
+      { name: "Station Service Installation", duration: 6, tradeId: "electrical", crewSize: 6, dependsOnPrevious: false },
+      { name: "Perimeter Security", duration: 8, tradeId: "fencing", crewSize: 5, dependsOnPrevious: false },
+      { name: "Testing & Commissioning", duration: 15, tradeId: "electrical", crewSize: 8, dependsOnPrevious: true },
+      { name: "Final Inspection & Energization", duration: 5, tradeId: "management", crewSize: 4, dependsOnPrevious: true }
+    ]
+  },
 };
 
 /**

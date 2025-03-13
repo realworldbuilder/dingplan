@@ -171,8 +171,9 @@ export class Task {
     const startX = timeAxis.dateToWorld(this.startDate);
     const endX = timeAxis.dateToWorld(this.getEndDate());
     
-    // Culling
-    const canvasWidth = ctx.canvas.width;
+    // Improved culling with a much wider range to ensure tasks are visible
+    // This fixes the issue where tasks after May 1st disappear
+    const canvasWidth = ctx.canvas.width * 10; // Significantly increased culling range
     const visibleLeft = -canvasWidth;
     const visibleRight = canvasWidth * 2;
     
