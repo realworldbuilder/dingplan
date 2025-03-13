@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "echo 'Using static asset deployment'",
+    "vercel-build": "vite build",
     "preview": "vite preview"
   },
   "keywords": [
@@ -25,8 +25,10 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.24.2",
     "@pixi/math": "^7.3.2",
     "jspdf": "^3.0.0",
-    "rbush": "^3.0.1"
+    "rbush": "^3.0.1",
+    "react-router-dom": "^7.3.0"
   }
 }
