@@ -27,39 +27,31 @@ export interface CanvasOptions {
 }
 
 export class Canvas {
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private taskManager: TaskManager;
-  private timeAxis: TimeAxis;
-  private camera: Camera;
-  private swimlanes: any[] = [];
-  private swimlaneHeight: number = 100;
-  private touchManager: TouchManager | null = null;
-  private touchSupportEnabled: boolean = true; // Feature flag for touch support
-  
-  // Add these properties for optimized rendering
-  private draggedTask: Task | null = null;
-  private dependencyTempLine: { fromTaskId: string, toPosition: { x: number, y: number } } | null = null;
-  private needsRender: boolean = false;
-  
-  // Mouse tracking properties
-  private isDragging: boolean = false;
-  private lastMouseX: number = 0;
-  private lastMouseY: number = 0;
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  camera: Camera;
+  taskManager: TaskManager;
+  isDragging: boolean = false;
+  lastMouseX: number = 0;
+  lastMouseY: number = 0;
+  backgroundColor: string;
+  gridColor: string;
+  startDate: Date = new Date(); // Initialize startDate
+  zoomLevel: number = 1;
+  selectedTaskId: string | null = null;
+  dayWidth: number = 30; // Width of a day in pixels
+  areDependenciesVisible: boolean = true; // Flag to control dependency visibility
+  timeAxis: TimeAxis; // Add the timeAxis property
 
-  private backgroundColor: string;
-  private gridColor: string;
-  private startDate: Date = new Date(); // Initialize startDate
-  private zoomLevel: number = 1;
-  private selectedTaskId: string | null = null;
-  private dayWidth: number = 30; // Width of a day in pixels
-  private areDependenciesVisible: boolean = true; // Flag to control dependency visibility
-
-  private sidebar: Sidebar;
-  private resourceHistogram: ResourceHistogram;
+  sidebar: Sidebar;
+  resourceHistogram: ResourceHistogram;
 
   // Use the centralized trade definitions
   private readonly trades: Trade[] = Trades.getAllTrades();
+
+  // Add TouchManager property
+  private touchManager: TouchManager | null = null;
+  private touchSupportEnabled: boolean = true; // Feature flag for touch support
 
   constructor(config: CanvasConfig) {
     this.canvas = config.canvas;
@@ -307,23 +299,105 @@ export class Canvas {
     this.taskManager.handleKeyDown(e);
   }
 
-  /**
-   * Draw the background grid with optimized rendering
-   */
-  private drawBackgroundGrid() {
-    // Apply main transform for grid content
+  private drawVerticalGrid() {
+    const weekWidth = 50 * 7; // Width of one week in world units (7 days * 50 pixels per day)
+    const startX = Math.floor(this.camera.x / weekWidth) * weekWidth;
+    const endX = startX + (this.canvas.width / this.camera.zoom);
+
+    // Save current transform state
     this.ctx.save();
-    this.camera.transform(this.ctx);
+    
+    // Reset any existing paths
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.15)'; // Very subtle lines
+    this.ctx.lineWidth = 1 / this.camera.zoom;
+
+    // Draw week marker lines
+    for (let x = startX; x <= endX; x += weekWidth) {
+      this.ctx.moveTo(x, 0); // Start below header
+      this.ctx.lineTo(x, this.canvas.height);
+    }
+
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  resize(width: number, height: number) {
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.camera.projection(width, height - this.timeAxis.getHeaderHeight());
+    // Trigger a re-render
+    this.render();
+  }
+
+  render() {
+    Logger.log("Render method called", {
+      canvasWidth: this.canvas.width,
+      canvasHeight: this.canvas.height,
+      cameraZoom: this.camera.zoom,
+      cameraX: this.camera.x,
+      cameraY: this.camera.y
+    });
+    
+    // Clear canvas
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    Logger.log("Canvas cleared");
+
+    // Draw fixed header background
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.shadowBlur = 4;
+    this.ctx.shadowOffsetY = 2;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.timeAxis.getHeaderHeight());
+    this.ctx.shadowColor = 'transparent';
+    Logger.log("Header drawn");
+
+    // Apply main transform for all content
+    this.ctx.setTransform(
+      this.camera.zoom,
+      0,
+      0,
+      this.camera.zoom,
+      -this.camera.x * this.camera.zoom + this.canvas.width / 2,
+      -this.camera.y * this.camera.zoom + this.canvas.height / 2 + this.timeAxis.getHeaderHeight()
+    );
 
     // Calculate visible time range
-    const visibleStartX = this.camera.x - (this.canvas.width / 2 / this.camera.zoom) - 300;
-    const visibleEndX = this.camera.x + (this.canvas.width / 2 / this.camera.zoom) + 300;
-    
-    const dayWidth = 50; // Should match TimeAxis dayWidth
+    const dayWidth = 50;
+    const visibleStartX = this.camera.x - (this.canvas.width / 2 / this.camera.zoom);
+    const visibleEndX = this.camera.x + (this.canvas.width / 2 / this.camera.zoom);
     const startX = Math.floor(visibleStartX / dayWidth) * dayWidth;
     const endX = Math.ceil(visibleEndX / dayWidth) * dayWidth;
 
-    // Draw grid based on zoom level
+    // Draw swimlanes first
+    const totalHeight = this.taskManager.getTotalHeight();
+    this.taskManager.swimlanes.forEach(lane => {
+      // Draw swimlane background with opacity based on zoom
+      const bgOpacity = Math.min(0.08, 0.08 * (this.camera.zoom));
+      this.ctx.fillStyle = `${lane.color}${Math.floor(bgOpacity * 255).toString(16).padStart(2, '0')}`;
+      this.ctx.fillRect(
+        visibleStartX,
+        lane.y,
+        visibleEndX - visibleStartX,
+        lane.height
+      );
+
+      // Draw swimlane header with opacity based on zoom
+      const headerOpacity = Math.min(0.15, 0.15 * (this.camera.zoom));
+      this.ctx.fillStyle = `${lane.color}${Math.floor(headerOpacity * 255).toString(16).padStart(2, '0')}`;
+      this.ctx.fillRect(
+        visibleStartX,
+        lane.y,
+        visibleEndX - visibleStartX,
+        40 / this.camera.zoom
+      );
+
+      // Don't draw lane labels here anymore (we'll draw them in fixed position later)
+    });
+
+    // Draw main grid based on zoom level
     this.ctx.beginPath();
     this.ctx.lineWidth = 1 / this.camera.zoom;
 
@@ -331,12 +405,11 @@ export class Canvas {
     const effectivePixelsPerDay = dayWidth * this.camera.zoom;
     const showDayLines = effectivePixelsPerDay >= 25;
     const showWeekLines = effectivePixelsPerDay >= 10;
+    const showMonthLines = true; // Always show month lines
 
     // Draw vertical time lines
     for (let x = startX; x <= endX; x += dayWidth) {
       const date = this.timeAxis.worldToDate(x);
-      if (!date) continue; // Skip invalid date calculations
-      
       const isMonthStart = date.getDate() === 1;
       const isWeekStart = date.getDay() === 1; // Monday
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -355,302 +428,60 @@ export class Canvas {
       }
 
       this.ctx.beginPath();
-      this.ctx.moveTo(x, 0);
+      this.ctx.moveTo(x, -this.canvas.height);
       this.ctx.lineTo(x, this.taskManager.getTotalHeight() + this.canvas.height);
       this.ctx.stroke();
     }
-    
+
     // Draw horizontal swimlane borders
-    for (const lane of this.swimlanes) {
+    this.taskManager.swimlanes.forEach(lane => {
       const borderOpacity = Math.min(0.2, 0.2 * (this.camera.zoom));
       this.ctx.strokeStyle = `rgba(200, 200, 200, ${borderOpacity})`;
       this.ctx.beginPath();
       this.ctx.moveTo(visibleStartX, lane.y);
       this.ctx.lineTo(visibleEndX, lane.y);
       this.ctx.stroke();
-    }
-    
-    this.ctx.restore();
-  }
+    });
 
-  /**
-   * Draw a single swimlane
-   */
-  private drawSwimlane(lane: any) {
-    // Calculate visible time range for culling
-    const visibleStartX = this.camera.x - (this.canvas.width / 2 / this.camera.zoom) - 300;
-    const visibleEndX = this.camera.x + (this.canvas.width / 2 / this.camera.zoom) + 300;
+    // Draw time axis on top of everything
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.timeAxis.draw(this.ctx, {
+      x: this.camera.x,
+      y: this.camera.y,
+      zoom: this.camera.zoom,
+      width: this.canvas.width,
+      height: this.canvas.height
+    });
     
-    // Skip swimlanes that are not visible
-    const laneTop = lane.y;
-    const laneBottom = lane.y + lane.height;
-    const visibleTop = this.camera.y - (this.canvas.height / 2 / this.camera.zoom);
-    const visibleBottom = this.camera.y + (this.canvas.height / 2 / this.camera.zoom);
-    
-    if (laneBottom < visibleTop || laneTop > visibleBottom) {
-      return; // Skip this swimlane - not visible
-    }
-    
-    // Draw swimlane background with opacity based on zoom
-    const bgOpacity = Math.min(0.08, 0.08 * (this.camera.zoom));
-    this.ctx.fillStyle = `${lane.color}${Math.floor(bgOpacity * 255).toString(16).padStart(2, '0')}`;
-    this.ctx.fillRect(
-      visibleStartX,
-      lane.y,
-      visibleEndX - visibleStartX,
-      lane.height
-    );
-
-    // Draw swimlane header with opacity based on zoom
-    const headerOpacity = Math.min(0.15, 0.15 * (this.camera.zoom));
-    this.ctx.fillStyle = `${lane.color}${Math.floor(headerOpacity * 255).toString(16).padStart(2, '0')}`;
-    this.ctx.fillRect(
-      visibleStartX,
-      lane.y,
-      visibleEndX - visibleStartX,
-      40 / this.camera.zoom
-    );
-  }
-
-  /**
-   * Draw a single task
-   */
-  private drawTask(task: any) {
-    try {
-      // Find which swimlane this task belongs to
-      const swimlane = this.swimlanes.find(lane => 
-        lane.tasks.includes(task)
-      );
-      
-      if (!swimlane) return; // Skip if task doesn't belong to any swimlane
-      
-      // Get task position - use proper method from TaskManager
-      const position = swimlane.taskPositions.get(task.id);
-      if (!position) return;
-      
-      // Draw the task
-      task.draw(this.ctx, this.timeAxis, position.y);
-    } catch (err) {
-      console.error("Error drawing task", task.id, err);
-    }
-  }
-
-  /**
-   * Draw a dependency line from one task to a position
-   */
-  private drawDependencyLine(fromTaskId: string, toPosition: { x: number, y: number }) {
-    // Find the task by ID
-    const fromTask = this.taskManager.getAllTasks().find(t => t.id === fromTaskId);
-    if (!fromTask) return;
-    
-    // Find the swimlane containing this task
-    const swimlane = this.swimlanes.find(lane => lane.tasks.includes(fromTask));
-    if (!swimlane) return;
-    
-    // Get task position from swimlane
-    const fromPosition = swimlane.taskPositions.get(fromTaskId);
-    if (!fromPosition) return;
-    
-    // Calculate positions
-    const startX = this.timeAxis.dateToWorld(new Date(fromPosition.endDate));
-    const startY = fromPosition.y + 15; // Middle of task
-    
-    // Draw arrow
-    this.ctx.beginPath();
-    this.ctx.moveTo(startX, startY);
-    
-    // Calculate control points for curve
-    const controlPointX = (startX + toPosition.x) / 2;
-    
-    // Draw curved line
-    this.ctx.bezierCurveTo(
-      controlPointX, startY,
-      controlPointX, toPosition.y,
-      toPosition.x, toPosition.y
-    );
-    
-    this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.7)';
-    this.ctx.lineWidth = 2 / this.camera.zoom;
-    this.ctx.stroke();
-    
-    // Draw arrowhead
-    const arrowSize = 5 / this.camera.zoom;
-    this.ctx.beginPath();
-    this.ctx.moveTo(toPosition.x, toPosition.y);
-    this.ctx.lineTo(toPosition.x - arrowSize, toPosition.y - arrowSize);
-    this.ctx.lineTo(toPosition.x - arrowSize, toPosition.y + arrowSize);
-    this.ctx.closePath();
-    this.ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
-    this.ctx.fill();
-  }
-
-  /**
-   * Main render method
-   */
-  render() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.camera.transform(this.ctx);
-
-    // Draw grid with optimized rendering
-    this.drawBackgroundGrid();
-    
-    // Draw fixed elements
-    this.ctx.resetTransform();
-    this.timeAxis.draw(this.ctx, this.camera);
+    // Draw swimlane labels with fixed positioning
     this.drawFixedSwimlaneLabels();
-    
-    // Apply camera transform for world space
-    this.camera.transform(this.ctx);
-    
-    // Calculate visible area with buffer
-    const visibleStartX = this.camera.x - (this.canvas.width / 2 / this.camera.zoom) - 300; // 300px buffer
-    const visibleEndX = this.camera.x + (this.canvas.width / 2 / this.camera.zoom) + 300; // 300px buffer
 
-    // Only draw visible swimlanes
-    for (const swimlane of this.swimlanes) {
-      // Draw swimlane if it's visible (always draw all swimlanes for now, they're cheap)
-      this.drawSwimlane(swimlane);
-    }
+    // Restore transform for tasks
+    this.ctx.setTransform(
+      this.camera.zoom,
+      0,
+      0,
+      this.camera.zoom,
+      -this.camera.x * this.camera.zoom + this.canvas.width / 2,
+      -this.camera.y * this.camera.zoom + this.canvas.height / 2 + this.timeAxis.getHeaderHeight()
+    );
+
+    // Draw tasks
+    this.taskManager.drawTasks(this.ctx, this.timeAxis, this.camera);
     
-    // Only draw visible tasks for better performance
-    this.drawTasksOptimized(visibleStartX, visibleEndX);
+    // Reset transformation for resource histogram
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     
-    // If we're currently drawing a dependency line, render it
-    if (this.dependencyTempLine) {
-      this.drawDependencyLine(
-        this.dependencyTempLine.fromTaskId,
-        this.dependencyTempLine.toPosition
-      );
-    }
+    // Calculate resource data from tasks
+    this.resourceHistogram.calculateResources(this.taskManager.getAllTasks());
     
-    // Draw task that is being dragged (if any) on top of everything
-    if (this.draggedTask) {
-      this.drawTask(this.draggedTask);
-    }
-    
-    // Update camera transition (for smooth movements)
-    this.camera.update();
-    
-    // Request next frame if needed
-    if (this.camera.isTransitioning || this.needsRender) {
-      this.needsRender = false;
-      window.requestAnimationFrame(this.render.bind(this));
-    }
+    // Draw resource histogram at bottom of screen
+    this.resourceHistogram.draw(this.ctx, this.camera, this.canvas.height);
+
+    // Draw fixed elements
+    this.drawFixedElements();
   }
-
-  /**
-   * Optimized method to draw only tasks that are visible or nearly visible
-   */
-  private drawTasksOptimized(visibleStartX: number, visibleEndX: number) {
-    try {
-      // First get all visible tasks to avoid multiple passes
-      const visibleTasks = this.taskManager.getAllTasks().filter(task => {
-        try {
-          // Find swimlane for this task
-          const swimlane = this.swimlanes.find(lane => lane.tasks.includes(task));
-          if (!swimlane) return false;
-          
-          // Get position from swimlane
-          const taskPosition = swimlane.taskPositions.get(task.id);
-          if (!taskPosition) return false;
-          
-          // Calculate task boundaries
-          const taskStartX = this.timeAxis.dateToWorld(new Date(taskPosition.startDate));
-          const taskEndX = this.timeAxis.dateToWorld(new Date(taskPosition.endDate));
-          
-          // Consider task visible if any part of it is in visible range
-          return (taskStartX <= visibleEndX && taskEndX >= visibleStartX);
-        } catch (err) {
-          console.error('Error determining task visibility:', err);
-          return false;
-        }
-      });
-      
-      // Draw tasks (except dragged one which is drawn separately)
-      for (const task of visibleTasks) {
-        if (this.draggedTask && task.id === this.draggedTask.id) continue;
-        this.drawTask(task);
-      }
-      
-      // Draw dependencies, but only for visible tasks
-      if (this.areDependenciesVisible) {
-        // Call the public method for drawing dependencies
-        this.drawDependencies();
-      }
-    } catch (err) {
-      console.error('Error in drawTasksOptimized:', err);
-    }
-  }
-
-  // Add a simple dependency drawing method
-  private drawDependencies() {
-    // Get all tasks
-    const tasks = this.taskManager.getAllTasks();
-    
-    // Iterate through tasks and draw their dependencies
-    for (const task of tasks) {
-      if (!task.dependencies || task.dependencies.length === 0) continue;
-      
-      // Find swimlane for this task
-      const toSwimlane = this.swimlanes.find(lane => lane.tasks.includes(task));
-      if (!toSwimlane) continue;
-      
-      // Get position of this task
-      const toPos = toSwimlane.taskPositions.get(task.id);
-      if (!toPos) continue;
-      
-      // Process each dependency
-      for (const depId of task.dependencies) {
-        // Find the dependency task
-        const fromTask = tasks.find(t => t.id === depId);
-        if (!fromTask) continue;
-        
-        // Find swimlane for this task
-        const fromSwimlane = this.swimlanes.find(lane => lane.tasks.includes(fromTask));
-        if (!fromSwimlane) continue;
-        
-        // Get position of dependency task
-        const fromPos = fromSwimlane.taskPositions.get(fromTask.id);
-        if (!fromPos) continue;
-        
-        // Draw line connecting tasks
-        const startX = this.timeAxis.dateToWorld(new Date(fromPos.endDate));
-        const startY = fromPos.y + 15; // Middle of task
-        
-        const endX = this.timeAxis.dateToWorld(new Date(toPos.startDate));
-        const endY = toPos.y + 15; // Middle of task
-        
-        // Draw arrow
-        this.ctx.beginPath();
-        this.ctx.moveTo(startX, startY);
-        
-        // Calculate control points for curve
-        const controlPointX = (startX + endX) / 2;
-        
-        // Draw curved line
-        this.ctx.bezierCurveTo(
-          controlPointX, startY,
-          controlPointX, endY,
-          endX, endY
-        );
-        
-        this.ctx.strokeStyle = 'rgba(100, 100, 100, 0.7)';
-        this.ctx.lineWidth = 2 / this.camera.zoom;
-        this.ctx.stroke();
-        
-        // Draw arrowhead
-        const arrowSize = 5 / this.camera.zoom;
-        this.ctx.beginPath();
-        this.ctx.moveTo(endX, endY);
-        this.ctx.lineTo(endX - arrowSize, endY - arrowSize);
-        this.ctx.lineTo(endX - arrowSize, endY + arrowSize);
-        this.ctx.closePath();
-        this.ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
-        this.ctx.fill();
-      }
-    }
-  }
-
+  
   // New method to draw swimlane labels in fixed position
   private drawFixedSwimlaneLabels() {
     // Reset transform to draw in screen coordinates
@@ -2039,26 +1870,5 @@ export class Canvas {
     setInterval(() => {
       this.saveToLocalStorage();
     }, 60000);
-  }
-
-  /**
-   * Initialize the canvas
-   */
-  init() {
-    // ... existing code ...
-    
-    // Set reasonable camera bounds - allow scrolling far into the future
-    const todayPosition = this.timeAxis.getTodayPosition();
-    const maxPlanningDays = 365; // Allow planning up to 1 year in the future
-    const dayWidth = 50; // Match TimeAxis day width
-    
-    this.camera.setBounds(
-      todayPosition - dayWidth * 30, // 30 days in the past
-      todayPosition + dayWidth * maxPlanningDays, // Up to maxPlanningDays in the future
-      0, // Don't allow scrolling above the top
-      this.swimlanes.length * this.swimlaneHeight * 2 // Allow some extra space at the bottom
-    );
-    
-    // ... rest of existing init code ...
   }
 } 

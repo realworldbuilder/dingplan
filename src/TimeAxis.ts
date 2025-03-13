@@ -1,6 +1,3 @@
-import { Camera } from './Camera';
-import { Logger } from './utils/logger';
-
 export interface TimeScale {
   unit: 'hour' | 'day' | 'week' | 'month' | 'year';
   pixelsPerUnit: number;
@@ -9,225 +6,51 @@ export interface TimeScale {
 
 export class TimeAxis {
   private startDate: Date;
-  private readonly dayWidth: number = 50; // Width of a day in world units
-  private readonly headerHeight: number = 50; // Height of the header in pixels
+  private pixelsPerDay: number;
+  private readonly headerHeight = 40; // Height of the header area
+  private today: Date;
   
-  // Optimization: Cache for date conversions
-  private dateToWorldCache: Map<string, number> = new Map();
-  private worldToDateCache: Map<number, Date> = new Map();
-  private cacheLimit: number = 5000; // Limit cache size to prevent memory issues
+  constructor(startDate: Date = new Date()) {
+    // Set today's date at midnight for consistent comparison
+    this.today = new Date();
+    this.today.setHours(0, 0, 0, 0);
 
-  constructor(startDate: Date) {
+    // Ensure start date is at midnight
     this.startDate = new Date(startDate);
     this.startDate.setHours(0, 0, 0, 0);
-  }
-
-  /**
-   * Converts a date to a world X coordinate
-   */
-  dateToWorld(date: Date): number {
-    if (!date) return NaN;
     
-    try {
-      // Create a date key for caching, round to day precision
-      const dateObj = new Date(date);
-      dateObj.setHours(0, 0, 0, 0);
-      const dateKey = dateObj.getTime().toString();
-      
-      // Check cache first
-      if (this.dateToWorldCache.has(dateKey)) {
-        return this.dateToWorldCache.get(dateKey)!;
-      }
-      
-      // Calculate days difference with high precision
-      const timeDiff = dateObj.getTime() - this.startDate.getTime();
-      const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
-      
-      // Calculate world position
-      const x = Math.round(daysDiff * this.dayWidth * 100) / 100; // Round to reduce floating point errors
-      
-      // Cache the result
-      this.dateToWorldCache.set(dateKey, x);
-      
-      // Trim cache if it gets too large
-      if (this.dateToWorldCache.size > this.cacheLimit) {
-        const oldestKey = this.dateToWorldCache.keys().next().value;
-        this.dateToWorldCache.delete(oldestKey);
-      }
-      
-      return x;
-    } catch (error) {
-      console.error("Error in dateToWorld conversion:", error);
-      return NaN;
-    }
+    this.pixelsPerDay = 50; // Default scale: 50 pixels per day
   }
 
-  /**
-   * Converts a world X coordinate to a date
-   */
-  worldToDate(x: number): Date {
-    try {
-      // Round to nearest pixel to improve caching
-      const roundedX = Math.round(x);
-      
-      // Check cache first
-      if (this.worldToDateCache.has(roundedX)) {
-        return new Date(this.worldToDateCache.get(roundedX)!);
-      }
-      
-      // Calculate days from x position
-      const days = x / this.dayWidth;
-      
-      // Calculate milliseconds
-      const milliseconds = days * 24 * 60 * 60 * 1000;
-      
-      // Create new date (copying to avoid modifying the original)
-      const resultDate = new Date(this.startDate.getTime() + milliseconds);
-      
-      // Cache the result
-      this.worldToDateCache.set(roundedX, new Date(resultDate));
-      
-      // Trim cache if it gets too large
-      if (this.worldToDateCache.size > this.cacheLimit) {
-        const oldestKey = this.worldToDateCache.keys().next().value;
-        this.worldToDateCache.delete(oldestKey);
-      }
-      
-      return resultDate;
-    } catch (error) {
-      console.error("Error in worldToDate conversion:", error);
-      return new Date(); // Return current date as fallback
-    }
-  }
-
-  /**
-   * Gets the position of today's date
-   */
+  // Add method to get today's position in world coordinates
   getTodayPosition(): number {
-    return this.dateToWorld(new Date());
+    return this.dateToWorld(this.today);
   }
 
-  /**
-   * Get the header height
-   */
+  // Add method to check if a date is today
+  isToday(date: Date): boolean {
+    return date.getTime() === this.today.getTime();
+  }
+
+  worldToDate(worldX: number): Date {
+    const daysSinceStart = worldX / this.pixelsPerDay;
+    const date = new Date(this.startDate);
+    date.setDate(date.getDate() + daysSinceStart);
+    return date;
+  }
+
+  dateToWorld(date: Date): number {
+    const diffTime = date.getTime() - this.startDate.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays * this.pixelsPerDay;
+  }
+
   getHeaderHeight(): number {
     return this.headerHeight;
   }
 
-  /**
-   * Draw the time axis
-   */
-  draw(ctx: CanvasRenderingContext2D, camera: Camera) {
-    // Save current transform
-    ctx.save();
-    Logger.log('Drawing time axis', { camera });
-    
-    // Calculate which dates are visible
-    const viewportStartX = camera.x - (ctx.canvas.width / 2 / camera.zoom);
-    const viewportEndX = camera.x + (ctx.canvas.width / 2 / camera.zoom);
-    const startDayOffset = Math.floor(viewportStartX / this.dayWidth);
-    const endDayOffset = Math.ceil(viewportEndX / this.dayWidth);
-    
-    // Draw time axis header with background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, ctx.canvas.width, this.headerHeight);
-    
-    // Draw bottom border of header
-    ctx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, this.headerHeight);
-    ctx.lineTo(ctx.canvas.width, this.headerHeight);
-    ctx.stroke();
-    
-    // Calculate scale for month labels and day ticks
-    const effectivePixelsPerDay = this.dayWidth * camera.zoom;
-    const showDayLabels = effectivePixelsPerDay > 15;
-    const showWeekLabels = effectivePixelsPerDay > 5; 
-    
-    // Calculate custom transform for time header (centered zoom from current camera position)
-    ctx.translate(ctx.canvas.width / 2, 0);
-    ctx.scale(camera.zoom, 1);
-    ctx.translate(-camera.x, 0);
-    
-    ctx.font = '10px Arial';
-    
-    // Today marker
-    const todayX = this.getTodayPosition();
-    ctx.fillStyle = '#ff6b6b';
-    ctx.fillRect(todayX - 1, 0, 2, this.headerHeight);
-    
-    // Optimize date rendering by reusing date objects and just stepping days
-    let currentDate = new Date(this.startDate);
-    currentDate.setDate(currentDate.getDate() + startDayOffset);
-
-    // Draw days and months
-    for (let dayOffset = startDayOffset; dayOffset <= endDayOffset; dayOffset++) {
-      const x = dayOffset * this.dayWidth;
-      
-      // Draw day tick
-      const day = currentDate.getDate();
-      const isFirstOfMonth = day === 1;
-      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-      const isWeekStart = currentDate.getDay() === 1; // Monday
-      
-      // Draw different markers based on date type
-      if (isFirstOfMonth) {
-        // First day of month - draw month name
-        ctx.fillStyle = '#333';
-        ctx.textAlign = 'center';
-        
-        if (effectivePixelsPerDay >= 3) {
-          const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
-          const year = currentDate.getFullYear();
-          ctx.fillText(`${month} ${year}`, x, 15);
-        } else if (effectivePixelsPerDay >= 1.5) {
-          const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
-          ctx.fillText(month, x, 15);  
-        }
-        
-        // Draw taller line for month start
-        ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-        ctx.beginPath();
-        ctx.moveTo(x, 22);
-        ctx.lineTo(x, this.headerHeight);
-        ctx.stroke();
-      } else if (isWeekStart && showWeekLabels) {
-        // Week start - draw week marker
-        ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
-        ctx.beginPath();
-        ctx.moveTo(x, 25);
-        ctx.lineTo(x, this.headerHeight);
-        ctx.stroke();
-      } 
-      
-      // Weekend highlighting
-      if (isWeekend) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
-        ctx.fillRect(x, 0, this.dayWidth, this.headerHeight);
-      }
-      
-      // Day number
-      if (showDayLabels) {
-        if (isWeekend) {
-          ctx.fillStyle = '#999';
-        } else {
-          ctx.fillStyle = '#666';
-        }
-        ctx.textAlign = 'center';
-        ctx.fillText(day.toString(), x + this.dayWidth / 2, 35);
-      }
-      
-      // Advance to next day
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-    
-    // Restore original transform
-    ctx.restore();
-  }
-
   private getTimeScale(zoom: number): TimeScale {
-    const effectivePixelsPerDay = this.dayWidth * zoom;
+    const effectivePixelsPerDay = this.pixelsPerDay * zoom;
 
     // Always show month context at the top
     const monthScale: TimeScale = {
@@ -296,12 +119,106 @@ export class TimeAxis {
         ctx.fillRect(
           x,
           this.headerHeight,
-          this.dayWidth,
+          this.pixelsPerDay,
           camera.height - this.headerHeight
         );
       }
       // Move to next day
       currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    ctx.restore();
+  }
+
+  draw(ctx: CanvasRenderingContext2D, camera: { x: number; y: number; zoom: number; width: number; height: number }) {
+    // Draw weekend shading first (behind everything)
+    this.drawWeekendShading(ctx, camera);
+
+    const detailScale = this.getTimeScale(camera.zoom);
+    
+    // Calculate visible date range
+    const leftDate = this.worldToDate(camera.x - camera.width / (2 * camera.zoom));
+    const rightDate = this.worldToDate(camera.x + camera.width / (2 * camera.zoom));
+
+    // Save the current transform
+    ctx.save();
+    
+    // Reset transform for fixed header
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Draw header background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, camera.width, this.headerHeight);
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, this.headerHeight - 1, camera.width, 1);
+
+    // Draw detail scale
+    let currentDate = this.roundToUnit(new Date(leftDate), detailScale.unit);
+    let lastMonth: number | null = null;
+    
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    
+    while (currentDate <= rightDate) {
+      // Convert world X to screen X
+      const worldX = this.dateToWorld(currentDate);
+      const screenX = (worldX - camera.x) * camera.zoom + camera.width / 2;
+
+      // Check if month has changed
+      const currentMonth = currentDate.getMonth();
+      if (lastMonth !== currentMonth) {
+        // Draw month label
+        ctx.fillStyle = '#333333';
+        ctx.font = 'bold 12px Arial';
+        const monthLabel = currentDate.toLocaleString('default', { month: 'short', year: currentMonth === 0 ? 'numeric' : undefined });
+        ctx.fillText(monthLabel, screenX, this.headerHeight - 25);
+        lastMonth = currentMonth;
+        
+        // Draw slightly longer tick for month start
+        ctx.beginPath();
+        ctx.moveTo(screenX, this.headerHeight - 12);
+        ctx.lineTo(screenX, this.headerHeight);
+        ctx.stroke();
+      } else {
+        // Draw regular time markers
+        ctx.beginPath();
+        ctx.moveTo(screenX, this.headerHeight - 8);
+        ctx.lineTo(screenX, this.headerHeight);
+        ctx.stroke();
+      }
+
+      // Reset style for day/week labels
+      ctx.fillStyle = this.isWeekend(currentDate) ? '#999999' : '#666666'; // Slightly dimmer for weekends
+      ctx.font = '12px Arial';
+      
+      // Draw time label (highlight today)
+      const label = detailScale.format(currentDate);
+      if (this.isToday(currentDate)) {
+        ctx.fillStyle = '#e74c3c'; // Red color for today
+        ctx.font = 'bold 12px Arial';
+      }
+      ctx.fillText(label, screenX, this.headerHeight - 12);
+
+      // Draw vertical grid line for the content area
+      ctx.beginPath();
+      if (this.isToday(currentDate)) {
+        // Draw today line in red
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]); // Dotted line for today
+      } else {
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]); // Solid line for other days
+      }
+      ctx.moveTo(screenX, this.headerHeight);
+      ctx.lineTo(screenX, camera.height);
+      ctx.stroke();
+
+      // Advance to next unit
+      currentDate = this.advanceByUnit(currentDate, detailScale.unit);
     }
 
     ctx.restore();
