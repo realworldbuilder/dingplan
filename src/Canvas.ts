@@ -487,6 +487,9 @@ export class Canvas {
     // Reset transform to draw in screen coordinates
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     
+    // Set a consistent left padding for swimlane labels
+    const labelLeftPadding = 16; // Pixels from left edge
+    
     // We'll draw the labels directly over the swimlane headers, but in screen coordinates
     this.taskManager.swimlanes.forEach(lane => {
       // Calculate screen Y position for this swimlane
@@ -499,10 +502,19 @@ export class Canvas {
           screenY <= this.canvas.height && 
           screenY + 40 >= this.timeAxis.getHeaderHeight()) {
         
-        // Draw label text with original styling - move further right to avoid cutoff
+        // Set font first for proper text measurement
+        this.ctx.font = 'bold 15px Inter, system-ui, -apple-system, sans-serif';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw semi-transparent background for better readability
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        const textWidth = this.ctx.measureText(lane.name).width;
+        this.ctx.fillRect(labelLeftPadding - 4, screenY + 10, textWidth + 8, 24);
+        
+        // Draw label text with better styling
         this.ctx.fillStyle = '#1f2937';
-        this.ctx.font = 'bold 14px Inter, system-ui, -apple-system, sans-serif';
-        this.ctx.fillText(lane.name, 40, screenY + 26);
+        this.ctx.fillText(lane.name, labelLeftPadding, screenY + 22);
       }
     });
   }
