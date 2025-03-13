@@ -756,6 +756,61 @@ I can understand various date expressions. You can use phrases like "today", "to
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
+  // Helper method to intelligently find the best matching swimlane
+  private findBestMatchingSwimlane(swimlaneNameOrId: string): string | null {
+    try {
+      if (!swimlaneNameOrId) return null;
+      
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      if (!swimlanes || swimlanes.length === 0) return null;
+      
+      // Normalize input for better matching
+      const normalizedInput = swimlaneNameOrId.toLowerCase().trim();
+      
+      // First, try exact match on ID
+      const exactIdMatch = swimlanes.find(lane => lane.id.toLowerCase() === normalizedInput);
+      if (exactIdMatch) return exactIdMatch.id;
+      
+      // Then, try exact match on name
+      const exactNameMatch = swimlanes.find(lane => lane.name.toLowerCase() === normalizedInput);
+      if (exactNameMatch) return exactNameMatch.id;
+      
+      // Try partial matches on ID
+      const partialIdMatch = swimlanes.find(lane => lane.id.toLowerCase().includes(normalizedInput) || 
+                                               normalizedInput.includes(lane.id.toLowerCase()));
+      if (partialIdMatch) return partialIdMatch.id;
+      
+      // Try partial matches on name
+      const partialNameMatch = swimlanes.find(lane => lane.name.toLowerCase().includes(normalizedInput) || 
+                                                normalizedInput.includes(lane.name.toLowerCase()));
+      if (partialNameMatch) return partialNameMatch.id;
+      
+      // Check if input is a descriptive name like "site prep" that might match a swimlane
+      for (const lane of swimlanes) {
+        // Check for common variations and alternatives
+        const laneNameLower = lane.name.toLowerCase();
+        const laneIdLower = lane.id.toLowerCase();
+        
+        // Handle common synonyms and variations
+        if ((normalizedInput.includes('site') && (laneNameLower.includes('site') || laneNameLower.includes('prep'))) ||
+            (normalizedInput.includes('prep') && (laneNameLower.includes('site') || laneNameLower.includes('prep'))) ||
+            (normalizedInput.includes('foundation') && (laneNameLower.includes('foundation') || laneIdLower.includes('foundation'))) ||
+            (normalizedInput.includes('structure') && (laneNameLower.includes('structure') || laneIdLower.includes('structure'))) ||
+            (normalizedInput.includes('interior') && (laneNameLower.includes('interior') || laneIdLower.includes('interior'))) ||
+            (normalizedInput.includes('exterior') && (laneNameLower.includes('exterior') || laneIdLower.includes('exterior'))) ||
+            (normalizedInput.includes('finish') && (laneNameLower.includes('finish') || laneIdLower.includes('finish')))) {
+          return lane.id;
+        }
+      }
+      
+      // If no match found, return the first swimlane as fallback
+      return swimlanes[0].id;
+    } catch (error) {
+      this.debug(`Error finding matching swimlane: ${error}`);
+      return null;
+    }
+  }
+
   createTask(args: any): string {
     try {
       this.debug('Creating task', args);
@@ -811,16 +866,10 @@ I can understand various date expressions. You can use phrases like "today", "to
       // Generate a unique ID for the task
       const taskId = crypto.randomUUID();
       
-      // Determine the swimlane ID (default to zone1 if not specified)
-      let swimlaneId = args.swimlaneId || 'zone1';
-      
-      // Normalize swimlane ID format - ensure we have the standard format
-      if (swimlaneId.toLowerCase() === 'zone 1' || swimlaneId.toLowerCase() === 'zone1') {
-        swimlaneId = 'zone1';
-      } else if (swimlaneId.toLowerCase() === 'zone 2' || swimlaneId.toLowerCase() === 'zone2') {
-        swimlaneId = 'zone2';
-      } else if (swimlaneId.toLowerCase() === 'zone 3' || swimlaneId.toLowerCase() === 'zone3') {
-        swimlaneId = 'zone3';
+      // Determine the swimlane ID with intelligent matching
+      let swimlaneId = args.swimlaneId ? this.findBestMatchingSwimlane(args.swimlaneId) : 'swimlane1';
+      if (!swimlaneId) {
+        swimlaneId = 'swimlane1'; // Default fallback
       }
       
       // Check if the swimlane exists
@@ -899,8 +948,12 @@ I can understand various date expressions. You can use phrases like "today", "to
         const id = this.generateUUID();
         taskIds.push(id);
         
-        const swimlaneId = taskData.swimlaneId || args.swimlaneId || 'zone1';
-        this.debug(`Creating task "${taskData.name}" in ${swimlaneId}`);
+        // Use intelligent swimlane matching
+        const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
+        const swimlaneId = requestedSwimlaneId ? 
+          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'swimlane1';
+          
+        this.debug(`Creating task "${taskData.name}" in ${swimlaneId} (requested: ${requestedSwimlaneId || 'default'})`);
 
         // Create the task in the specified swimlane
         const fullTaskData = {
@@ -941,22 +994,31 @@ I can understand various date expressions. You can use phrases like "today", "to
 
   private createTaskSequence(args: any): string {
     try {
-      const { sequenceName, startDate, location, tasks, swimlaneId } = args;
+      const { sequenceName, startDate, location, tasks } = args;
+      let { swimlaneId } = args;
+      
+      // Use intelligent swimlane matching
+      swimlaneId = swimlaneId ? this.findBestMatchingSwimlane(swimlaneId) : 'swimlane1';
+      if (!swimlaneId) {
+        swimlaneId = 'swimlane1'; // Default fallback
+        this.debug(`No matching swimlane found, using default: ${swimlaneId}`);
+      } else {
+        this.debug(`Resolved swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
+      }
       
       if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
         return "No tasks provided for sequence creation";
       }
       
       const locationInfo = location ? ` for ${location}` : '';
-      const targetSwimlane = swimlaneId || 'zone1';
       
       // Use date provided or default to today
       const baseDate = startDate ? new Date(startDate) : new Date();
       
-      this.debug(`Creating sequence "${sequenceName}" with ${tasks.length} tasks in swimlane ${targetSwimlane}`);
+      this.debug(`Creating sequence "${sequenceName}" with ${tasks.length} tasks in swimlane ${swimlaneId}`);
       
       // Reset position before adding tasks to ensure they're laid out appropriately
-      this.canvas.taskManager.resetTaskPositionsInSwimlane(targetSwimlane);
+      this.canvas.taskManager.resetTaskPositionsInSwimlane(swimlaneId);
       
       // Create each task in sequence with appropriate dependencies
       let previousTaskId: string | null = null;
@@ -994,8 +1056,8 @@ I can understand various date expressions. You can use phrases like "today", "to
         }
         
         // Create the task
-        this.debug(`Creating task "${taskData.name}" in ${targetSwimlane}`);
-        const task = this.canvas.taskManager.addTask(taskData, targetSwimlane);
+        this.debug(`Creating task "${taskData.name}" in ${swimlaneId}`);
+        const task = this.canvas.taskManager.addTask(taskData, swimlaneId);
         
         // Store the task ID to use for dependencies
         previousTaskId = task.id;
@@ -1004,8 +1066,12 @@ I can understand various date expressions. You can use phrases like "today", "to
       // Force a canvas render to update the view
       this.canvas.render();
       
-      const zoneInfo = swimlaneId ? ` in ${swimlaneId}` : '';
-      return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence${zoneInfo}`;
+      // Update user feedback to show both the requested and matched swimlane names
+      if (args.swimlaneId && args.swimlaneId !== swimlaneId) {
+        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in "${swimlaneId}" (matched from your request for "${args.swimlaneId}")`;
+      } else {
+        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in ${swimlaneId}`;
+      }
     } catch (error: unknown) {
       return this.handleError('creating task sequence', error);
     }
@@ -1084,7 +1150,20 @@ I can understand various date expressions. You can use phrases like "today", "to
   
   // Helper method to create the actual template sequence
   private createTemplateSequence(args: any, templateName: string): string {
-    const { startDate, location, swimlaneId, scaleFactor, inAllSwimlanes } = args;
+    const { startDate, location, scaleFactor, inAllSwimlanes } = args;
+    let { swimlaneId } = args;
+    
+    // Use intelligent swimlane matching for single swimlane mode
+    if (!inAllSwimlanes && swimlaneId) {
+      swimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+      if (!swimlaneId) {
+        swimlaneId = 'swimlane1'; // Default fallback
+        this.debug(`No matching swimlane found, using default: swimlane1`);
+      } else {
+        this.debug(`Resolved swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
+      }
+    }
+    
     const template = getTemplate(templateName);
     
     if (!template) {
@@ -1146,11 +1225,11 @@ I can understand various date expressions. You can use phrases like "today", "to
         sequenceName,
         startDate,
         location,
-        swimlaneId: swimlaneId || 'zone1',
+        swimlaneId: swimlaneId || 'swimlane1',
         tasks: formattedTasks
       };
       
-      this.debug('Creating sequence in single zone', sequenceArgs);
+      this.debug('Creating sequence in single swimlane', sequenceArgs);
       return this.createTaskSequence(sequenceArgs);
     }
   }
