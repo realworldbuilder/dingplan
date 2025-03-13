@@ -983,9 +983,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const taskId = crypto.randomUUID();
       
       // Determine the swimlane ID with intelligent matching
-      let swimlaneId = args.swimlaneId ? this.findBestMatchingSwimlane(args.swimlaneId) : 'swimlane1';
+      let swimlaneId = args.swimlaneId ? this.findBestMatchingSwimlane(args.swimlaneId) : 'zone1';
       if (!swimlaneId) {
-        swimlaneId = 'swimlane1'; // Default fallback
+        swimlaneId = 'zone1'; // Default fallback
       }
       
       // Check if the swimlane exists
@@ -1067,7 +1067,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         // Use intelligent swimlane matching
         const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
         const swimlaneId = requestedSwimlaneId ? 
-          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'swimlane1';
+          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'zone1';
           
         this.debug(`Creating task "${taskData.name}" in ${swimlaneId} (requested: ${requestedSwimlaneId || 'default'})`);
 
@@ -1094,7 +1094,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         // Use intelligent swimlane matching for each task
         const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
         const swimlaneId = requestedSwimlaneId ? 
-          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'swimlane1';
+          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'zone1';
           
         const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
         const swimlaneName = swimlane ? swimlane.name : swimlaneId;
@@ -1118,9 +1118,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       let { swimlaneId } = args;
       
       // Use intelligent swimlane matching
-      swimlaneId = swimlaneId ? this.findBestMatchingSwimlane(swimlaneId) : 'swimlane1';
+      swimlaneId = swimlaneId ? this.findBestMatchingSwimlane(swimlaneId) : 'zone1';
       if (!swimlaneId) {
-        swimlaneId = 'swimlane1'; // Default fallback
+        swimlaneId = 'zone1'; // Default fallback
         this.debug(`No matching swimlane found, using default: ${swimlaneId}`);
       } else {
         this.debug(`Resolved swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
@@ -1199,7 +1199,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
 
   private createFromTemplate(args: any): string {
     try {
-      const { templateName, startDate, location, swimlaneId, scaleFactor, inAllSwimlanes } = args;
+      const { templateName, startDate, location, scaleFactor, inAllSwimlanes } = args;
       
       if (!templateName) {
         this.debug('No template name provided');
@@ -1270,88 +1270,41 @@ Always strive to be both helpful and educational, balancing efficient task execu
   
   // Helper method to create the actual template sequence
   private createTemplateSequence(args: any, templateName: string): string {
-    const { startDate, location, scaleFactor, inAllSwimlanes } = args;
-    let { swimlaneId } = args;
+    const { startDate, location, inAllSwimlanes } = args;
+    let { swimlaneId, scaleFactor } = args;
     
-    // Use intelligent swimlane matching for single swimlane mode
-    if (!inAllSwimlanes && swimlaneId) {
-      swimlaneId = this.findBestMatchingSwimlane(swimlaneId);
-      if (!swimlaneId) {
-        swimlaneId = 'swimlane1'; // Default fallback
-        this.debug(`No matching swimlane found, using default: swimlane1`);
-      } else {
-        this.debug(`Resolved swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
-      }
+    // Convert scaleFactor to a number if it's not already
+    if (scaleFactor && typeof scaleFactor !== 'number') {
+      scaleFactor = parseFloat(scaleFactor);
+      if (isNaN(scaleFactor)) scaleFactor = 1.0;
     }
     
+    // Default to scale factor of 1.0 if not specified
+    if (!scaleFactor) scaleFactor = 1.0;
+    
+    // Get the template
     const template = getTemplate(templateName);
-    
     if (!template) {
-      return "Template not found.";
+      return `Template "${templateName}" not found. Available templates: ${getTemplateNames().join(", ")}`;
     }
     
-    const sequenceName = template.name;
-    const scale = scaleFactor || 1.0;
+    // Create a wrapper sequence for the template
+    const sequenceArgs = {
+      sequenceName: template.name,
+      startDate: startDate || new Date(),
+      location,
+      swimlaneId: swimlaneId || 'zone1',
+      scaleFactor,
+      inAllSwimlanes
+    };
     
-    // Convert template tasks to the proper format for createTaskSequence
-    const formattedTasks = template.tasks.map(task => ({
-      taskData: {
-        name: task.name,
-        duration: Math.max(1, Math.round(task.duration * scale)),
-        crewSize: task.crewSize,
-        tradeId: task.tradeId || '',
-      },
-      dependsOnPrevious: task.dependsOnPrevious
-    }));
+    // Create the sequence with the template
+    const result = this.createTaskSequence(sequenceArgs);
     
-    // Add special handling for "to each zone" or "in all zones" in the request
-    if (inAllSwimlanes === true || templateName.toLowerCase().includes("each swimlane") || 
-        templateName.toLowerCase().includes("all swimlanes")) {
-      
-      this.debug("User requested template in all swimlanes");
-      
-      try {
-        const swimlanes = this.getSwimlaneIds();
-        let tasksCreated = 0;
-        
-        this.debug(`Creating template in all swimlanes: ${swimlanes.join(', ')}`);
-        
-        for (const swimlaneId of swimlanes) {
-          const sequenceArgs = {
-            sequenceName,
-            startDate,
-            location,
-            swimlaneId: swimlaneId,
-            tasks: [...formattedTasks] // Make a copy to avoid issues
-          };
-          
-          // Create the sequence in this swimlane
-          const result = this.createTaskSequence(sequenceArgs);
-          this.debug(`Created sequence in ${swimlaneId}: ${result}`);
-          tasksCreated += formattedTasks.length;
-        }
-        
-        // Force a render to update the view
-        this.canvas.render();
-        
-        const locationInfo = location ? ` for ${location}` : '';
-        return `Created ${tasksCreated} tasks from "${template.name}"${locationInfo} template in all swimlanes`;
-      } catch (err) {
-        return this.handleError('creating in all swimlanes', err);
-      }
-    } else {
-      // Create in just one specified swimlane
-      const sequenceArgs = {
-        sequenceName,
-        startDate,
-        location,
-        swimlaneId: swimlaneId || 'swimlane1',
-        tasks: formattedTasks
-      };
-      
-      this.debug('Creating sequence in single swimlane', sequenceArgs);
-      return this.createTaskSequence(sequenceArgs);
-    }
+    // Add helpful follow-up suggestions
+    const followupSuggestion = `\n\nNext steps: Consider ${this.getRecommendedNextTemplate(templateName)} to continue building your sequence.`;
+    
+    return result + followupSuggestion;
   }
   
   // Helper method to get a recommended next template based on the current template
@@ -1570,10 +1523,14 @@ Always strive to be both helpful and educational, balancing efficient task execu
   private getSwimlaneIds(): string[] {
     try {
       const swimlanes = this.canvas.taskManager.swimlanes;
+      if (!swimlanes || swimlanes.length === 0) {
+        return ['zone1', 'zone2', 'zone3']; // Fallback to default swimlanes
+      }
+      
       return swimlanes.map(lane => lane.id);
     } catch (error) {
       console.error("Error getting swimlane IDs:", error);
-      return ['swimlane1', 'swimlane2', 'swimlane3']; // Fallback to default swimlanes
+      return ['zone1', 'zone2', 'zone3']; // Fallback to default swimlanes
     }
   }
 
