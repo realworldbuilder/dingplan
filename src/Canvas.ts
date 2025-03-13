@@ -10,6 +10,7 @@ import { Trades, Trade } from './Trades';
 import { generateUUID } from './utils';
 import { TouchManager } from './TouchManager';
 import { Logger } from './utils/logger';
+import { saveToLocalStorage, loadFromLocalStorage, hasSavedState } from './utils/localStorage';
 
 export interface CanvasConfig {
   canvas: HTMLCanvasElement;
@@ -101,6 +102,12 @@ export class Canvas {
     
     // Initialize the touch manager for mobile devices
     this.initTouchSupport();
+    
+    // Load saved state from localStorage if available
+    this.loadFromLocalStorage();
+    
+    // Set up autosave
+    this.setupAutosave();
   }
 
   /**
@@ -1736,5 +1743,117 @@ export class Canvas {
    */
   public disableDebugLogging(): void {
     Logger.disableDebugMode();
+  }
+
+  /**
+   * Save the current application state to localStorage
+   */
+  saveToLocalStorage(): void {
+    // Get the state from task manager
+    const state = this.taskManager.exportState();
+    
+    // Add camera position and zoom
+    state.camera = {
+      x: this.camera.x,
+      y: this.camera.y,
+      zoom: this.camera.zoom
+    };
+    
+    // Add other important canvas settings
+    state.settings = {
+      areDependenciesVisible: this.areDependenciesVisible
+    };
+    
+    // Save to localStorage
+    saveToLocalStorage(state);
+  }
+
+  /**
+   * Load application state from localStorage
+   */
+  loadFromLocalStorage(): void {
+    // Only attempt to load if there's saved state
+    if (!hasSavedState()) {
+      console.log('No saved state found, starting with default configuration');
+      return;
+    }
+    
+    // Load from localStorage
+    const state = loadFromLocalStorage();
+    if (!state) return;
+    
+    try {
+      // Import task manager state
+      this.taskManager.importState(state);
+      
+      // Restore camera position and zoom if available
+      if (state.camera) {
+        this.camera.x = state.camera.x || this.camera.x;
+        this.camera.y = state.camera.y || this.camera.y;
+        this.camera.zoom = state.camera.zoom || this.camera.zoom;
+      }
+      
+      // Restore other settings
+      if (state.settings) {
+        this.areDependenciesVisible = 
+          state.settings.areDependenciesVisible !== undefined 
+            ? state.settings.areDependenciesVisible 
+            : true;
+      }
+      
+      // Render with the loaded state
+      this.render();
+      
+      console.log('Successfully loaded application state from localStorage');
+    } catch (error) {
+      console.error('Error loading application state from localStorage:', error);
+    }
+  }
+
+  /**
+   * Set up autosave functionality
+   */
+  private setupAutosave(): void {
+    // Variables to track state changes
+    let lastSaveTime = Date.now();
+    const MIN_SAVE_INTERVAL = 5000; // Minimum time between saves (5 seconds)
+    let saveTimeout: number | null = null;
+    
+    // Function to save state with debounce
+    const debouncedSave = () => {
+      // Clear any pending save
+      if (saveTimeout !== null) {
+        window.clearTimeout(saveTimeout);
+      }
+      
+      // Schedule a new save
+      saveTimeout = window.setTimeout(() => {
+        const now = Date.now();
+        // Only save if enough time has passed since last save
+        if (now - lastSaveTime >= MIN_SAVE_INTERVAL) {
+          this.saveToLocalStorage();
+          lastSaveTime = now;
+        }
+      }, 1000); // Debounce for 1 second
+    };
+    
+    // Listen for events that should trigger an autosave
+    
+    // Task updates
+    document.addEventListener('taskUpdated', debouncedSave);
+    
+    // Camera changes (debounced to avoid excessive saves during pan/zoom)
+    this.canvas.addEventListener('mouseup', debouncedSave);
+    this.canvas.addEventListener('wheel', debouncedSave);
+    
+    // Listen for beforeunload to save before the page is closed
+    window.addEventListener('beforeunload', () => {
+      this.saveToLocalStorage();
+    });
+    
+    // Set up periodic saves every minute as a safety net
+    setInterval(() => {
+      this.saveToLocalStorage();
+    }, 60000);
   }
 } 

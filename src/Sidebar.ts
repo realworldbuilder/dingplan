@@ -1,6 +1,7 @@
 import { Task } from './Task';
 import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
+import { clearLocalStorage } from './utils/localStorage';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes';
 
@@ -509,6 +510,16 @@ export class Sidebar {
                 </div>
               </div>
             </div>
+            <div class="option-section">
+              <h4>Local Storage</h4>
+              <div class="option-row">
+                <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
+              </div>
+              <p class="option-description">
+                This will clear all saved tasks and settings from your browser's local storage.
+                The page will refresh with default settings. This action cannot be undone.
+              </p>
+            </div>
           </div>
           <div id="add-task-view" class="view">
             <!-- Add Task form will be here -->
@@ -939,6 +950,21 @@ export class Sidebar {
         
         // Notify about filter change with new map instance
         this.notifyFilterChanged();
+      });
+    }
+
+    // Add event listener for the clear local storage button
+    const clearLocalStorageButton = this.element.querySelector('#clear-local-storage');
+    if (clearLocalStorageButton) {
+      clearLocalStorageButton.addEventListener('click', () => {
+        const confirmClear = confirm('Are you sure you want to reset the application state? This will remove all tasks and settings. This action cannot be undone.');
+        if (confirmClear) {
+          // Clear localStorage
+          clearLocalStorage();
+          
+          // Reload the page to start fresh
+          window.location.reload();
+        }
       });
     }
   }

@@ -1513,4 +1513,172 @@ export class TaskManager {
       }
     }
   }
+
+  /**
+   * Export the current state for persistence
+   */
+  exportState(): any {
+    // Export swimlanes with their tasks
+    const exportedSwimlanes = this.swimlanes.map(swimlane => {
+      // Get task positions for this swimlane
+      const taskPositions: Record<string, { x: number, y: number }> = {};
+      swimlane.taskPositions.forEach((position, taskId) => {
+        taskPositions[taskId] = { ...position };
+      });
+      
+      return {
+        id: swimlane.id,
+        name: swimlane.name,
+        y: swimlane.y,
+        height: swimlane.height,
+        color: swimlane.color,
+        wbsId: swimlane.wbsId,
+        taskIds: swimlane.tasks.map(task => task.id)
+      };
+    });
+    
+    // Export tasks
+    const exportedTasks = this.tasks.map(task => ({
+      id: task.id,
+      name: task.name,
+      startDate: task.startDate,
+      duration: task.duration,
+      crewSize: task.crewSize,
+      color: task.color,
+      tradeId: task.tradeId,
+      dependencies: task.dependencies,
+      progress: task.progress,
+      status: task.status,
+      workOnSaturday: task.workOnSaturday,
+      workOnSunday: task.workOnSunday,
+      xerTaskId: task.xerTaskId
+    }));
+    
+    // Export task positions (combining all swimlanes)
+    const exportedTaskPositions: Record<string, { x: number, y: number, swimlaneId: string }> = {};
+    this.swimlanes.forEach(swimlane => {
+      swimlane.taskPositions.forEach((position, taskId) => {
+        exportedTaskPositions[taskId] = { 
+          ...position,
+          swimlaneId: swimlane.id
+        };
+      });
+    });
+    
+    // Export trade filters
+    const exportedTradeFilters: Record<string, boolean> = {};
+    this.tradeFilters.forEach((value, key) => {
+      exportedTradeFilters[key] = value;
+    });
+    
+    return {
+      swimlanes: exportedSwimlanes,
+      tasks: exportedTasks,
+      taskPositions: exportedTaskPositions,
+      tradeFilters: exportedTradeFilters
+    };
+  }
+
+  /**
+   * Import state from persistence
+   */
+  importState(state: any): void {
+    if (!state) return;
+    
+    try {
+      // Clear current state
+      this.tasks = [];
+      this.selectedTasks.clear();
+      this.selectedTasksInOrder = [];
+      
+      // Since swimlanes is a readonly property, we need to empty it without reassigning
+      while (this.swimlanes.length > 0) {
+        this.swimlanes.pop();
+      }
+      
+      // Recreate tasks
+      const tasks: Task[] = [];
+      if (state.tasks && Array.isArray(state.tasks)) {
+        state.tasks.forEach((taskData: any) => {
+          const task = new Task({
+            id: taskData.id,
+            name: taskData.name,
+            startDate: taskData.startDate,
+            duration: taskData.duration,
+            crewSize: taskData.crewSize,
+            color: taskData.color,
+            tradeId: taskData.tradeId,
+            dependencies: taskData.dependencies || [],
+            progress: taskData.progress,
+            status: taskData.status,
+            xerTaskId: taskData.xerTaskId,
+            workOnSaturday: taskData.workOnSaturday,
+            workOnSunday: taskData.workOnSunday
+          });
+          tasks.push(task);
+        });
+      }
+      this.tasks = tasks;
+      
+      // Recreate swimlanes
+      if (state.swimlanes && Array.isArray(state.swimlanes)) {
+        state.swimlanes.forEach((swimlaneData: any) => {
+          const swimlane: Swimlane = {
+            id: swimlaneData.id,
+            name: swimlaneData.name,
+            y: swimlaneData.y,
+            height: swimlaneData.height,
+            color: swimlaneData.color,
+            tasks: [],
+            taskPositions: new Map(),
+            wbsId: swimlaneData.wbsId
+          };
+          
+          // Add tasks to this swimlane
+          if (swimlaneData.taskIds && Array.isArray(swimlaneData.taskIds)) {
+            swimlaneData.taskIds.forEach((taskId: string) => {
+              const task = this.tasks.find(t => t.id === taskId);
+              if (task) {
+                swimlane.tasks.push(task);
+              }
+            });
+          }
+          
+          this.swimlanes.push(swimlane);
+        });
+      }
+      
+      // Restore task positions
+      if (state.taskPositions && typeof state.taskPositions === 'object') {
+        Object.entries(state.taskPositions).forEach(([taskId, posData]: [string, any]) => {
+          // Find the swimlane for this task
+          const swimlane = this.swimlanes.find(s => s.id === posData.swimlaneId);
+          if (swimlane) {
+            swimlane.taskPositions.set(taskId, { x: posData.x, y: posData.y });
+          }
+        });
+      }
+      
+      // Restore trade filters
+      this.tradeFilters.clear();
+      if (state.tradeFilters && typeof state.tradeFilters === 'object') {
+        Object.entries(state.tradeFilters).forEach(([tradeId, isVisible]: [string, any]) => {
+          this.tradeFilters.set(tradeId, Boolean(isVisible));
+        });
+      } else {
+        // If no trade filters in saved state, set all trades to visible by default
+        Trades.getAllTrades().forEach(trade => {
+          this.tradeFilters.set(trade.id, true);
+        });
+      }
+      
+      console.log('Successfully imported state:', {
+        tasks: this.tasks.length,
+        swimlanes: this.swimlanes.length,
+        tradeFilters: this.tradeFilters.size
+      });
+    } catch (error) {
+      console.error('Error importing state:', error);
+    }
+  }
 }

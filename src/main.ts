@@ -326,4 +326,12 @@ window.addEventListener('load', () => {
   } else {
     console.log('Not in iframe, running standalone');
   }
+});
+
+// Set up the page unload handler to ensure state is saved
+window.addEventListener('beforeunload', () => {
+  if (window.canvasApp) {
+    // Final save before unloading the page
+    window.canvasApp.saveToLocalStorage();
+  }
 }); 
