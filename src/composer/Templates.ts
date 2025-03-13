@@ -484,7 +484,28 @@ export const TEMPLATES: Record<string, SequenceTemplate> = {
       { name: "Weather Barrier", duration: 2, tradeId: "roofing", crewSize: 3, dependsOnPrevious: false },
       { name: "Testing and Inspection", duration: 2, tradeId: "management", crewSize: 2, dependsOnPrevious: true }
     ]
-  }
+  },
+  
+  // Add new Substation Build-Out Sequence template
+  substation_build: {
+    name: "Substation Build-Out Sequence",
+    description: "Specialized work sequence for electrical substation construction",
+    aliases: ["substation", "electrical substation", "power substation", "utility substation", "electricity substation", "substationsequence"],
+    tasks: [
+      { name: "Site Preparation & Grading", duration: 5, tradeId: "demolition", crewSize: 4, dependsOnPrevious: false },
+      { name: "Foundation & Civil Works", duration: 7, tradeId: "concrete", crewSize: 6, dependsOnPrevious: true },
+      { name: "Ground Grid & Conduit Installation", duration: 6, tradeId: "electrical", crewSize: 5, dependsOnPrevious: true },
+      { name: "Structural Steel Erection", duration: 4, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Equipment Foundations", duration: 5, tradeId: "concrete", crewSize: 5, dependsOnPrevious: true },
+      { name: "Major Equipment Installation", duration: 8, tradeId: "electrical", crewSize: 8, dependsOnPrevious: true },
+      { name: "Control Building Construction", duration: 10, tradeId: "framing", crewSize: 6, dependsOnPrevious: false },
+      { name: "Electrical Rough-In", duration: 7, tradeId: "electrical", crewSize: 7, dependsOnPrevious: true },
+      { name: "Control & Protection Systems Installation", duration: 6, tradeId: "electrical", crewSize: 5, dependsOnPrevious: true },
+      { name: "Electrical Wiring & Connections", duration: 8, tradeId: "electrical", crewSize: 8, dependsOnPrevious: true },
+      { name: "Testing & Commissioning", duration: 5, tradeId: "electrical", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Inspection & Punch List", duration: 3, tradeId: "management", crewSize: 3, dependsOnPrevious: true }
+    ]
+  },
 };
 
 /**
