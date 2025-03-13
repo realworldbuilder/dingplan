@@ -625,6 +625,14 @@ YOUR CAPABILITIES:
 4. Make high-level plan adjustments and optimizations
 5. Provide expert guidance on construction planning
 
+SWIMLANE/ZONE IMPORTANCE:
+Swimlanes (also called zones) are the fundamental organizational structure for all tasks in a plan. They represent physical areas or logical divisions of work (e.g., building sections, phases, or work breakdown structure).
+- Every task MUST be assigned to a swimlane
+- Current swimlanes are named 'zone1', 'zone2', 'zone3' internally
+- When creating tasks or sequences, always specify a swimlane using the swimlaneId parameter
+- If a user mentions a specific area or section, try to match it to an appropriate swimlane
+- If no swimlane is mentioned, intelligently place tasks in appropriate swimlanes or use 'zone1' as default
+
 TEMPLATES:
 The app has predefined commercial construction sequence templates representing typical construction phases. Use createFromTemplate with these templates: ${availableTemplates.join(", ")}
 
@@ -634,6 +642,7 @@ You can help users organize their project by:
 - Updating existing swimlane properties with updateSwimlane
 - Reordering swimlanes with reorderSwimlanes
 - Suggesting logical organization of project elements into swimlanes
+- Always use the swimlaneId parameter with values like 'zone1', 'zone2', 'zone3' or newly created IDs
 
 PLAN ADJUSTMENTS:
 You can help optimize construction plans through:
@@ -891,6 +900,35 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const exactNameMatch = swimlanes.find(lane => lane.name.toLowerCase() === normalizedInput);
       if (exactNameMatch) return exactNameMatch.id;
       
+      // Handle common zone naming patterns
+      if (normalizedInput.includes('zone') || normalizedInput.includes('area') || normalizedInput.includes('section')) {
+        // Extract numbers from input
+        const numbers = normalizedInput.match(/\d+/);
+        if (numbers && numbers.length > 0) {
+          const zoneNumber = numbers[0];
+          const potentialZoneId = `zone${zoneNumber}`;
+          
+          // Check if this zone exists
+          const zoneMatch = swimlanes.find(lane => lane.id.toLowerCase() === potentialZoneId.toLowerCase());
+          if (zoneMatch) return zoneMatch.id;
+        }
+      }
+      
+      // Handle swimlane references
+      if (normalizedInput.includes('swimlane')) {
+        // Extract numbers from input
+        const numbers = normalizedInput.match(/\d+/);
+        if (numbers && numbers.length > 0) {
+          const laneNumber = numbers[0];
+          // Convert to zone format
+          const potentialZoneId = `zone${laneNumber}`;
+          
+          // Check if this zone exists
+          const zoneMatch = swimlanes.find(lane => lane.id.toLowerCase() === potentialZoneId.toLowerCase());
+          if (zoneMatch) return zoneMatch.id;
+        }
+      }
+      
       // Try partial matches on ID
       const partialIdMatch = swimlanes.find(lane => lane.id.toLowerCase().includes(normalizedInput) || 
                                                normalizedInput.includes(lane.id.toLowerCase()));
@@ -914,12 +952,18 @@ Always strive to be both helpful and educational, balancing efficient task execu
             (normalizedInput.includes('structure') && (laneNameLower.includes('structure') || laneIdLower.includes('structure'))) ||
             (normalizedInput.includes('interior') && (laneNameLower.includes('interior') || laneIdLower.includes('interior'))) ||
             (normalizedInput.includes('exterior') && (laneNameLower.includes('exterior') || laneIdLower.includes('exterior'))) ||
-            (normalizedInput.includes('finish') && (laneNameLower.includes('finish') || laneIdLower.includes('finish')))) {
+            (normalizedInput.includes('finish') && (laneNameLower.includes('finish') || laneIdLower.includes('finish'))) ||
+            (normalizedInput.includes('floor') && (laneNameLower.includes('floor') || laneIdLower.includes('floor'))) ||
+            (normalizedInput.includes('section') && (laneNameLower.includes('section') || laneIdLower.includes('section'))) ||
+            (normalizedInput.includes('phase') && (laneNameLower.includes('phase') || laneIdLower.includes('phase'))) ||
+            (normalizedInput.includes('wing') && (laneNameLower.includes('wing') || laneIdLower.includes('wing'))) ||
+            (normalizedInput.includes('building') && (laneNameLower.includes('building') || laneIdLower.includes('building')))) {
           return lane.id;
         }
       }
       
       // If no match found, return the first swimlane as fallback
+      this.debug(`No swimlane match found for "${swimlaneNameOrId}", using first swimlane as fallback: ${swimlanes[0].id}`);
       return swimlanes[0].id;
     } catch (error) {
       this.debug(`Error finding matching swimlane: ${error}`);
@@ -927,6 +971,98 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
 
+  // New method to suggest swimlanes based on task context
+  private suggestSwimlane(taskName: string, tradeId?: string): string {
+    try {
+      // First, get all available swimlanes
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      if (!swimlanes || swimlanes.length === 0) {
+        return 'zone1'; // Default fallback
+      }
+      
+      // Normalize task name for analysis
+      const normalizedTaskName = taskName.toLowerCase();
+      
+      // Check if task name contains any location hints
+      const locationKeywords = {
+        'zone1': ['main', 'primary', 'central', 'core', 'first area', 'area 1', 'section 1', 'phase 1'],
+        'zone2': ['secondary', 'second area', 'area 2', 'section 2', 'phase 2', 'support', 'auxiliary'],
+        'zone3': ['tertiary', 'third area', 'area 3', 'section 3', 'phase 3', 'exterior', 'outdoor']
+      };
+      
+      // Check for building components that are typically in specific zones
+      const buildingComponents = {
+        'zone1': ['foundation', 'basement', 'ground floor', 'structural', 'core', 'lobby'],
+        'zone2': ['interior', 'floor', 'wall', 'ceiling', 'mechanical', 'electrical', 'plumbing', 'hvac'],
+        'zone3': ['roof', 'facade', 'landscape', 'parking', 'exterior', 'finishing', 'site work']
+      };
+      
+      // Trade-based suggestions
+      const tradeSuggestions: {[key: string]: string} = {
+        'concrete': 'zone1',
+        'foundation': 'zone1',
+        'structural': 'zone1',
+        'framing': 'zone1',
+        'steel': 'zone1',
+        'demolition': 'zone1',
+        'plumbing': 'zone2',
+        'electrical': 'zone2',
+        'mechanical': 'zone2',
+        'hvac': 'zone2',
+        'drywall': 'zone2',
+        'interior': 'zone2',
+        'roofing': 'zone3',
+        'landscape': 'zone3',
+        'painting': 'zone2',
+        'finishing': 'zone3',
+        'siding': 'zone3',
+        'exterior': 'zone3',
+        'management': 'zone1'
+      };
+      
+      // Check location keywords first
+      for (const [zoneId, keywords] of Object.entries(locationKeywords)) {
+        for (const keyword of keywords) {
+          if (normalizedTaskName.includes(keyword)) {
+            return zoneId;
+          }
+        }
+      }
+      
+      // Check building components
+      for (const [zoneId, components] of Object.entries(buildingComponents)) {
+        for (const component of components) {
+          if (normalizedTaskName.includes(component)) {
+            return zoneId;
+          }
+        }
+      }
+      
+      // Check trade-based suggestions if tradeId is provided
+      if (tradeId && tradeSuggestions[tradeId]) {
+        return tradeSuggestions[tradeId];
+      }
+      
+      // Look at existing tasks to see if there are patterns
+      let mostPopulatedZone = swimlanes[0].id;
+      let maxTasks = 0;
+      
+      for (const swimlane of swimlanes) {
+        if (swimlane.tasks.length > maxTasks) {
+          maxTasks = swimlane.tasks.length;
+          mostPopulatedZone = swimlane.id;
+        }
+      }
+      
+      // Fallback to most populated zone or zone1
+      return maxTasks > 0 ? mostPopulatedZone : 'zone1';
+    } catch (error) {
+      this.debug(`Error suggesting swimlane: ${error}`);
+      return 'zone1'; // Default fallback
+    }
+  }
+
+  // Update the createTask method to use the suggestSwimlane function
   createTask(args: any): string {
     try {
       this.debug('Creating task', args);
@@ -983,7 +1119,17 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const taskId = crypto.randomUUID();
       
       // Determine the swimlane ID with intelligent matching
-      let swimlaneId = args.swimlaneId ? this.findBestMatchingSwimlane(args.swimlaneId) : 'zone1';
+      let swimlaneId;
+      if (args.swimlaneId) {
+        // User explicitly specified a swimlane
+        swimlaneId = this.findBestMatchingSwimlane(args.swimlaneId);
+      } else {
+        // No swimlane specified, use our suggestion logic
+        swimlaneId = this.suggestSwimlane(args.name, args.tradeId);
+        this.debug(`Suggested swimlane based on task context: ${swimlaneId}`);
+      }
+      
+      // Final fallback
       if (!swimlaneId) {
         swimlaneId = 'zone1'; // Default fallback
       }
@@ -1052,6 +1198,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
 
       const taskIds: string[] = [];
+      // Keep track of which tasks go to which swimlanes
+      const swimlaneAssignments: {[key: string]: number} = {};
 
       for (const taskData of args.tasks) {
         // Parse start date or use current date
@@ -1064,12 +1212,31 @@ Always strive to be both helpful and educational, balancing efficient task execu
         const id = this.generateUUID();
         taskIds.push(id);
         
-        // Use intelligent swimlane matching
+        // Use intelligent swimlane matching or suggestion
+        let swimlaneId;
         const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
-        const swimlaneId = requestedSwimlaneId ? 
-          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'zone1';
+        
+        if (requestedSwimlaneId) {
+          // User specified a swimlane
+          swimlaneId = this.findBestMatchingSwimlane(requestedSwimlaneId);
+        } else {
+          // Use our suggestion logic based on task context
+          swimlaneId = this.suggestSwimlane(taskData.name, taskData.tradeId);
+        }
+        
+        // Fallback if needed
+        if (!swimlaneId) {
+          swimlaneId = 'zone1';
+        }
           
-        this.debug(`Creating task "${taskData.name}" in ${swimlaneId} (requested: ${requestedSwimlaneId || 'default'})`);
+        this.debug(`Creating task "${taskData.name}" in ${swimlaneId} (requested: ${requestedSwimlaneId || 'auto-suggested'})`);
+        
+        // Track assignments
+        if (!swimlaneAssignments[swimlaneId]) {
+          swimlaneAssignments[swimlaneId] = 1;
+        } else {
+          swimlaneAssignments[swimlaneId]++;
+        }
 
         // Create the task in the specified swimlane
         const fullTaskData = {
@@ -1093,8 +1260,15 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const taskDetails = args.tasks.map((taskData: any, index: number) => {
         // Use intelligent swimlane matching for each task
         const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
-        const swimlaneId = requestedSwimlaneId ? 
-          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'zone1';
+        let swimlaneId;
+        
+        if (requestedSwimlaneId) {
+          swimlaneId = this.findBestMatchingSwimlane(requestedSwimlaneId);
+        } else {
+          swimlaneId = this.suggestSwimlane(taskData.name, taskData.tradeId);
+        }
+        
+        if (!swimlaneId) swimlaneId = 'zone1';
           
         const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
         const swimlaneName = swimlane ? swimlane.name : swimlaneId;
@@ -1106,7 +1280,15 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return `${index + 1}. "${taskData.name}" in ${swimlaneName} starting on ${startDateInfo}`;
       }).join('\n');
       
-      return `Created ${args.tasks.length} tasks:\n${taskDetails}\n\nIf you don't see them, try scrolling to their dates or checking if any trade filters are active.`;
+      // Add swimlane distribution info
+      const swimlaneDistribution = Object.entries(swimlaneAssignments)
+        .map(([id, count]) => {
+          const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === id);
+          return `${swimlane ? swimlane.name : id}: ${count} tasks`;
+        })
+        .join(', ');
+      
+      return `Created ${args.tasks.length} tasks across swimlanes (${swimlaneDistribution}):\n${taskDetails}\n\nIf you don't see them, try scrolling to their dates or checking if any trade filters are active.`;
     } catch (error: unknown) {
       return this.handleError('creating multiple tasks', error);
     }
@@ -1117,13 +1299,23 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const { sequenceName, startDate, location, tasks } = args;
       let { swimlaneId } = args;
       
-      // Use intelligent swimlane matching
-      swimlaneId = swimlaneId ? this.findBestMatchingSwimlane(swimlaneId) : 'zone1';
+      // Determine the best swimlane based on the sequence name if not specified
+      if (!swimlaneId) {
+        // No swimlane provided, try to suggest based on sequence name
+        swimlaneId = this.suggestSwimlane(sequenceName || "Task Sequence", 
+          // Look at trades of first few tasks if available
+          tasks && tasks.length > 0 ? tasks[0].tradeId : undefined);
+        this.debug(`Auto-suggested swimlane for sequence "${sequenceName}": ${swimlaneId}`);
+      } else {
+        // Use intelligent swimlane matching for provided ID
+        swimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+        this.debug(`Matched swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
+      }
+      
+      // Final fallback
       if (!swimlaneId) {
         swimlaneId = 'zone1'; // Default fallback
         this.debug(`No matching swimlane found, using default: ${swimlaneId}`);
-      } else {
-        this.debug(`Resolved swimlane "${args.swimlaneId}" to "${swimlaneId}"`);
       }
       
       if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
@@ -1142,6 +1334,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       // Create each task in sequence with appropriate dependencies
       let previousTaskId: string | null = null;
+      const createdTasks: any[] = [];
       
       for (const [index, taskInfo] of tasks.entries()) {
         // Deep copy to avoid modifying the original template
@@ -1178,6 +1371,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         // Create the task
         this.debug(`Creating task "${taskData.name}" in ${swimlaneId}`);
         const task = this.canvas.taskManager.addTask(taskData, swimlaneId);
+        createdTasks.push(task);
         
         // Store the task ID to use for dependencies
         previousTaskId = task.id;
@@ -1186,11 +1380,22 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Force a canvas render to update the view
       this.canvas.render();
       
+      // Create a detailed summary of what was created
+      const taskSummary = createdTasks.length > 0 
+        ? `\n\nTasks include: ${createdTasks.slice(0, 3).map(t => t.name).join(", ")}${createdTasks.length > 3 ? `, and ${createdTasks.length - 3} more` : ""}`
+        : "";
+      
+      // Find the swimlane name for better feedback
+      const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
+      const swimlaneName = swimlane ? swimlane.name : swimlaneId;
+      
       // Update user feedback to show both the requested and matched swimlane names
       if (args.swimlaneId && args.swimlaneId !== swimlaneId) {
-        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in "${swimlaneId}" (matched from your request for "${args.swimlaneId}")`;
+        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in "${swimlaneName}" (matched from your request for "${args.swimlaneId}")${taskSummary}`;
+      } else if (!args.swimlaneId) {
+        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in "${swimlaneName}" (auto-selected based on sequence content)${taskSummary}`;
       } else {
-        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in ${swimlaneId}`;
+        return `Created ${tasks.length} tasks in the "${sequenceName}"${locationInfo} sequence in ${swimlaneName}${taskSummary}`;
       }
     } catch (error: unknown) {
       return this.handleError('creating task sequence', error);
@@ -1288,23 +1493,64 @@ Always strive to be both helpful and educational, balancing efficient task execu
       return `Template "${templateName}" not found. Available templates: ${getTemplateNames().join(", ")}`;
     }
     
-    // Create a wrapper sequence for the template
-    const sequenceArgs = {
-      sequenceName: template.name,
-      startDate: startDate || new Date(),
-      location,
-      swimlaneId: swimlaneId || 'zone1',
-      scaleFactor,
-      inAllSwimlanes
-    };
+    // For certain templates, suggest an appropriate swimlane if none was specified
+    if (!swimlaneId) {
+      swimlaneId = this.suggestSwimlane(template.name, 
+        // Use the first task's trade if available for better matching
+        template.tasks.length > 0 ? template.tasks[0].tradeId : undefined);
+      this.debug(`Auto-suggested swimlane for template "${template.name}": ${swimlaneId}`);
+    } else {
+      // Match the provided swimlane ID
+      swimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+    }
     
-    // Create the sequence with the template
-    const result = this.createTaskSequence(sequenceArgs);
+    // Final fallback
+    if (!swimlaneId) {
+      swimlaneId = 'zone1';
+    }
     
-    // Add helpful follow-up suggestions
-    const followupSuggestion = `\n\nNext steps: Consider ${this.getRecommendedNextTemplate(templateName)} to continue building your sequence.`;
-    
-    return result + followupSuggestion;
+    if (inAllSwimlanes) {
+      // Check if we have swimlanes to work with
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      if (!swimlanes || swimlanes.length === 0) {
+        return "No swimlanes found to create template in.";
+      }
+      
+      // Create the template in each swimlane
+      const results: string[] = [];
+      for (const swimlane of swimlanes) {
+        const sequenceArgs = {
+          sequenceName: `${template.name} - ${swimlane.name}`,
+          startDate: startDate || new Date(),
+          location,
+          swimlaneId: swimlane.id,
+          scaleFactor
+        };
+        
+        // Create the sequence with the template
+        const result = this.createTaskSequence(sequenceArgs);
+        results.push(result);
+      }
+      
+      return `Created ${template.name} in all swimlanes:\n${results.join('\n')}`;
+    } else {
+      // Create a wrapper sequence for the template
+      const sequenceArgs = {
+        sequenceName: template.name,
+        startDate: startDate || new Date(),
+        location,
+        swimlaneId,
+        scaleFactor
+      };
+      
+      // Create the sequence with the template
+      const result = this.createTaskSequence(sequenceArgs);
+      
+      // Add helpful follow-up suggestions
+      const followupSuggestion = `\n\nNext steps: Consider ${this.getRecommendedNextTemplate(templateName)} to continue building your sequence.`;
+      
+      return result + followupSuggestion;
+    }
   }
   
   // Helper method to get a recommended next template based on the current template
