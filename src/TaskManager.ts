@@ -51,9 +51,9 @@ export class TaskManager {
     this.tasks = [];
     
     // Initialize with default swimlanes - keeping these
-    this.addSwimlane("zone1", "ZONE 1", "#4338ca");
-    this.addSwimlane("zone2", "ZONE 2", "#0891b2");
-    this.addSwimlane("zone3", "ZONE 3", "#059669");
+    this.addSwimlane("swimlane1", "SWIMLANE 1", "#4338ca");
+    this.addSwimlane("swimlane2", "SWIMLANE 2", "#0891b2");
+    this.addSwimlane("swimlane3", "SWIMLANE 3", "#059669");
 
     // Add keyboard listener for mode switching and shortcuts
     document.addEventListener('keydown', (e) => {
@@ -113,7 +113,7 @@ export class TaskManager {
     return this.selectedTasks.size > 0;
   }
 
-  addTask(config: TaskConfig, swimlaneId: string = "zone1"): Task {
+  addTask(config: TaskConfig, swimlaneId: string = "swimlane1"): Task {
     // Find the swimlane
     const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
     if (!swimlane) {
@@ -1520,12 +1520,6 @@ export class TaskManager {
   exportState(): any {
     // Export swimlanes with their tasks
     const exportedSwimlanes = this.swimlanes.map(swimlane => {
-      // Get task positions for this swimlane
-      const taskPositions: Record<string, { x: number, y: number }> = {};
-      swimlane.taskPositions.forEach((position, taskId) => {
-        taskPositions[taskId] = { ...position };
-      });
-      
       return {
         id: swimlane.id,
         name: swimlane.name,
@@ -1559,7 +1553,8 @@ export class TaskManager {
     this.swimlanes.forEach(swimlane => {
       swimlane.taskPositions.forEach((position, taskId) => {
         exportedTaskPositions[taskId] = { 
-          ...position,
+          x: position.x,
+          y: position.y,
           swimlaneId: swimlane.id
         };
       });
@@ -1600,10 +1595,16 @@ export class TaskManager {
       const tasks: Task[] = [];
       if (state.tasks && Array.isArray(state.tasks)) {
         state.tasks.forEach((taskData: any) => {
+          // Convert date string to Date object if needed
+          let startDate = taskData.startDate;
+          if (typeof startDate === 'string') {
+            startDate = new Date(startDate);
+          }
+          
           const task = new Task({
             id: taskData.id,
             name: taskData.name,
-            startDate: taskData.startDate,
+            startDate: startDate,
             duration: taskData.duration,
             crewSize: taskData.crewSize,
             color: taskData.color,
@@ -1627,7 +1628,7 @@ export class TaskManager {
             id: swimlaneData.id,
             name: swimlaneData.name,
             y: swimlaneData.y,
-            height: swimlaneData.height,
+            height: swimlaneData.height || this.SWIMLANE_HEIGHT,
             color: swimlaneData.color,
             tasks: [],
             taskPositions: new Map(),
@@ -1648,13 +1649,25 @@ export class TaskManager {
         });
       }
       
+      // If no swimlanes were loaded, add default ones
+      if (this.swimlanes.length === 0) {
+        this.addSwimlane("swimlane1", "SWIMLANE 1", "#4338ca");
+        this.addSwimlane("swimlane2", "SWIMLANE 2", "#0891b2");
+        this.addSwimlane("swimlane3", "SWIMLANE 3", "#059669");
+      }
+      
       // Restore task positions
       if (state.taskPositions && typeof state.taskPositions === 'object') {
         Object.entries(state.taskPositions).forEach(([taskId, posData]: [string, any]) => {
           // Find the swimlane for this task
-          const swimlane = this.swimlanes.find(s => s.id === posData.swimlaneId);
+          const swimlaneId = posData.swimlaneId;
+          const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
+          
           if (swimlane) {
-            swimlane.taskPositions.set(taskId, { x: posData.x, y: posData.y });
+            swimlane.taskPositions.set(taskId, { 
+              x: typeof posData.x === 'number' ? posData.x : 0, 
+              y: typeof posData.y === 'number' ? posData.y : 0 
+            });
           }
         });
       }

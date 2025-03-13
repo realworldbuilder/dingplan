@@ -202,9 +202,9 @@ class Composer {
               type: "number",
               description: "Scale factor to apply to standard durations (e.g., 1.5 makes everything take 50% longer)"
             },
-            inAllZones: {
+            inAllSwimlanes: {
               type: "boolean",
-              description: "Whether to create the template in all zones/swimlanes"
+              description: "Whether to create the template in all swimlanes"
             }
           },
           required: ["templateName"]
@@ -392,9 +392,9 @@ class Composer {
         }
         
         // Check if "zones" or "each zone" is in the request
-        const inAllZones = userInput.toLowerCase().includes('all zone') || 
-                           userInput.toLowerCase().includes('each zone') ||
-                           userInput.toLowerCase().includes('every zone');
+        const inAllSwimlanes = userInput.toLowerCase().includes('all swimlane') || 
+                           userInput.toLowerCase().includes('each swimlane') ||
+                           userInput.toLowerCase().includes('every swimlane');
         
         // If we found potential template words, try direct template matching
         if (templateWords.length > 0) {
@@ -410,7 +410,7 @@ class Composer {
               // We found a direct match! Use it.
               return this.createFromTemplate({
                 templateName: matches[0],
-                inAllZones: inAllZones
+                inAllSwimlanes: inAllSwimlanes
               });
             }
           }
@@ -1013,7 +1013,7 @@ I can understand various date expressions. You can use phrases like "today", "to
 
   private createFromTemplate(args: any): string {
     try {
-      const { templateName, startDate, location, swimlaneId, scaleFactor, inAllZones } = args;
+      const { templateName, startDate, location, swimlaneId, scaleFactor, inAllSwimlanes } = args;
       
       if (!templateName) {
         this.debug('No template name provided');
@@ -1084,7 +1084,7 @@ I can understand various date expressions. You can use phrases like "today", "to
   
   // Helper method to create the actual template sequence
   private createTemplateSequence(args: any, templateName: string): string {
-    const { startDate, location, swimlaneId, scaleFactor, inAllZones } = args;
+    const { startDate, location, swimlaneId, scaleFactor, inAllSwimlanes } = args;
     const template = getTemplate(templateName);
     
     if (!template) {
@@ -1106,29 +1106,29 @@ I can understand various date expressions. You can use phrases like "today", "to
     }));
     
     // Add special handling for "to each zone" or "in all zones" in the request
-    if (inAllZones === true || templateName.toLowerCase().includes("each zone") || 
-        templateName.toLowerCase().includes("all zone")) {
+    if (inAllSwimlanes === true || templateName.toLowerCase().includes("each swimlane") || 
+        templateName.toLowerCase().includes("all swimlanes")) {
       
-      this.debug("User requested template in all zones");
+      this.debug("User requested template in all swimlanes");
       
       try {
         const swimlanes = this.getSwimlaneIds();
         let tasksCreated = 0;
         
-        this.debug(`Creating template in all zones: ${swimlanes.join(', ')}`);
+        this.debug(`Creating template in all swimlanes: ${swimlanes.join(', ')}`);
         
-        for (const zoneId of swimlanes) {
+        for (const swimlaneId of swimlanes) {
           const sequenceArgs = {
             sequenceName,
             startDate,
             location,
-            swimlaneId: zoneId,
+            swimlaneId: swimlaneId,
             tasks: [...formattedTasks] // Make a copy to avoid issues
           };
           
           // Create the sequence in this swimlane
           const result = this.createTaskSequence(sequenceArgs);
-          this.debug(`Created sequence in ${zoneId}: ${result}`);
+          this.debug(`Created sequence in ${swimlaneId}: ${result}`);
           tasksCreated += formattedTasks.length;
         }
         
@@ -1136,9 +1136,9 @@ I can understand various date expressions. You can use phrases like "today", "to
         this.canvas.render();
         
         const locationInfo = location ? ` for ${location}` : '';
-        return `Created ${tasksCreated} tasks from "${template.name}"${locationInfo} template in all zones`;
+        return `Created ${tasksCreated} tasks from "${template.name}"${locationInfo} template in all swimlanes`;
       } catch (err) {
-        return this.handleError('creating in all zones', err);
+        return this.handleError('creating in all swimlanes', err);
       }
     } else {
       // Create in just one specified swimlane
@@ -1374,7 +1374,7 @@ I can understand various date expressions. You can use phrases like "today", "to
       return swimlanes.map(lane => lane.id);
     } catch (error) {
       console.error("Error getting swimlane IDs:", error);
-      return ['zone1', 'zone2', 'zone3']; // Fallback to default zones
+      return ['swimlane1', 'swimlane2', 'swimlane3']; // Fallback to default swimlanes
     }
   }
 
