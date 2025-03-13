@@ -975,7 +975,11 @@ I can understand various date expressions. You can use phrases like "today", "to
       
       // Get task details for better feedback
       const taskDetails = args.tasks.map((taskData: any, index: number) => {
-        const swimlaneId = taskData.swimlaneId || args.swimlaneId || 'zone1';
+        // Use intelligent swimlane matching for each task
+        const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
+        const swimlaneId = requestedSwimlaneId ? 
+          this.findBestMatchingSwimlane(requestedSwimlaneId) : 'swimlane1';
+          
         const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
         const swimlaneName = swimlane ? swimlane.name : swimlaneId;
         

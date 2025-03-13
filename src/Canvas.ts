@@ -1786,6 +1786,9 @@ export class Canvas {
       // Import task manager state
       this.taskManager.importState(state);
       
+      // Ensure all swimlane IDs are consistent
+      this.taskManager.renameSwimlanesIfNeeded();
+      
       // Restore camera position and zoom if available
       if (state.camera) {
         this.camera.x = state.camera.x || this.camera.x;

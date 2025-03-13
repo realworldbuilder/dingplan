@@ -1624,9 +1624,21 @@ export class TaskManager {
       // Recreate swimlanes
       if (state.swimlanes && Array.isArray(state.swimlanes)) {
         state.swimlanes.forEach((swimlaneData: any) => {
+          // Convert old 'zone' IDs to 'swimlane' IDs for consistency
+          let swimlaneId = swimlaneData.id;
+          if (swimlaneId.startsWith('zone')) {
+            swimlaneId = swimlaneId.replace('zone', 'swimlane');
+          }
+          
+          // Also update names from "ZONE" to "SWIMLANE"
+          let swimlaneName = swimlaneData.name;
+          if (swimlaneName.includes('ZONE')) {
+            swimlaneName = swimlaneName.replace('ZONE', 'SWIMLANE');
+          }
+          
           const swimlane: Swimlane = {
-            id: swimlaneData.id,
-            name: swimlaneData.name,
+            id: swimlaneId,
+            name: swimlaneName,
             y: swimlaneData.y,
             height: swimlaneData.height || this.SWIMLANE_HEIGHT,
             color: swimlaneData.color,
@@ -1660,7 +1672,13 @@ export class TaskManager {
       if (state.taskPositions && typeof state.taskPositions === 'object') {
         Object.entries(state.taskPositions).forEach(([taskId, posData]: [string, any]) => {
           // Find the swimlane for this task
-          const swimlaneId = posData.swimlaneId;
+          let swimlaneId = posData.swimlaneId;
+          
+          // Convert old 'zone' IDs to 'swimlane' IDs for consistency
+          if (swimlaneId && swimlaneId.startsWith('zone')) {
+            swimlaneId = swimlaneId.replace('zone', 'swimlane');
+          }
+          
           const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
           
           if (swimlane) {
@@ -1671,6 +1689,9 @@ export class TaskManager {
           }
         });
       }
+      
+      // Now ensure all swimlane IDs are updated for consistency
+      this.renameSwimlanesIfNeeded();
       
       // Restore trade filters
       this.tradeFilters.clear();
@@ -1692,6 +1713,52 @@ export class TaskManager {
       });
     } catch (error) {
       console.error('Error importing state:', error);
+    }
+  }
+
+  // Method to update old zone IDs to swimlane IDs for consistency
+  renameSwimlanesIfNeeded(): void {
+    // Check if we have old "zone" IDs and rename them
+    const swimlanesWithOldIds = this.swimlanes.filter(lane => 
+      lane.id.startsWith('zone'));
+    
+    if (swimlanesWithOldIds.length > 0) {
+      console.log('Converting old zone IDs to swimlane IDs for consistency');
+      
+      // Create a map of old ID to new ID
+      const idMapping: Record<string, string> = {};
+      
+      // Update the swimlane IDs
+      swimlanesWithOldIds.forEach(lane => {
+        const oldId = lane.id;
+        // Convert zone1 to swimlane1, etc.
+        const newId = oldId.replace('zone', 'swimlane');
+        idMapping[oldId] = newId;
+        
+        // Update the ID
+        lane.id = newId;
+        
+        // Also update the name if it contains "ZONE"
+        if (lane.name.includes('ZONE')) {
+          lane.name = lane.name.replace('ZONE', 'SWIMLANE');
+        }
+      });
+      
+      // For task positions in swimlanes, we also need to update any references
+      this.swimlanes.forEach(lane => {
+        // No need to do anything for task positions, they're keyed by task ID
+      });
+      
+      // Update any task references to swimlanes
+      this.tasks.forEach(task => {
+        // If the task has a swimlaneId property, update it
+        const taskAny = task as any;
+        if (taskAny.swimlaneId && idMapping[taskAny.swimlaneId]) {
+          taskAny.swimlaneId = idMapping[taskAny.swimlaneId];
+        }
+      });
+      
+      console.log('Swimlane IDs updated:', idMapping);
     }
   }
 }
