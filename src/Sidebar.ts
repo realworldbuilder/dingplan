@@ -546,10 +546,10 @@ export class Sidebar {
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="sidebar-task-zone">Zone</label>
+                  <label for="sidebar-task-zone">Swimlane</label>
                   <select id="sidebar-task-zone" name="zone" required>
-                    <option value="" disabled selected>Select a zone</option>
-                    <!-- Zone options will be populated dynamically -->
+                    <option value="" disabled selected>Select a swimlane</option>
+                    <!-- Swimlane options will be populated dynamically -->
                   </select>
                 </div>
                 <div class="form-group">
@@ -1574,7 +1574,7 @@ export class Sidebar {
 
     // Clear existing options
     tradeSelect.innerHTML = '<option value="" disabled selected>Select a trade</option>';
-    zoneSelect.innerHTML = '<option value="" disabled selected>Select a zone</option>';
+    zoneSelect.innerHTML = '<option value="" disabled selected>Select a swimlane</option>';
 
     // Add trade options
     this.trades.forEach(trade => {
