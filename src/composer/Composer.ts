@@ -1909,44 +1909,32 @@ Always strive to be both helpful and educational, balancing efficient task execu
           // If we matched something different from what the user asked for, let them know
           if (key !== templateName) {
             const matchedTemplate = getTemplate(key);
-            const introMsg = `I found a template that matches what you're looking for: "${matchedTemplate?.name}". `;
-            const taskInfo = `This template includes ${matchedTemplate?.tasks.length} tasks such as ${matchedTemplate?.tasks.slice(0,3).map(t => t.name).join(", ")}, and more. `;
-            const followupMsg = `\n\nAfter this, you might want to consider adding ${this.getRecommendedNextTemplate(key)}.`;
             
-            const result = this.createTemplateSequence(args, key);
-            return introMsg + taskInfo + result + followupMsg;
+            // Create template sequence and await the result
+            const result = await this.createTemplateSequence(args, key);
+            
+            // Return just the result - simplified 
+            return result;
           }
         } else if (possibleMatches.length > 1) {
           // Multiple matches - give the user options with descriptions
-          const options = possibleMatches.map((key: string) => {
-            const t = getTemplate(key);
-            return `- ${key}: ${t?.description} (${t?.tasks.length} tasks)`;
-          }).join('\n');
-          
-          return `I found multiple templates that could match what you're looking for. Could you please specify which one you'd like to use?\n\n${options}\n\nYou can say something like "Use the ${possibleMatches[0]} template" or ask for more details about any specific template.`;
+          const options = possibleMatches.join(", ");
+          return `I found multiple matches: ${options}. Which one would you like to use?`;
         }
       }
       
       if (!template) {
-        // No matches found - show available templates with categories
-        const categorizedTemplates = this.getCategorizedTemplates();
-        const templatesByCategory = Object.entries(categorizedTemplates)
-          .map(([category, templates]) => {
-            return `\n${category}:\n` + templates.map(t => `- ${t}`).join('\n');
-          }).join('\n');
-          
-        return `I couldn't find a template matching "${templateName}". Here are the available templates by category:${templatesByCategory}\n\nPlease try again with one of these templates or describe what you're trying to build in more detail.`;
+        // No matches found - show available templates
+        return `I couldn't find a template matching "${templateName}". Available templates: ${this.listTemplates()}`;
       }
       
       this.debug(`Using template: ${template.name} with ${template.tasks.length} tasks`);
       
-      // Create sequence with template
-      const result = this.createTemplateSequence(args, templateName);
+      // Create sequence with template - AWAIT THE RESULT
+      const result = await this.createTemplateSequence(args, templateName);
       
-      // Add helpful follow-up suggestions
-      const followupSuggestion = `\n\nNext steps: Consider ${this.getRecommendedNextTemplate(templateName)} to continue building your sequence.`;
-      
-      return `Created a ${template.name} sequence with ${template.tasks.length} tasks including ${template.tasks.slice(0,3).map(t => t.name).join(", ")}, and more.` + result + followupSuggestion;
+      // Return just the result - simplified
+      return result;
     } catch (error: unknown) {
       return this.handleError('creating from template', error);
     }
