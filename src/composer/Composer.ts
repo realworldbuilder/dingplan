@@ -1,5 +1,6 @@
 import { Canvas } from '../Canvas';
 import { getTemplate, getTemplateNames, findTemplateMatches, TEMPLATES } from './Templates';
+import { WBSTemplate, getWBSTemplate, getWBSTemplateIds, getWBSTemplateNames, findBestMatchingWBSTemplate, getAllWBSTemplates } from './WBSTemplates';
 import crypto from 'crypto';
 
 interface ComposerConfig {
@@ -381,6 +382,45 @@ class Composer {
           },
           required: ["action"]
         }
+      },
+      {
+        name: "listWBSTemplates",
+        description: "List available Work Breakdown Structure templates for construction projects",
+        parameters: {
+          type: "object",
+          properties: {
+            projectType: { type: "string", description: "Optional project type to filter templates (e.g., 'commercial', 'residential', 'industrial')" }
+          },
+          required: []
+        }
+      },
+      {
+        name: "applyWBSTemplate",
+        description: "Apply a Work Breakdown Structure template to create swimlanes for a construction project",
+        parameters: {
+          type: "object",
+          properties: {
+            templateId: { type: "string", description: "ID of the WBS template to apply, or a project type to find a matching template" },
+            clearExisting: { type: "boolean", description: "Whether to clear existing swimlanes before applying the template (default: false)" },
+            customNames: { type: "array", items: { type: "string" }, description: "Optional custom names to override the default category names" }
+          },
+          required: ["templateId"]
+        }
+      },
+      {
+        name: "customizeSwimlaneTemplate",
+        description: "Customize swimlanes by adding, removing, or reordering categories",
+        parameters: {
+          type: "object",
+          properties: {
+            action: { type: "string", description: "Action to perform: 'add', 'remove', 'rename', or 'reorder'" },
+            category: { type: "string", description: "For add/remove/rename: The category name to act upon" },
+            newName: { type: "string", description: "For rename: The new name for the category" },
+            position: { type: "number", description: "For add: Position to insert (0-based index, -1 for end)" },
+            newOrder: { type: "array", items: { type: "string" }, description: "For reorder: New order of category names" }
+          },
+          required: ["action"]
+        }
       }
     ];
   }
@@ -610,6 +650,7 @@ class Composer {
       
       // Get available templates for the prompt
       const availableTemplates = getTemplateNames();
+      const wbsTemplates = getWBSTemplateNames();
       
       const requestBody = {
         model: this.model,
@@ -628,10 +669,19 @@ YOUR CAPABILITIES:
 SWIMLANE/ZONE IMPORTANCE:
 Swimlanes (also called zones) are the fundamental organizational structure for all tasks in a plan. They represent physical areas or logical divisions of work (e.g., building sections, phases, or work breakdown structure).
 - Every task MUST be assigned to a swimlane
-- Current swimlanes are named 'zone1', 'zone2', 'zone3' internally
+- Current swimlanes are named 'zone1', 'zone2', 'zone3' internally by default
 - When creating tasks or sequences, always specify a swimlane using the swimlaneId parameter
 - If a user mentions a specific area or section, try to match it to an appropriate swimlane
 - If no swimlane is mentioned, intelligently place tasks in appropriate swimlanes or use 'zone1' as default
+
+WORK BREAKDOWN STRUCTURE (WBS) TEMPLATES:
+The app now supports industry-standard Work Breakdown Structure templates that can be used to organize swimlanes according to construction best practices. Available templates include: ${wbsTemplates.join(", ")}.
+- Use listWBSTemplates to show available WBS templates
+- Use applyWBSTemplate to create swimlanes based on a specific WBS template
+- Use customizeSwimlaneTemplate to customize the swimlanes to match project-specific needs
+- Proactively suggest appropriate WBS templates based on the type of project the user is discussing
+
+When users are starting a new project, recommend they begin by applying an appropriate WBS template to organize their swimlanes according to industry standards.
 
 TEMPLATES:
 The app has predefined commercial construction sequence templates representing typical construction phases. Use createFromTemplate with these templates: ${availableTemplates.join(", ")}
@@ -741,6 +791,12 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return this.reorderSwimlanes(args);
       case "adjustPlan":
         return this.adjustPlan(args);
+      case "listWBSTemplates":
+        return this.listWBSTemplates(args);
+      case "applyWBSTemplate":
+        return this.applyWBSTemplate(args);
+      case "customizeSwimlaneTemplate":
+        return this.customizeSwimlaneTemplate(args);
       default:
         return `Unknown function: ${name}`;
     }
@@ -2026,6 +2082,294 @@ Always strive to be both helpful and educational, balancing efficient task execu
       return "Adjustment completed.";
     } catch (error) {
       return this.handleError("adjusting plan", error);
+    }
+  }
+
+  /**
+   * List available WBS templates
+   */
+  private listWBSTemplates(args: any): string {
+    try {
+      const wbsTemplates = getAllWBSTemplates();
+      const projectType = args.projectType?.toLowerCase();
+      
+      // If project type specified, filter templates
+      let templates = wbsTemplates;
+      if (projectType) {
+        templates = wbsTemplates.filter(template => 
+          template.projectTypes.some(type => type.toLowerCase().includes(projectType) || 
+                                            projectType.includes(type.toLowerCase()))
+        );
+      }
+      
+      if (templates.length === 0) {
+        if (projectType) {
+          return `No WBS templates found for "${projectType}". Available templates include: ${getWBSTemplateNames().join(", ")}`;
+        } else {
+          return "No WBS templates found.";
+        }
+      }
+      
+      // Format the response
+      let response = projectType 
+        ? `Available WBS templates for "${projectType}" projects:\n\n` 
+        : "Available Work Breakdown Structure templates:\n\n";
+      
+      templates.forEach(template => {
+        response += `- ${template.name} (ID: ${template.id})\n  ${template.description}\n  Categories: ${template.categories.length}\n\n`;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error("Error listing WBS templates:", error);
+      return "Failed to list WBS templates due to an error.";
+    }
+  }
+  
+  /**
+   * Apply a WBS template to create swimlanes
+   */
+  async applyWBSTemplate(args: any): Promise<string> {
+    try {
+      const templateIdOrType = args.templateId;
+      const clearExisting = args.clearExisting === true;
+      const customNames = args.customNames || [];
+      
+      // Find the template
+      let template = getWBSTemplate(templateIdOrType);
+      
+      // If not found by ID, try to find by matching project type
+      if (!template) {
+        template = findBestMatchingWBSTemplate(templateIdOrType);
+      }
+      
+      if (!template) {
+        return `No WBS template found matching "${templateIdOrType}". Use listWBSTemplates to see available templates.`;
+      }
+      
+      // Clear existing swimlanes if requested
+      if (clearExisting) {
+        // Get existing swimlanes and remove them
+        const swimlanes = this.canvas.taskManager.swimlanes;
+        // Make a copy since we'll be modifying the array during iteration
+        const swimlanesToRemove = [...swimlanes];
+        swimlanesToRemove.forEach(swimlane => {
+          const index = this.canvas.taskManager.swimlanes.findIndex(s => s.id === swimlane.id);
+          if (index >= 0) {
+            this.canvas.taskManager.swimlanes.splice(index, 1);
+          }
+        });
+      }
+      
+      // Get existing swimlane IDs to avoid duplicates
+      const existingSwimlaneIds = this.canvas.taskManager.swimlanes.map(s => s.id);
+      
+      // Create swimlanes based on the template categories
+      const createdSwimlanes = [];
+      const categories = customNames.length > 0 && customNames.length === template.categories.length 
+        ? customNames 
+        : template.categories;
+      
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
+        // Create a safe ID from the category name
+        let baseId = category.toLowerCase()
+          .replace(/&/g, 'and')
+          .replace(/[^a-z0-9]+/g, '_')
+          .trim();
+        
+        // Ensure uniqueness
+        let id = baseId;
+        let counter = 1;
+        while (existingSwimlaneIds.includes(id)) {
+          id = `${baseId}_${counter}`;
+          counter++;
+        }
+        
+        // Add the swimlane - color parameter is required
+        const color = this.getRandomColor();
+        this.canvas.taskManager.addSwimlane(id, category, color);
+        createdSwimlanes.push({ id, name: category });
+      }
+      
+      return `Successfully applied the "${template.name}" WBS template. Created ${createdSwimlanes.length} swimlanes: ${createdSwimlanes.map(s => s.name).join(", ")}.`;
+    } catch (error) {
+      console.error("Error applying WBS template:", error);
+      return "Failed to apply WBS template due to an error.";
+    }
+  }
+  
+  /**
+   * Customize swimlane template by adding, removing, renaming, or reordering categories
+   */
+  async customizeSwimlaneTemplate(args: any): Promise<string> {
+    try {
+      const action = args.action?.toLowerCase();
+      const category = args.category;
+      const newName = args.newName;
+      const position = args.position !== undefined ? args.position : -1;
+      const newOrder = args.newOrder || [];
+      
+      // Get existing swimlanes
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      
+      switch (action) {
+        case 'add':
+          if (!category) {
+            return "Please provide a category name to add.";
+          }
+          
+          // Create a safe ID from the category name
+          let baseId = category.toLowerCase()
+            .replace(/&/g, 'and')
+            .replace(/[^a-z0-9]+/g, '_')
+            .trim();
+          
+          // Ensure uniqueness
+          let id = baseId;
+          let counter = 1;
+          const existingIds = swimlanes.map(s => s.id);
+          while (existingIds.includes(id)) {
+            id = `${baseId}_${counter}`;
+            counter++;
+          }
+          
+          // Add the swimlane - color parameter is required
+          const color = this.getRandomColor();
+          this.canvas.taskManager.addSwimlane(id, category, color);
+          
+          // If position specified, handle reordering manually
+          if (position >= 0 && position < swimlanes.length) {
+            // Get the current swimlanes after adding the new one
+            const currentSwimlanes = this.canvas.taskManager.swimlanes;
+            // Find the index of the newly added swimlane
+            const newIndex = currentSwimlanes.findIndex(s => s.id === id);
+            
+            if (newIndex >= 0 && newIndex !== position) {
+              // Create a copy of the swimlanes array
+              const reorderedSwimlanes = [...currentSwimlanes];
+              // Remove the swimlane from its current position
+              const [swimlane] = reorderedSwimlanes.splice(newIndex, 1);
+              // Insert it at the desired position
+              reorderedSwimlanes.splice(position, 0, swimlane);
+              
+              // Update all swimlane y positions
+              reorderedSwimlanes.forEach((s, i) => {
+                s.y = i * this.canvas.taskManager.SWIMLANE_HEIGHT;
+              });
+              
+              // Replace the swimlanes array
+              this.canvas.taskManager.swimlanes.length = 0;
+              reorderedSwimlanes.forEach(s => this.canvas.taskManager.swimlanes.push(s));
+              
+              // Render the canvas to show changes
+              this.canvas.render();
+            }
+            
+            return `Added category "${category}" at position ${position}.`;
+          }
+          
+          return `Added category "${category}" to the end of the swimlanes.`;
+          
+        case 'remove':
+          if (!category) {
+            return "Please provide a category name to remove.";
+          }
+          
+          // Find swimlane by name
+          const swimlaneToRemove = swimlanes.find(s => 
+            s.name.toLowerCase() === category.toLowerCase()
+          );
+          
+          if (!swimlaneToRemove) {
+            return `No swimlane found with the name "${category}".`;
+          }
+          
+          // Check if swimlane has tasks
+          const tasks = this.canvas.taskManager.tasks;
+          const tasksInSwimlane = tasks.filter(t => t.swimlaneId === swimlaneToRemove.id);
+          
+          if (tasksInSwimlane.length > 0) {
+            return `Cannot remove swimlane "${category}" as it contains ${tasksInSwimlane.length} tasks. Please move or delete these tasks first.`;
+          }
+          
+          // Remove the swimlane
+          const index = swimlanes.findIndex(s => s.id === swimlaneToRemove.id);
+          if (index >= 0) {
+            swimlanes.splice(index, 1);
+            // Recalculate Y positions for remaining swimlanes
+            swimlanes.forEach((swimlane, i) => {
+              swimlane.y = i * this.canvas.taskManager.SWIMLANE_HEIGHT;
+            });
+            this.canvas.render();
+          }
+          
+          return `Removed swimlane "${category}".`;
+          
+        case 'rename':
+          if (!category || !newName) {
+            return "Please provide both a category name to rename and a new name.";
+          }
+          
+          // Find swimlane by name
+          const swimlaneToRename = swimlanes.find(s => 
+            s.name.toLowerCase() === category.toLowerCase()
+          );
+          
+          if (!swimlaneToRename) {
+            return `No swimlane found with the name "${category}".`;
+          }
+          
+          // Update the swimlane directly since there's no updateSwimlane method
+          swimlaneToRename.name = newName;
+          this.canvas.render();
+          
+          return `Renamed swimlane from "${category}" to "${newName}".`;
+          
+        case 'reorder':
+          if (!newOrder || newOrder.length === 0) {
+            return "Please provide a new order for the swimlanes.";
+          }
+          
+          // Validate that all category names exist
+          const missingCategories = newOrder.filter(name => 
+            !swimlanes.some(s => s.name.toLowerCase() === name.toLowerCase())
+          );
+          
+          if (missingCategories.length > 0) {
+            return `The following categories do not exist: ${missingCategories.join(", ")}`;
+          }
+          
+          // Map category names to IDs
+          const reorderedSwimlanes = newOrder.map(name => {
+            return swimlanes.find(s => s.name.toLowerCase() === name.toLowerCase());
+          }).filter(s => s !== undefined) as any[];
+          
+          // Check if all swimlanes are included
+          if (reorderedSwimlanes.length !== swimlanes.length) {
+            return `New order must include all ${swimlanes.length} swimlanes, but only ${reorderedSwimlanes.length} were provided.`;
+          }
+          
+          // Update all swimlane y positions
+          reorderedSwimlanes.forEach((swimlane, i) => {
+            swimlane.y = i * this.canvas.taskManager.SWIMLANE_HEIGHT;
+          });
+          
+          // Replace the swimlanes array
+          this.canvas.taskManager.swimlanes.length = 0;
+          reorderedSwimlanes.forEach(s => this.canvas.taskManager.swimlanes.push(s));
+          
+          // Render the canvas to show changes
+          this.canvas.render();
+          
+          return `Reordered swimlanes to: ${newOrder.join(", ")}`;
+          
+        default:
+          return `Unsupported action: "${action}". Supported actions are "add", "remove", "rename", and "reorder".`;
+      }
+    } catch (error) {
+      console.error("Error customizing swimlane template:", error);
+      return "Failed to customize swimlane template due to an error.";
     }
   }
 }
