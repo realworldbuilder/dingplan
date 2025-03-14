@@ -1826,29 +1826,23 @@ Always strive to be both helpful and educational, balancing efficient task execu
           // Filter tasks to only those in the specified swimlane
           tasks = allTasks.filter(task => targetSwimlane.tasks.includes(task));
         } else {
-          return `Swimlane with ID ${args.swimlaneId} not found`;
+          return `Swimlane ${args.swimlaneId} not found`;
         }
       }
       
       if (tasks.length === 0) {
-        return "No tasks found matching your criteria.";
+        return "No tasks found";
       }
       
-      // Format the task list
+      // Format the task list with simple one-line items
       const taskList = tasks.map(task => {
-        const startDateStr = task.startDate.toLocaleDateString();
-        
-        // Find which swimlane this task belongs to
-        const swimlanes = this.canvas.taskManager.swimlanes;
-        const swimlane = swimlanes.find(lane => lane.tasks.includes(task));
-        const swimlaneInfo = swimlane ? swimlane.id : 'None';
-        
-        return `- ${task.name} (ID: ${task.id}): ${startDateStr}, ${task.duration} days, Trade: ${task.tradeId || 'None'}, Swimlane: ${swimlaneInfo}`;
+        const startDateStr = task.startDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+        return `• ${task.name} - ${startDateStr}, ${task.duration}d`;
       }).join('\n');
       
-      return `Found ${tasks.length} tasks:\n${taskList}`;
+      return `${tasks.length} tasks:\n${taskList}`;
     } catch (error: unknown) {
-      return this.handleError('listing tasks', error);
+      return "Error listing tasks";
     }
   }
 
@@ -1891,20 +1885,18 @@ Always strive to be both helpful and educational, balancing efficient task execu
 
   private listSwimlanes(): string {
     try {
-      this.debug('Listing swimlanes');
-      
       const swimlanes = this.canvas.taskManager.swimlanes;
       if (!swimlanes || swimlanes.length === 0) {
-        return "No swimlanes found in the plan.";
+        return "No swimlanes found";
       }
       
       const swimlaneList = swimlanes.map(lane => 
-        `- ${lane.name} (ID: ${lane.id}): ${lane.tasks.length} tasks`
+        `• ${lane.name} (${lane.tasks.length} tasks)`
       ).join('\n');
       
-      return `Available swimlanes/zones:\n${swimlaneList}`;
+      return `Swimlanes:\n${swimlaneList}`;
     } catch (error: unknown) {
-      return this.handleError('listing swimlanes', error);
+      return "Error listing swimlanes";
     }
   }
 
@@ -2191,39 +2183,33 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       if (templates.length === 0) {
         if (projectType) {
-          return `📋 No WBS templates found for "${projectType}".\n\n✨ Available templates include:\n\n${getWBSTemplateNames().map(name => `• ${name}`).join("\n")}`;
+          return `No templates for "${projectType}". Available templates:\n${getWBSTemplateNames().map(name => `• ${name}`).join("\n")}`;
         } else {
           return "No WBS templates found.";
         }
       }
       
-      // Format the response with better spacing and readability
+      // Format as a simple list
       let response = projectType 
-        ? `📋 Available WBS templates for "${projectType}" projects:\n\n` 
-        : "📋 Available Work Breakdown Structure templates:\n\n";
+        ? `Templates for "${projectType}":\n` 
+        : "Available templates:\n";
       
-      templates.forEach((template, index) => {
-        response += `${index + 1}. ${template.name} (ID: ${template.id})\n`;
-        response += `   Description: ${template.description}\n`;
-        response += `   Categories: ${template.categories.length}\n`;
-        response += `   Project Types: ${template.projectTypes.join(", ")}\n\n`;
+      templates.forEach((template) => {
+        response += `• ${template.name}\n`;
       });
       
-      // Add usage instructions
-      response += "───────────────────────────────────\n";
-      response += "To apply a template, type:\n";
-      response += "• \"Apply [template name] WBS template\"\n";
-      response += "• \"Apply WBS template for [project type]\"\n\n";
+      // Simple usage instructions
+      response += "\nTo apply: Type 'Apply [template name]'";
       
-      // For specialized domains without direct templates, offer alternatives
+      // Only add alternative suggestion if needed
       if (projectType && projectType.includes('data') && projectType.includes('center')) {
-        response += "📌 Note: While we don't have a specific Data Center template, the Industrial Facility template would be the closest match for data center projects.\n";
+        response += "\nTip: For data centers, try the Industrial Facility template";
       }
       
       return response;
     } catch (error) {
       console.error("Error listing WBS templates:", error);
-      return "Failed to list WBS templates due to an error.";
+      return "Failed to list templates. Please try again.";
     }
   }
   
@@ -2245,7 +2231,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
       
       if (!template) {
-        return `❌ No WBS template found matching "${templateIdOrType}".\n\n📋 Available templates include:\n\n${getWBSTemplateNames().map((name, index) => `${index + 1}. ${name}`).join("\n")}\n\n💡 Try one of these templates or type "list WBS templates" for more details.`;
+        return `No template found for "${templateIdOrType}".\nAvailable templates:\n${getWBSTemplateNames().map(name => `• ${name}`).join('\n')}`;
       }
       
       // Clear existing swimlanes if requested
@@ -2293,77 +2279,32 @@ Always strive to be both helpful and educational, balancing efficient task execu
         createdSwimlanes.push({ id, name: category });
       }
       
-      // Format a more detailed response with next steps
-      let response = `✅ Successfully applied the "${template.name}" WBS template.\n\n`;
-      response += `📊 Created ${createdSwimlanes.length} swimlanes:\n\n`;
+      // Format a simple response
+      let response = `Applied "${template.name}" template with ${createdSwimlanes.length} swimlanes.\n\n`;
       
-      // Show all swimlanes in a more organized format
-      let groupedSwimlanes = [];
-      for (let i = 0; i < createdSwimlanes.length; i++) {
-        const swimlane = createdSwimlanes[i];
-        if (i < 5) {
-          // Show first 5 in detail with emoji indicators for type
-          let emoji = '🏗️'; // Default construction emoji
-          const name = swimlane.name.toLowerCase();
-          
-          // Assign appropriate emojis based on swimlane name pattern matching
-          if (name.includes('planning') || name.includes('design')) emoji = '📝';
-          if (name.includes('foundation') || name.includes('ground')) emoji = '🏗️';
-          if (name.includes('structural') || name.includes('steel')) emoji = '🏢';
-          if (name.includes('mechanical') || name.includes('electrical') || name.includes('plumbing')) emoji = '⚡';
-          if (name.includes('interior') || name.includes('finish')) emoji = '🎨';
-          if (name.includes('exterior') || name.includes('facade')) emoji = '🏛️';
-          if (name.includes('test') || name.includes('commission')) emoji = '✅';
-          if (name.includes('roof')) emoji = '🏠';
-          if (name.includes('site')) emoji = '🌳';
-          
-          groupedSwimlanes.push(`${emoji}  ${swimlane.name}`);
-        } else if (i === 5) {
-          // Indicate there are more with a clear separator
-          groupedSwimlanes.push(`\n... and ${createdSwimlanes.length - 5} more swimlanes`);
-          break;
-        }
+      // List the first few swimlanes
+      for (let i = 0; i < Math.min(createdSwimlanes.length, 5); i++) {
+        response += `• ${createdSwimlanes[i].name}\n`;
       }
       
-      response += groupedSwimlanes.join('\n');
+      if (createdSwimlanes.length > 5) {
+        response += `• ...and ${createdSwimlanes.length - 5} more\n`;
+      }
       
-      // Add next steps guidance with better formatting
-      response += `\n\n📋 Next steps:\n`;
-      response += `──────────────────────────────\n`;
-      response += `1️⃣  Review the created swimlanes and customize if needed\n`;
-      response += `2️⃣  Start adding tasks to each swimlane using:\n`;
-      response += `   • "Add task [name] to [swimlane]"\n`;
-      response += `   • "Create task sequence for [work area]"\n`;
-      response += `3️⃣  Apply standard task templates for specific areas\n`;
+      // Simple next steps
+      response += "\nNext steps:\n";
+      response += "• Add tasks to swimlanes\n";
+      response += "• Create task sequences\n";
       
+      // Brief tip based on template type
       if (template.id === 'healthcare_facility') {
-        response += `\n🏥 Healthcare Facility Tips:\n`;
-        response += `──────────────────────────────\n`;
-        response += `• Create medical equipment installation sequence\n`;
-        response += `• Add MEP systems specific to medical areas\n`;
-        response += `• Include tasks for patient room finishes\n`;
-        response += `• Add commissioning tasks for medical gas systems\n`;
+        response += "\nTip: Add medical equipment and systems tasks";
       } else if (template.id === 'industrial_facility') {
-        response += `\n🏭 Industrial Facility Tips:\n`;
-        response += `──────────────────────────────\n`;
-        response += `• Create task sequence for equipment installation\n`;
-        response += `• Add specialized process piping systems\n`;
-        response += `• Include power distribution infrastructure\n`;
-        response += `• Add tasks for equipment testing and commissioning\n`;
-      } else if (template.id.includes('commercial') || template.id.includes('office')) {
-        response += `\n🏢 Commercial Building Tips:\n`;
-        response += `──────────────────────────────\n`;
-        response += `• Create task sequences for core & shell\n`;
-        response += `• Add tenant improvement sequences\n`;
-        response += `• Include elevator and lobby finishes\n`;
-        response += `• Add tasks for common area finishes\n`;
+        response += "\nTip: Add equipment installation and piping tasks";
+      } else if (template.id.includes('commercial')) {
+        response += "\nTip: Add core & shell and tenant improvement tasks";
       } else if (template.id.includes('residential')) {
-        response += `\n🏠 Residential Building Tips:\n`;
-        response += `──────────────────────────────\n`;
-        response += `• Create task sequences for unit types\n`;
-        response += `• Add common area and amenity sequences\n`;
-        response += `• Include site work and landscaping\n`;
-        response += `• Add tasks for final cleaning and punch list\n`;
+        response += "\nTip: Add unit finishes and common area tasks";
       }
       
       return response;
