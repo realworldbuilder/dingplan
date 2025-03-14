@@ -686,25 +686,30 @@ export class Sidebar {
       }
       
       .composer-response-area {
-        height: 150px;
+        margin-top: 10px;
+        height: 300px;
+        max-height: 50vh;
         overflow-y: auto;
-        padding: 12px;
-        background-color: #f9f9f9;
+        border: 1px solid #ddd;
         border-radius: 4px;
-        margin-bottom: 12px;
-        border: 1px solid #eee;
+        padding: 10px;
+        background: #f9f9f9;
         font-size: 14px;
+        line-height: 1.5;
+        white-space: pre-wrap;
       }
       
       .composer-message {
-        margin-bottom: 8px;
-        padding: 5px 0;
-        border-bottom: 1px solid #eee;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        background: #fff;
+        border-left: 3px solid #ddd;
       }
       
-      .user-message {
-        color: #3B82F6;
-        font-weight: bold;
+      .composer-message.user-message {
+        background: #e5f0fa;
+        border-left-color: #2a5885;
       }
       
       .ai-composer-input {
