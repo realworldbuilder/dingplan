@@ -1628,8 +1628,112 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return "No tasks provided for sequence creation";
       }
       
-      // The rest of the method implementation...
-      return "Task sequence creation completed";
+      // Set up start date, either from args or current date
+      let currentDate: Date;
+      if (startDate) {
+        const parsedDate = this.parseDateExpression(startDate);
+        currentDate = parsedDate || new Date();
+      } else {
+        currentDate = new Date();
+      }
+      
+      // Keep track of created tasks for dependency management
+      const createdTaskIds: string[] = [];
+      const taskDetails: any[] = [];
+      
+      // Process each task in the sequence
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        
+        // Generate a unique ID
+        const taskId = crypto.randomUUID();
+        createdTaskIds.push(taskId);
+        
+        // Set up dependencies
+        const taskDependencies: string[] = [];
+        
+        // Add dependency on previous task if specified
+        if (i > 0 && task.dependsOnPrevious) {
+          taskDependencies.push(createdTaskIds[i-1]);
+        }
+        
+        // Add any additional dependencies
+        if (dependencies && dependencies.length > 0) {
+          dependencies.forEach((dep: any) => {
+            if (dep.successorIndex === i && dep.predecessorIndex < i) {
+              taskDependencies.push(createdTaskIds[dep.predecessorIndex]);
+            }
+          });
+        }
+        
+        // Create task data
+        const taskData = {
+          id: taskId,
+          name: task.name,
+          duration: task.duration || 1,
+          startDate: new Date(currentDate),
+          tradeId: task.tradeId || 'general',
+          crewSize: task.crewSize || 1,
+          color: task.color || this.getRandomColor(),
+          dependencies: taskDependencies,
+          swimlaneId: resolvedSwimlaneId
+        };
+        
+        // Add task to canvas
+        this.canvas.taskManager.addTask(taskData);
+        
+        // Store task details for the response
+        taskDetails.push({
+          id: taskId,
+          name: task.name,
+          startDate: new Date(currentDate),
+          duration: task.duration
+        });
+        
+        // If this task has dependencies, we need to calculate its actual start date
+        // based on when the predecessors finish
+        if (taskDependencies.length > 0) {
+          // Find the latest end date of all predecessors
+          let latestEndDate = new Date(currentDate);
+          
+          for (const depId of taskDependencies) {
+            const depTask = this.canvas.taskManager.getTask(depId);
+            if (depTask) {
+              // Calculate end date of dependent task
+              const depEndDate = new Date(depTask.startDate);
+              depEndDate.setDate(depEndDate.getDate() + depTask.duration);
+              
+              if (depEndDate > latestEndDate) {
+                latestEndDate = new Date(depEndDate);
+              }
+            }
+          }
+          
+          // Update the task's start date to be after all dependencies
+          const taskObj = this.canvas.taskManager.getTask(taskId);
+          if (taskObj) {
+            taskObj.startDate = latestEndDate;
+            taskDetails[i].startDate = latestEndDate;
+          }
+        }
+        
+        // Move the current date pointer forward for the next sequential task
+        // (if not depending on other tasks)
+        if (taskDependencies.length === 0) {
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + (task.duration || 1));
+        }
+      }
+      
+      // Force a render to ensure all tasks are displayed
+      this.canvas.render();
+      
+      // Generate a human-friendly response
+      const taskSummary = taskDetails.map((task, index) => 
+        `${index + 1}. ${task.name} (${task.duration} days)`
+      ).join('\n');
+      
+      return `Created task sequence "${name}" with ${tasks.length} tasks in ${resolvedSwimlaneId}:\n${taskSummary}`;
     } catch (error) {
       return this.handleError("creating task sequence", error);
     }
@@ -1651,8 +1755,129 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return `Template "${templateName}" not found.`;
       }
       
-      // Create a simple response as placeholder until we can fully fix the method
-      return `Created a ${template.name} sequence with ${template.tasks.length} tasks.`;
+      // Parse startDate or use current date
+      let sequenceStartDate: Date;
+      if (startDate) {
+        // Try to parse the date expression
+        const parsedDate = this.parseDateExpression(startDate);
+        if (parsedDate) {
+          sequenceStartDate = parsedDate;
+        } else {
+          // Fall back to standard date parsing
+          sequenceStartDate = new Date(startDate);
+          
+          // If that fails too, use current date
+          if (isNaN(sequenceStartDate.getTime())) {
+            this.debug(`Invalid date format "${startDate}", using current date`);
+            sequenceStartDate = new Date();
+          }
+        }
+      } else {
+        sequenceStartDate = new Date();
+      }
+      
+      // Get target swimlane ID with intelligent matching
+      let targetSwimlaneId: string | null = null;
+      
+      if (swimlaneId) {
+        // User specified a swimlane
+        targetSwimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+      } else if (location) {
+        // Try to match location to a swimlane
+        targetSwimlaneId = this.findBestMatchingSwimlane(location);
+      }
+      
+      // Final fallback to default swimlane
+      if (!targetSwimlaneId) {
+        const swimlaneIds = this.getSwimlaneIds();
+        targetSwimlaneId = swimlaneIds.length > 0 ? swimlaneIds[0] : 'zone1';
+      }
+      
+      // Determine if we're applying to multiple swimlanes
+      const swimlaneIds = inAllSwimlanes ? this.getSwimlaneIds() : [targetSwimlaneId];
+      
+      // Track created tasks for the response
+      const createdTasks: { id: string, name: string, swimlaneId: string }[] = [];
+      
+      // For each target swimlane
+      for (const currentSwimlaneId of swimlaneIds) {
+        let currentDate = new Date(sequenceStartDate);
+        let previousTaskId: string | null = null;
+        
+        // Create each task in the template
+        for (const templateTask of template.tasks) {
+          // Generate task ID
+          const taskId = crypto.randomUUID();
+          
+          // Scale the duration
+          const scaledDuration = Math.max(1, Math.round(templateTask.duration * scale));
+          
+          // Prepare dependencies array
+          const dependencies: string[] = [];
+          if (previousTaskId && templateTask.dependsOnPrevious) {
+            dependencies.push(previousTaskId);
+          }
+          
+          // Create the task
+          const taskInfo = {
+            id: taskId,
+            name: location ? `${templateTask.name} - ${location}` : templateTask.name,
+            duration: scaledDuration,
+            startDate: new Date(currentDate),
+            tradeId: templateTask.tradeId || 'general',
+            crewSize: templateTask.crewSize || 1,
+            color: (templateTask as any).color || this.getRandomColor(),
+            dependencies,
+            notes: (templateTask as any).notes || ''
+          };
+          
+          // Add the task to the canvas
+          this.canvas.taskManager.addTask(taskInfo, currentSwimlaneId);
+          
+          // Track for response
+          createdTasks.push({
+            id: taskId,
+            name: taskInfo.name,
+            swimlaneId: currentSwimlaneId
+          });
+          
+          // Update for next task
+          previousTaskId = taskId;
+          
+          // If the task doesn't depend on the previous one, we don't advance the date
+          if (!templateTask.dependsOnPrevious) {
+            continue;
+          }
+          
+          // Otherwise, advance the date by the task duration
+          currentDate = new Date(currentDate);
+          currentDate.setDate(currentDate.getDate() + scaledDuration);
+        }
+      }
+      
+      // Render the canvas to update
+      this.canvas.render();
+      
+      // Generate response
+      const swimlaneText = inAllSwimlanes 
+        ? `${swimlaneIds.length} swimlanes` 
+        : `swimlane ${targetSwimlaneId}`;
+        
+      const taskInfo = inAllSwimlanes
+        ? `${template.tasks.length} tasks per swimlane (${createdTasks.length} total)`
+        : `${createdTasks.length} tasks`;
+      
+      // Include some examples of created tasks
+      const examples = createdTasks
+        .slice(0, 3)
+        .map(task => task.name)
+        .join(", ");
+      
+      const examplesText = createdTasks.length > 0 
+        ? ` including ${examples}${createdTasks.length > 3 ? ", and more" : ""}`
+        : "";
+        
+      return `Created a ${template.name} sequence in ${swimlaneText} with ${taskInfo}${examplesText}.`;
     } catch (error) {
       return this.handleError(`creating template sequence for "${templateName}"`, error);
     }
