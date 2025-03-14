@@ -1920,10 +1920,15 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
   
-  // Simplify template sequence response
-  private async createTemplateSequence(templateName: string, swimlaneId?: string, scaleFactor: number = 1, inAllSwimlanes: boolean = false): Promise<string> {
+  // Complete implementation of template sequence creation
+  private async createTemplateSequence(args: any, templateNameOverride?: string): Promise<string> {
     try {
-      const { startDate, location, inAllSwimlanes, swimlaneId, scaleFactor } = args;
+      // Extract arguments
+      const { templateName, startDate, location, inAllSwimlanes } = args;
+      let { swimlaneId, scaleFactor } = args;
+      
+      // Use override template name if provided
+      const effectiveTemplateName = templateNameOverride || templateName;
       
       // Convert scaleFactor to number if it's a string
       let scale = parseFloat(scaleFactor || "1.0");
@@ -1931,9 +1936,14 @@ Always strive to be both helpful and educational, balancing efficient task execu
         scale = 1.0;
       }
       
-      const template = getTemplate(templateName);
+      // If no swimlane provided, use the first available
+      if (!swimlaneId) {
+        swimlaneId = this.getValidSwimlaneId();
+      }
+      
+      const template = getTemplate(effectiveTemplateName);
       if (!template) {
-        return `Template "${templateName}" not found.`;
+        return `Template "${effectiveTemplateName}" not found.`;
       }
       
       // Parse startDate or use current date
@@ -1949,7 +1959,6 @@ Always strive to be both helpful and educational, balancing efficient task execu
           
           // If that fails too, use current date
           if (isNaN(sequenceStartDate.getTime())) {
-            this.debug(`Invalid date format "${startDate}", using current date`);
             sequenceStartDate = new Date();
           }
         }
@@ -1957,93 +1966,51 @@ Always strive to be both helpful and educational, balancing efficient task execu
         sequenceStartDate = new Date();
       }
       
-      // Get target swimlane ID with intelligent matching
-      let targetSwimlaneId: string | null = null;
+      // Create a task sequence from the template
+      const taskSequenceArgs = {
+        name: `${template.name} Sequence`,
+        tasks: template.tasks.map(task => ({
+          ...task,
+          duration: task.duration ? Math.ceil(task.duration * scale) : 1
+        })),
+        swimlaneId: swimlaneId,
+        startDate: sequenceStartDate
+      };
       
-      if (swimlaneId) {
-        // User specified a swimlane
-        targetSwimlaneId = this.findBestMatchingSwimlane(swimlaneId);
-      } else if (location) {
-        // Try to match location to a swimlane
-        targetSwimlaneId = this.findBestMatchingSwimlane(location);
-      }
-      
-      // Final fallback to default swimlane
-      if (!targetSwimlaneId) {
-        const swimlaneIds = this.getSwimlaneIds();
-        targetSwimlaneId = swimlaneIds.length > 0 ? swimlaneIds[0] : 'zone1';
-      }
-      
-      // Determine if we're applying to multiple swimlanes
-      const swimlaneIds = inAllSwimlanes ? this.getSwimlaneIds() : [targetSwimlaneId];
-      
-      // Track created tasks for the response
-      const createdTasks: { id: string, name: string, swimlaneId: string }[] = [];
-      
-      // For each target swimlane
-      for (const currentSwimlaneId of swimlaneIds) {
-        let currentDate = new Date(sequenceStartDate);
-        let previousTaskId: string | null = null;
-        
-        // Create each task in the template
-        for (const templateTask of template.tasks) {
-          // Generate task ID
-          const taskId = crypto.randomUUID();
+      // If inAllSwimlanes is true, create the template in all swimlanes
+      if (inAllSwimlanes) {
+        const swimlanes = this.canvas.taskManager.swimlanes;
+        if (swimlanes.length > 0) {
+          const responses = [];
           
-          // Scale the duration
-          const scaledDuration = Math.max(1, Math.round(templateTask.duration * scale));
-          
-          // Prepare dependencies array
-          const dependencies: string[] = [];
-          if (previousTaskId && templateTask.dependsOnPrevious) {
-            dependencies.push(previousTaskId);
+          for (const swimlane of swimlanes) {
+            const swimlaneArgs = {
+              ...taskSequenceArgs,
+              swimlaneId: swimlane.id
+            };
+            
+            const result = await this.createTaskSequence(swimlaneArgs);
+            responses.push(`• ${swimlane.name}: ${result}`);
           }
           
-          // Create the task
-          const taskInfo = {
-            id: taskId,
-            name: location ? `${templateTask.name} - ${location}` : templateTask.name,
-            duration: scaledDuration,
-            startDate: new Date(currentDate),
-            tradeId: templateTask.tradeId || 'general',
-            crewSize: templateTask.crewSize || 1,
-            color: (templateTask as any).color || this.getRandomColor(),
-            dependencies,
-            notes: (templateTask as any).notes || ''
-          };
-          
-          // Add the task to the canvas
-          this.canvas.taskManager.addTask(taskInfo, currentSwimlaneId);
-          
-          // Track for response
-          createdTasks.push({
-            id: taskId,
-            name: taskInfo.name,
-            swimlaneId: currentSwimlaneId
-          });
-          
-          // Update for next task
-          previousTaskId = taskId;
-          
-          // If the task doesn't depend on the previous one, we don't advance the date
-          if (!templateTask.dependsOnPrevious) {
-            continue;
-          }
-          
-          // Otherwise, advance the date by the task duration
-          currentDate = new Date(currentDate);
-          currentDate.setDate(currentDate.getDate() + scaledDuration);
+          return `Created ${template.name} in all swimlanes:\n${responses.join('\n')}`;
         }
       }
       
-      // Render the canvas to update
-      this.canvas.render();
+      // Create in single swimlane
+      const result = await this.createTaskSequence(taskSequenceArgs);
       
-      // Generate response - SIMPLIFIED
+      // Get the swimlane name for the response
+      const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
+      const swimlaneName = swimlane ? swimlane.name : swimlaneId;
+      
+      // Generate a more friendly response with location if provided
       const locationText = location ? ` for ${location}` : '';
-      return `Created ${template.name} sequence${locationText}. ${createdTasks.length} tasks added.`;
+      const scaleText = scale !== 1.0 ? ` (scaled by ${scale.toFixed(1)})` : '';
+      return `Created ${template.name} sequence${locationText} in ${swimlaneName}${scaleText}. ${template.tasks.length} tasks added.`;
     } catch (error) {
-      return this.handleError(`creating template sequence for "${templateName}"`, error);
+      const name = templateNameOverride || (args && args.templateName) || 'unknown';
+      return this.handleError(`creating template sequence for "${name}"`, error);
     }
   }
 
@@ -2053,76 +2020,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       // Check if this might actually be a request for a WBS template
       if (templateName) {
-        // See if it explicitly mentions WBS
-        const isWBSRequest = templateName.toLowerCase().includes('wbs');
-        
-        // Or see if it mentions a project type that matches a WBS template
-        const wbsTemplates = getAllWBSTemplates();
-        const matchingWBSTemplate = wbsTemplates.find(template => 
-          template.projectTypes.some(type => 
-            templateName.toLowerCase().includes(type.toLowerCase())
-          )
-        );
-        
-        if (isWBSRequest || matchingWBSTemplate) {
-          const templateId = matchingWBSTemplate ? matchingWBSTemplate.id : templateName;
-          this.debug(`User seems to be requesting a WBS template: ${templateId}`);
-          return await this.applyWBSTemplate({ templateId });
-        }
+        // ... existing code ...
       }
-      
-      // If no template name provided, suggest available templates
-      if (!templateName) {
-        this.debug('No template name provided');
-        return this.listTemplates() + "\n\nPlease specify a template name from the list above, or describe what kind of construction sequence you'd like to create.";
-      }
-      
-      this.debug(`Attempting to find template: "${templateName}"`);
-      
-      // First try direct template lookup
-      let template = getTemplate(templateName);
-      
-      // If not found, try the more advanced matching
-      if (!template) {
-        const possibleMatches = findTemplateMatches(templateName);
-        this.debug(`Found ${possibleMatches.length} possible matches for "${templateName}": ${possibleMatches.join(', ')}`);
-        
-        if (possibleMatches.length === 1) {
-          // Found exactly one match
-          this.debug(`Using best match: ${possibleMatches[0]}`);
-          const key = possibleMatches[0];
-          template = getTemplate(key);
-          
-          // If we matched something different from what the user asked for, let them know
-          if (key !== templateName) {
-            const matchedTemplate = getTemplate(key);
-            
-            // Create template sequence and await the result
-            const result = await this.createTemplateSequence(args, key);
-            
-            // Return just the result - simplified 
-            return result;
-          }
-        } else if (possibleMatches.length > 1) {
-          // Multiple matches - give the user options with descriptions
-          const options = possibleMatches.join(", ");
-          return `I found multiple matches: ${options}. Which one would you like to use?`;
-        }
-      }
-      
-      if (!template) {
-        // No matches found - show available templates
-        return `I couldn't find a template matching "${templateName}". Available templates: ${this.listTemplates()}`;
-      }
-      
-      this.debug(`Using template: ${template.name} with ${template.tasks.length} tasks`);
-      
-      // Create sequence with template - AWAIT THE RESULT
-      const result = await this.createTemplateSequence(args, templateName);
-      
-      // Return just the result - simplified
-      return result;
-    } catch (error: unknown) {
+    } catch (error) {
       return this.handleError('creating from template', error);
     }
   }
@@ -2747,57 +2647,124 @@ To get started:
   // Add a helper method to create a site preparation sequence
   private async createSitePreparationSequence(swimlaneId?: string): Promise<string> {
     try {
-      // Find the best matching swimlane for site preparation
-      const resolvedSwimlaneId = swimlaneId ? 
-        this.findBestMatchingSwimlane(swimlaneId) : 
-        this.findSitePreparationSwimlane();
+      this.debug(`Creating site preparation sequence in swimlane: ${swimlaneId || 'auto-detected'}`);
       
-      if (!resolvedSwimlaneId) {
-        return "I couldn't find a suitable swimlane for site preparation. Please specify which swimlane to use.";
+      // Find the best matching swimlane for site preparation
+      let resolvedSwimlaneId: string | null;
+      
+      if (swimlaneId) {
+        // Try to find the swimlane by the provided ID or name
+        resolvedSwimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+        if (!resolvedSwimlaneId) {
+          // If not found, provide a more helpful message with available swimlanes
+          const swimlanes = this.canvas.taskManager.swimlanes;
+          if (!swimlanes || swimlanes.length === 0) {
+            return "No swimlanes found. Please create a swimlane first.";
+          }
+          
+          const swimlaneList = swimlanes.map(s => `"${s.name}" (ID: ${s.id})`).join(", ");
+          return `Swimlane "${swimlaneId}" not found. Available swimlanes are: ${swimlaneList}`;
+        }
+      } else {
+        // Auto-detect the most appropriate swimlane
+        resolvedSwimlaneId = this.findSitePreparationSwimlane();
+        
+        // If no site prep swimlane found, use the first available
+        if (!resolvedSwimlaneId) {
+          resolvedSwimlaneId = this.getFirstAvailableSwimlaneId();
+          
+          if (!resolvedSwimlaneId) {
+            return "No swimlanes available. Please create a swimlane first.";
+          }
+        }
       }
       
-      // Look for templates related to site preparation
-      const templateNames = ['specialized_siteclearing', 'industrial_siteprep'];
+      // Look for templates related to site preparation in order of preference
+      const templateNames = [
+        'specialized_siteclearing', 
+        'industrial_siteprep', 
+        'foundation'   // Fallback option
+      ];
       
       // Try each template until one works
       for (const templateName of templateNames) {
         const template = getTemplate(templateName);
         if (template) {
           this.debug(`Using site preparation template: ${templateName}`);
-          return await this.createTemplateSequence({ 
+          
+          // Add the template to the resolved swimlane
+          const result = await this.createTemplateSequence({ 
             templateName, 
             swimlaneId: resolvedSwimlaneId
           }, templateName);
+          
+          // Get the swimlane name for the response
+          const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === resolvedSwimlaneId);
+          const swimlaneName = swimlane ? swimlane.name : resolvedSwimlaneId;
+          
+          return `${result}\n\nTip: You can add more specific site preparation tasks by saying "Add excavation to ${swimlaneName}" or "Create foundation in ${swimlaneName}".`;
         }
       }
       
-      // Fallback to the foundation template which has site prep tasks
-      return await this.createTemplateSequence({
-        templateName: 'foundation',
-        swimlaneId: resolvedSwimlaneId
-      }, 'foundation');
+      return "I couldn't find any site preparation templates. Please try creating a foundation or excavation sequence instead.";
     } catch (error) {
       return this.handleError("creating site preparation sequence", error);
     }
   }
   
-  // Add a helper method to find a swimlane suitable for site preparation
+  // Enhanced helper method to find a swimlane suitable for site preparation
   private findSitePreparationSwimlane(): string | null {
     const swimlanes = this.canvas.taskManager.swimlanes;
     if (!swimlanes || swimlanes.length === 0) return null;
     
-    // Look for swimlanes that match site preparation terminology
+    // Define arrays of keywords for better matching
+    const directMatches = [
+      'site', 'prep', 'preparation', 'civil', 'preliminary', 'excavation', 
+      'grading', 'clearing', 'sitework', 'site work', 'earthwork', 'foundation', 
+      'groundwork', 'ground work'
+    ];
+    
+    const secondaryMatches = [
+      'initial', 'begin', 'start', 'first', 'phase 1', 'phase one',
+      'mobilization', 'pre-construction', 'preconstruction'
+    ];
+
+    // First look for direct matches - these are highest priority
     for (const lane of swimlanes) {
       const laneNameLower = lane.name.toLowerCase();
-      if (laneNameLower.includes('site') || 
-          laneNameLower.includes('prep') || 
-          laneNameLower.includes('civil') || 
-          laneNameLower.includes('preliminary')) {
-        return lane.id;
+      
+      for (const keyword of directMatches) {
+        if (laneNameLower.includes(keyword)) {
+          this.debug(`Found site preparation swimlane by direct match: ${lane.name} (matched: ${keyword})`);
+          return lane.id;
+        }
       }
     }
     
+    // Then look for secondary matches - these are lower priority
+    for (const lane of swimlanes) {
+      const laneNameLower = lane.name.toLowerCase();
+      
+      for (const keyword of secondaryMatches) {
+        if (laneNameLower.includes(keyword)) {
+          this.debug(`Found site preparation swimlane by secondary match: ${lane.name} (matched: ${keyword})`);
+          return lane.id;
+        }
+      }
+    }
+    
+    // If we have a swimlane that mentions "foundation" and it's the first one, use that
+    const foundationLane = swimlanes.find(lane => 
+      lane.name.toLowerCase().includes('foundation')
+    );
+    
+    if (foundationLane) {
+      this.debug(`Found foundation swimlane as fallback: ${foundationLane.name}`);
+      return foundationLane.id;
+    }
+    
     // Default to the first swimlane
+    this.debug(`No specialized site preparation swimlane found, using first available: ${swimlanes[0].name}`);
     return swimlanes[0].id;
   }
 }
