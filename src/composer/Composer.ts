@@ -444,6 +444,14 @@ class Composer {
         return result;
       }
       
+      // Check for default template request
+      if (normalizedInput.includes('default template') || 
+          normalizedInput.includes('standard template') || 
+          (normalizedInput.includes('default') && normalizedInput.includes('wbs')) ||
+          (normalizedInput.includes('use') && normalizedInput.includes('template') && !normalizedInput.match(/use\s+(?:a|an|the)\s+([a-z\s]+)\s+template/i))) {
+        return await this.applyDefaultWBSTemplate();
+      }
+      
       // Continue with normal processing
       if (!this.apiKey) {
         return "API key not set. Please set an API key first.";
@@ -2530,6 +2538,18 @@ Always strive to be both helpful and educational, balancing efficient task execu
       console.error("Error applying WBS template:", error);
       return "Failed to apply template. Please try again.";
     }
+  }
+
+  // Add a method to apply a default template
+  async applyDefaultWBSTemplate(): Promise<string> {
+    // The commercial building template is a versatile default
+    const defaultTemplateId = 'commercial_building';
+    
+    // Apply the default template
+    const result = await this.applyWBSTemplate({ templateId: defaultTemplateId });
+    
+    // Add a simple explanation of what we did, but keep it conversational
+    return `Applied the default Commercial Building template. It has swimlanes for site prep, structure, MEP systems, and finishes.`;
   }
 }
 
