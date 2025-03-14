@@ -444,12 +444,32 @@ class Composer {
         return result;
       }
       
-      // Check for default template request
-      if (normalizedInput.includes('default template') || 
-          normalizedInput.includes('standard template') || 
-          (normalizedInput.includes('default') && normalizedInput.includes('wbs')) ||
-          (normalizedInput.includes('use') && normalizedInput.includes('template') && !normalizedInput.match(/use\s+(?:a|an|the)\s+([a-z\s]+)\s+template/i))) {
-        return await this.applyDefaultWBSTemplate();
+      // Check for default template request - DISTINGUISH BETWEEN WBS AND TASK TEMPLATES
+      if (normalizedInput.includes('default') || normalizedInput.includes('standard')) {
+        // Check if this is specifically about WBS templates
+        if (normalizedInput.includes('wbs') || 
+            normalizedInput.includes('breakdown') || 
+            normalizedInput.includes('structure') || 
+            normalizedInput.includes('swimlane') ||
+            normalizedInput.includes('categories')) {
+          return await this.applyDefaultWBSTemplate();
+        }
+        
+        // If they just say "template" without context, assume WBS template
+        if (normalizedInput.includes('template') && 
+            !normalizedInput.includes('task') && 
+            !normalizedInput.includes('sequence')) {
+          return await this.applyDefaultWBSTemplate();
+        }
+        
+        // Otherwise, they might want a task template
+        if (normalizedInput.includes('task') || 
+            normalizedInput.includes('sequence') || 
+            normalizedInput.includes('foundation') || 
+            normalizedInput.includes('structure') || 
+            normalizedInput.includes('mep')) {
+          return await this.createFromTemplate({ templateName: 'foundation' });
+        }
       }
       
       // Continue with normal processing
@@ -590,15 +610,22 @@ class Composer {
           return this.listTasks({});
         }
         return 'Available list commands: templates, wbs, swimlanes, tasks';
+      
+      case 'explain':
+        if (parts[1] === 'templates') {
+          return this.explainTemplateTypes();
+        }
+        return 'Available explain commands: templates';
         
       case 'help':
         return `
 Debug Commands:
 /debug - Toggle debug mode
-/list templates - List available templates
+/list templates - List available task templates
 /list wbs - List available WBS templates
 /list swimlanes - List current swimlanes
 /list tasks - List all tasks
+/explain templates - Explain the difference between template types
 /help - Show this help message
 `;
         
@@ -2000,7 +2027,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Simplified response
       const templateList = templates.map(([key, template]) => key).join(", ");
       
-      return `Available templates: ${templateList}`;
+      return `Available TASK templates (these create tasks, not swimlanes): ${templateList}`;
     } catch (error: unknown) {
       return this.handleError('listing templates', error);
     }
@@ -2460,8 +2487,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const templateNames = templates.map(t => t.name).join(", ");
       
       return projectType 
-        ? `Templates for "${projectType}": ${templateNames}` 
-        : `Available templates: ${templateNames}`;
+        ? `WBS templates for "${projectType}" (these create SWIMLANES, not tasks): ${templateNames}` 
+        : `Available WBS templates (these create SWIMLANES, not tasks): ${templateNames}`;
     } catch (error) {
       console.error("Error listing WBS templates:", error);
       return "Failed to list templates. Please try again.";
@@ -2549,7 +2576,20 @@ Always strive to be both helpful and educational, balancing efficient task execu
     const result = await this.applyWBSTemplate({ templateId: defaultTemplateId });
     
     // Add a simple explanation of what we did, but keep it conversational
-    return `Applied the default Commercial Building template. It has swimlanes for site prep, structure, MEP systems, and finishes.`;
+    return `Applied the default Commercial Building WBS template. This creates swimlanes for organizing your project, not tasks. To add tasks, try "Create a foundation sequence" or "Add MEP tasks".`;
+  }
+
+  // Add a method to explain template types
+  private explainTemplateTypes(): string {
+    return `There are two types of templates in this system:
+
+1. WBS Templates - These create swimlanes (categories) for organizing your project. Examples: Commercial Building WBS, Healthcare Facility WBS.
+
+2. Task Templates - These create actual tasks within swimlanes. Examples: foundation, steel_structure, mep_systems.
+
+To get started:
+1. First apply a WBS template: "Apply Commercial Building WBS"
+2. Then add task sequences: "Add foundation sequence to Site Preparation swimlane"`;
   }
 }
 
