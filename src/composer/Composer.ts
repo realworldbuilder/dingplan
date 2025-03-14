@@ -432,7 +432,7 @@ class Composer {
   }
   
   // Initialize the default template if needed
-  private initializeDefaultTemplate() {
+  private async initializeDefaultTemplate() {
     try {
       // Check if any swimlanes already exist
       const swimlanes = this.canvas.taskManager.swimlanes;
@@ -440,15 +440,41 @@ class Composer {
       if (!swimlanes || swimlanes.length === 0) {
         this.debug("No swimlanes found. Automatically loading default WBS template...");
         
-        // Apply the default template (commercial building)
-        setTimeout(async () => {
-          try {
-            await this.applyDefaultWBSTemplate();
-            this.debug("Default WBS template loaded automatically");
-          } catch (error) {
-            this.debug("Error loading default template:", error);
+        // Apply the default template immediately - no delay
+        try {
+          // Use the default Commercial Building template
+          const defaultTemplateId = 'commercial_building';
+          
+          // Get the template
+          const template = getWBSTemplate(defaultTemplateId);
+          if (!template) {
+            this.debug("Error: Default template not found");
+            return;
           }
-        }, 1000);  // Slight delay to ensure canvas is ready
+          
+          // Create swimlanes from template categories
+          const categories = template.categories;
+          
+          for (let i = 0; i < categories.length; i++) {
+            const category = categories[i];
+            // Create a safe ID from the category name - no 'zone' prefix
+            let baseId = category.toLowerCase()
+              .replace(/&/g, 'and')
+              .replace(/[^a-z0-9]+/g, '_')
+              .trim();
+            
+            // Add the swimlane with proper name and category
+            const color = this.getRandomColor();
+            this.canvas.taskManager.addSwimlane(baseId, category, color);
+          }
+          
+          this.debug("Default WBS template loaded automatically");
+          
+          // Force a render to show the changes
+          this.canvas.render();
+        } catch (error) {
+          this.debug("Error loading default template:", error);
+        }
       } else {
         this.debug(`Found ${swimlanes.length} existing swimlanes. Not loading default template.`);
       }
@@ -1395,7 +1421,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // First, get all available swimlanes
       const swimlanes = this.canvas.taskManager.swimlanes;
       if (!swimlanes || swimlanes.length === 0) {
-        return 'zone1'; // Default fallback
+        return this.getFirstAvailableSwimlaneId() || ''; // Use helper or empty string if null
       }
       
       // Normalize task name for analysis
@@ -1472,11 +1498,49 @@ Always strive to be both helpful and educational, balancing efficient task execu
         }
       }
       
-      // Fallback to most populated zone or zone1
-      return maxTasks > 0 ? mostPopulatedZone : 'zone1';
+      // Fallback to most populated zone or first available
+      return maxTasks > 0 ? mostPopulatedZone : this.getFirstAvailableSwimlaneId();
     } catch (error) {
       this.debug(`Error suggesting swimlane: ${error}`);
-      return 'zone1'; // Default fallback
+      return this.getFirstAvailableSwimlaneId() || ''; // Use helper or empty string if null
+    }
+  }
+
+  // Helper to get the first available swimlane ID or null if none exists
+  private getFirstAvailableSwimlaneId(): string | null {
+    try {
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      return swimlanes.length > 0 ? swimlanes[0].id : null;
+    } catch (error) {
+      console.error("Error getting first available swimlane:", error);
+      return null;
+    }
+  }
+
+  // Helper to check if a swimlane exists, and get first available if not
+  private getValidSwimlaneId(swimlaneId?: string): string {
+    try {
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      
+      // If no swimlane provided, use the first available
+      if (!swimlaneId && swimlanes.length > 0) {
+        return swimlanes[0].id;
+      }
+      
+      // If the provided swimlane exists, use it
+      if (swimlaneId && swimlanes.find(s => s.id === swimlaneId)) {
+        return swimlaneId;
+      }
+      
+      // Otherwise, use the first available or throw if none exist
+      if (swimlanes.length > 0) {
+        return swimlanes[0].id;
+      }
+      
+      throw new Error("No swimlanes are available. Please create a swimlane first.");
+    } catch (error) {
+      console.error("Error validating swimlane ID:", error);
+      throw new Error("Could not validate swimlane ID. Please try again.");
     }
   }
 
@@ -1547,10 +1611,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
         this.debug(`Suggested swimlane based on task context: ${swimlaneId}`);
       }
       
-      // Final fallback
-      if (!swimlaneId) {
-        swimlaneId = 'zone1'; // Default fallback
-      }
+      // Use the valid swimlane helper instead of defaulting to 'zone1'
+      swimlaneId = this.getValidSwimlaneId(swimlaneId);
       
       // Check if the swimlane exists
       const allSwimlanes = this.canvas.taskManager.swimlanes;
@@ -1642,6 +1704,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
           swimlaneId = this.suggestSwimlane(taskData.name, taskData.tradeId);
         }
         
+        // Use the valid swimlane helper instead of defaulting to 'zone1'
+        swimlaneId = this.getValidSwimlaneId(swimlaneId);
+        
         // Fallback if needed
         if (!swimlaneId) {
           swimlaneId = 'zone1';
@@ -1686,7 +1751,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
           swimlaneId = this.suggestSwimlane(taskData.name, taskData.tradeId);
         }
         
-        if (!swimlaneId) swimlaneId = 'zone1';
+        if (!swimlaneId) swimlaneId = this.getValidSwimlaneId();
           
         const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
         const swimlaneName = swimlane ? swimlane.name : swimlaneId;
@@ -1856,7 +1921,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
   }
   
   // Simplify template sequence response
-  private async createTemplateSequence(args: any, templateName: string): Promise<string> {
+  private async createTemplateSequence(templateName: string, swimlaneId?: string, scaleFactor: number = 1, inAllSwimlanes: boolean = false): Promise<string> {
     try {
       const { startDate, location, inAllSwimlanes, swimlaneId, scaleFactor } = args;
       

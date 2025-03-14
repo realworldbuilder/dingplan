@@ -50,10 +50,8 @@ export class TaskManager {
   constructor(private timeAxis: any) {
     this.tasks = [];
     
-    // Initialize with default swimlanes - keeping these
-    this.addSwimlane("zone1", "ZONE 1", "#4338ca");
-    this.addSwimlane("zone2", "ZONE 2", "#0891b2");
-    this.addSwimlane("zone3", "ZONE 3", "#059669");
+    // Default swimlanes are now created by the template system
+    // This constructor no longer initializes default zones
 
     // Add keyboard listener for mode switching and shortcuts
     document.addEventListener('keydown', (e) => {
@@ -113,11 +111,25 @@ export class TaskManager {
     return this.selectedTasks.size > 0;
   }
 
-  addTask(config: TaskConfig, swimlaneId: string = "zone1"): Task {
-    // Find the swimlane
+  addTask(config: TaskConfig, swimlaneId?: string): Task {
+    // Find the swimlane - use first available if not specified
+    if (!swimlaneId && this.swimlanes.length > 0) {
+      swimlaneId = this.swimlanes[0].id;
+    } else if (!swimlaneId) {
+      throw new Error("No swimlanes available to add task to");
+    }
+    
     const swimlane = this.swimlanes.find(s => s.id === swimlaneId);
     if (!swimlane) {
-      throw new Error(`Swimlane with ID ${swimlaneId} not found`);
+      // If specified swimlane not found, use first available
+      if (this.swimlanes.length > 0) {
+        swimlaneId = this.swimlanes[0].id;
+        const firstSwimlane = this.swimlanes[0];
+        console.log(`Swimlane '${swimlaneId}' not found, using '${firstSwimlane.name}' instead`);
+        return this.addTask(config, firstSwimlane.id);
+      } else {
+        throw new Error("No swimlanes available to add task to");
+      }
     }
     
     // Ensure a trade is assigned
