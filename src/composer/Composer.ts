@@ -426,6 +426,35 @@ class Composer {
         }
       }
     ];
+    
+    // Automatically load the default WBS template if no swimlanes exist
+    this.initializeDefaultTemplate();
+  }
+  
+  // Initialize the default template if needed
+  private initializeDefaultTemplate() {
+    try {
+      // Check if any swimlanes already exist
+      const swimlanes = this.canvas.taskManager.swimlanes;
+      
+      if (!swimlanes || swimlanes.length === 0) {
+        this.debug("No swimlanes found. Automatically loading default WBS template...");
+        
+        // Apply the default template (commercial building)
+        setTimeout(async () => {
+          try {
+            await this.applyDefaultWBSTemplate();
+            this.debug("Default WBS template loaded automatically");
+          } catch (error) {
+            this.debug("Error loading default template:", error);
+          }
+        }, 1000);  // Slight delay to ensure canvas is ready
+      } else {
+        this.debug(`Found ${swimlanes.length} existing swimlanes. Not loading default template.`);
+      }
+    } catch (error) {
+      this.debug("Error during initialization:", error);
+    }
   }
 
   async processPrompt(userInput: string): Promise<string> {
