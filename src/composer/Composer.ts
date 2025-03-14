@@ -499,29 +499,78 @@ class Composer {
         return result;
       }
       
+      // Extract potential swimlane information
+      let swimlaneId = null;
+      
+      // Common patterns for specifying swimlanes
+      const inSwimlaneMatch = normalizedInput.match(/in\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
+      if (inSwimlaneMatch && inSwimlaneMatch[1]) {
+        swimlaneId = inSwimlaneMatch[1];
+        this.debug(`Detected 'in swimlane' pattern: ${swimlaneId}`);
+      }
+      
+      // Another pattern: "to the X swimlane"
+      const toSwimlaneMatch = normalizedInput.match(/to\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
+      if (toSwimlaneMatch && toSwimlaneMatch[1]) {
+        swimlaneId = toSwimlaneMatch[1];
+        this.debug(`Detected 'to swimlane' pattern: ${swimlaneId}`);
+      }
+      
+      // Pattern for "first/second/etc. swimlane"
+      const ordinalMatch = normalizedInput.match(/(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:swimlane|zone|area|category)/i);
+      if (ordinalMatch && ordinalMatch[1]) {
+        const ordinal = ordinalMatch[1].toLowerCase();
+        const swimlanes = this.canvas.taskManager.swimlanes;
+        
+        // Map the ordinal to an index
+        let index = 0;
+        if (ordinal === 'second' || ordinal === '2nd') index = 1;
+        else if (ordinal === 'third' || ordinal === '3rd') index = 2;
+        else if (ordinal === 'fourth' || ordinal === '4th') index = 3;
+        else if (ordinal === 'fifth' || ordinal === '5th') index = 4;
+        
+        // Get the swimlane if it exists
+        if (swimlanes.length > index) {
+          swimlaneId = swimlanes[index].id;
+          this.debug(`Mapped ordinal ${ordinal} to swimlane: ${swimlaneId}`);
+        }
+      }
+      
       // Check for site preparation sequence requests
       if ((normalizedInput.includes('site') && 
            (normalizedInput.includes('prep') || normalizedInput.includes('preparation'))) ||
           normalizedInput.includes('site clearing') ||
           normalizedInput.includes('clearing sequence') ||
-          normalizedInput.includes('site work')) {
+          normalizedInput.includes('site work') ||
+          normalizedInput.includes('earthwork') ||
+          normalizedInput.includes('excavation')) {
         
-        // Check if a specific swimlane is mentioned
-        let swimlaneId = null;
-        
-        // Common patterns for specifying swimlanes
-        const inSwimlaneMatch = normalizedInput.match(/in\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|$)/i);
-        if (inSwimlaneMatch && inSwimlaneMatch[1]) {
-          swimlaneId = inSwimlaneMatch[1];
-        }
-        
-        // Another pattern: "to the X swimlane"
-        const toSwimlaneMatch = normalizedInput.match(/to\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|$)/i);
-        if (toSwimlaneMatch && toSwimlaneMatch[1]) {
-          swimlaneId = toSwimlaneMatch[1];
-        }
-        
+        this.debug(`Detected site preparation request with swimlaneId: ${swimlaneId || 'none specified'}`);
         return await this.createSitePreparationSequence(swimlaneId);
+      }
+      
+      // Check for other common template requests
+      const templateMatches = [
+        { keywords: ['foundation', 'footing'], template: 'foundation' },
+        { keywords: ['frame', 'framing', 'structural'], template: 'framing' },
+        { keywords: ['mep', 'mechanical', 'electrical', 'plumbing'], template: 'mep' },
+        { keywords: ['kitchen'], template: 'kitchen' },
+        { keywords: ['bathroom'], template: 'bathroom' },
+        { keywords: ['roof', 'roofing'], template: 'roofing' },
+        { keywords: ['finish', 'interior finish'], template: 'interior_finishes' }
+      ];
+      
+      // Check if any template keywords match and it's not a WBS template request
+      if (!normalizedInput.includes('wbs') && !normalizedInput.includes('breakdown structure')) {
+        for (const matcher of templateMatches) {
+          if (matcher.keywords.some(keyword => normalizedInput.includes(keyword))) {
+            this.debug(`Detected template request for: ${matcher.template} with swimlaneId: ${swimlaneId || 'none specified'}`);
+            return await this.createFromTemplate({ 
+              templateName: matcher.template, 
+              swimlaneId: swimlaneId 
+            });
+          }
+        }
       }
       
       // Check for default template request - DISTINGUISH BETWEEN WBS AND TASK TEMPLATES
@@ -2017,11 +2066,64 @@ Always strive to be both helpful and educational, balancing efficient task execu
   private async createFromTemplate(args: any): Promise<string> {
     try {
       const { templateName, startDate, location, scaleFactor, inAllSwimlanes } = args;
+      let { swimlaneId } = args;
       
-      // Check if this might actually be a request for a WBS template
-      if (templateName) {
-        // ... existing code ...
+      // Ensure we have a template name
+      if (!templateName) {
+        return "Please specify a template name. Try foundation, framing, mep, site_prep, or use listTemplates to see all options.";
       }
+      
+      // If no swimlane provided, use the first available
+      if (!swimlaneId) {
+        swimlaneId = this.getValidSwimlaneId();
+      }
+      
+      // Check if this might actually be a WBS template
+      const wbsTemplateIds = getWBSTemplateIds();
+      if (wbsTemplateIds.includes(templateName)) {
+        return this.applyWBSTemplate({ templateId: templateName });
+      }
+      
+      // Handle potential partial matches
+      const exactTemplate = getTemplate(templateName);
+      if (!exactTemplate) {
+        // Try to find matches
+        const matches = findTemplateMatches(templateName);
+        
+        if (matches.length === 0) {
+          // No matches found, list available templates
+          const templatesList = getTemplateNames().join(", ");
+          return `Template "${templateName}" not found. Available templates: ${templatesList}`;
+        } else if (matches.length === 1) {
+          // Single match found, use it
+          const matchName = matches[0];
+          this.debug(`Using matched template: ${matchName} instead of ${templateName}`);
+          
+          // Forward to createTemplateSequence with the matched template
+          return this.createTemplateSequence({
+            templateName: matchName,
+            startDate,
+            location,
+            swimlaneId,
+            scaleFactor,
+            inAllSwimlanes
+          });
+        } else {
+          // Multiple matches, suggest options
+          const matchOptions = matches.join(", ");
+          return `Multiple matching templates found for "${templateName}". Please specify one of: ${matchOptions}`;
+        }
+      }
+      
+      // We have an exact template match, proceed with creation
+      return this.createTemplateSequence({
+        templateName,
+        startDate,
+        location,
+        swimlaneId,
+        scaleFactor,
+        inAllSwimlanes
+      });
     } catch (error) {
       return this.handleError('creating from template', error);
     }
@@ -2554,6 +2656,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
       const clearExisting = args.clearExisting === true;
       const customNames = args.customNames || [];
       
+      this.debug(`Applying WBS template: ${templateIdOrType}, clear existing: ${clearExisting}`);
+      
       // Find the template
       let template = getWBSTemplate(templateIdOrType);
       
@@ -2563,7 +2667,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
       
       if (!template) {
-        return `No template found for "${templateIdOrType}".\nAvailable templates:\n${getWBSTemplateNames().map(name => `• ${name}`).join('\n')}`;
+        const availableTemplates = getWBSTemplateNames().map(name => `• ${name}`).join('\n');
+        return `No template found for "${templateIdOrType}".\n\nAvailable templates:\n${availableTemplates}`;
       }
       
       // Clear existing swimlanes if requested
@@ -2572,6 +2677,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         const swimlanes = this.canvas.taskManager.swimlanes;
         // Make a copy since we'll be modifying the array during iteration
         const swimlanesToRemove = [...swimlanes];
+        this.debug(`Clearing ${swimlanesToRemove.length} existing swimlanes`);
         swimlanesToRemove.forEach(swimlane => {
           const index = this.canvas.taskManager.swimlanes.findIndex(s => s.id === swimlane.id);
           if (index >= 0) {
@@ -2611,8 +2717,41 @@ Always strive to be both helpful and educational, balancing efficient task execu
         createdSwimlanes.push({ id, name: category });
       }
       
-      // Format a simpler response
-      return `Applied ${template.name} template with ${createdSwimlanes.length} swimlanes.`;
+      // Force a render to ensure UI is updated
+      this.canvas.render();
+      
+      // Create a more detailed and helpful response
+      const numSwimlanes = createdSwimlanes.length;
+      let response = `✅ Successfully applied the ${template.name} template with ${numSwimlanes} swimlanes:\n\n`;
+      
+      // Add the list of created swimlanes (first 5, then an indicator for more)
+      const displayCount = Math.min(5, createdSwimlanes.length);
+      const swimlaneList = createdSwimlanes.slice(0, displayCount)
+        .map((lane, index) => `${index + 1}. ${lane.name}`)
+        .join('\n');
+      
+      response += swimlaneList;
+      
+      // Indicate if there are more swimlanes
+      if (createdSwimlanes.length > displayCount) {
+        response += `\n... and ${createdSwimlanes.length - displayCount} more`;
+      }
+      
+      // Add next steps guidance
+      response += `\n\nNext steps:
+1. Add tasks using templates: "Add site preparation sequence to ${createdSwimlanes[0]?.name || 'first swimlane'}"
+2. Or add specific tasks: "Create excavation task in ${createdSwimlanes[0]?.name || 'first swimlane'}"`;
+      
+      // Add project-specific recommendations
+      if (template.id.includes('commercial')) {
+        response += `\n\nFor commercial buildings, I recommend starting with foundation and structural sequences.`;
+      } else if (template.id.includes('healthcare')) {
+        response += `\n\nFor healthcare facilities, consider MEP and specialized medical systems sequences.`;
+      } else if (template.id.includes('industrial')) {
+        response += `\n\nFor industrial facilities, heavy equipment installation and process system sequences are key.`;
+      }
+      
+      return response;
     } catch (error) {
       console.error("Error applying WBS template:", error);
       return "Failed to apply template. Please try again.";
