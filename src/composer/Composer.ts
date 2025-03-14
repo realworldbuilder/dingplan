@@ -526,19 +526,16 @@ class Composer {
             }
           }
           
-          // Otherwise show options but format them better
-          let response = `Available templates matching "${requestedType}":\n\n`;
-          matchingTemplates.forEach(template => {
-            response += `• ${template.name} (${template.id})\n`;
-          });
-          response += "\nPlease specify which one you'd like to use.";
+          // Simplified multiple match response
+          const templateOptions = matchingTemplates.map(t => t.name).join(", ");
+          
           // Store the first match as a fallback for simple affirmative responses
           Composer.lastSuggestedTemplate = matchingTemplates[0].id;
-          return response;
+          return `I found these options: ${templateOptions}. Which one would you like to use?`;
         } else if (requestedType.includes('data') && requestedType.includes('center')) {
-          // Special case for data centers
+          // Simplified data center special case
           Composer.lastSuggestedTemplate = 'industrial_facility';
-          return `We don't have a specific Data Center template, but the Industrial Facility template would be the closest match. Would you like to apply the Industrial Facility template?`;
+          return `I'll use the Industrial Facility template for your data center project. OK?`;
         } else {
           // No matching templates, set last suggested template to empty
           Composer.lastSuggestedTemplate = '';
@@ -1593,6 +1590,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
 
+  // Simplify task sequence response
   private async createTaskSequence(args: any): Promise<string> {
     try {
       const { tasks, 
@@ -1728,18 +1726,14 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Force a render to ensure all tasks are displayed
       this.canvas.render();
       
-      // Generate a human-friendly response
-      const taskSummary = taskDetails.map((task, index) => 
-        `${index + 1}. ${task.name} (${task.duration} days)`
-      ).join('\n');
-      
-      return `Created task sequence "${name}" with ${tasks.length} tasks in ${resolvedSwimlaneId}:\n${taskSummary}`;
+      // Generate a human-friendly response - SIMPLIFIED
+      return `Created your "${name}" sequence with ${tasks.length} tasks.`;
     } catch (error) {
       return this.handleError("creating task sequence", error);
     }
   }
   
-  // Fix the createTemplateSequence method to be async too since it may call createFromTemplate
+  // Simplify template sequence response
   private async createTemplateSequence(args: any, templateName: string): Promise<string> {
     try {
       const { startDate, location, inAllSwimlanes, swimlaneId, scaleFactor } = args;
@@ -1858,26 +1852,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Render the canvas to update
       this.canvas.render();
       
-      // Generate response
-      const swimlaneText = inAllSwimlanes 
-        ? `${swimlaneIds.length} swimlanes` 
-        : `swimlane ${targetSwimlaneId}`;
-        
-      const taskInfo = inAllSwimlanes
-        ? `${template.tasks.length} tasks per swimlane (${createdTasks.length} total)`
-        : `${createdTasks.length} tasks`;
-      
-      // Include some examples of created tasks
-      const examples = createdTasks
-        .slice(0, 3)
-        .map(task => task.name)
-        .join(", ");
-      
-      const examplesText = createdTasks.length > 0 
-        ? ` including ${examples}${createdTasks.length > 3 ? ", and more" : ""}`
-        : "";
-        
-      return `Created a ${template.name} sequence in ${swimlaneText} with ${taskInfo}${examplesText}.`;
+      // Generate response - SIMPLIFIED
+      const locationText = location ? ` for ${location}` : '';
+      return `Created ${template.name} sequence${locationText}. ${createdTasks.length} tasks added.`;
     } catch (error) {
       return this.handleError(`creating template sequence for "${templateName}"`, error);
     }
@@ -2021,16 +1998,13 @@ Always strive to be both helpful and educational, balancing efficient task execu
     try {
       this.debug('Listing available templates');
       
-      const templateList = Object.entries(TEMPLATES).map(([key, template]) => {
-        // Show aliases if available
-        const aliasText = template.aliases && template.aliases.length > 0 
-          ? ` (also: ${template.aliases.join(', ')})` 
-          : '';
-          
-        return `- ${key}: ${template.description} - ${template.tasks.length} tasks${aliasText}`;
-      }).join('\n');
+      // Get all templates
+      const templates = Object.entries(TEMPLATES);
       
-      return `Available templates:\n${templateList}`;
+      // Simplified response
+      const templateList = templates.map(([key, template]) => key).join(", ");
+      
+      return `Available templates: ${templateList}`;
     } catch (error: unknown) {
       return this.handleError('listing templates', error);
     }
@@ -2215,11 +2189,31 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
   
-  // Error handling utility
+  // Make error handling more conversational
   private handleError(operation: string, error: unknown): string {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[Composer Error] ${operation}: ${errorMessage}`, error);
-    return `Error during ${operation}: ${errorMessage}`;
+    
+    // More conversational error messages
+    const genericOperations = [
+      "creating task", 
+      "creating multiple tasks", 
+      "creating task sequence", 
+      "creating from template",
+      "creating template sequence",
+      "applying WBS template"
+    ];
+    
+    if (genericOperations.some(op => operation.includes(op))) {
+      return `Sorry, I couldn't complete that. Please try again with a different approach.`;
+    }
+    
+    if (operation.includes("listing")) {
+      return `I couldn't get that information right now.`;
+    }
+    
+    // Fallback for other errors
+    return `That didn't work. Let's try something else.`;
   }
 
   // Add new methods for swimlane management
@@ -2443,9 +2437,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
 
-  /**
-   * List available WBS templates
-   */
+  // Simplify WBS template listing response
   private listWBSTemplates(args: any): string {
     try {
       const wbsTemplates = getAllWBSTemplates();
@@ -2462,39 +2454,25 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       if (templates.length === 0) {
         if (projectType) {
-          return `No templates for "${projectType}". Available templates:\n${getWBSTemplateNames().map(name => `• ${name}`).join("\n")}`;
+          return `No templates for "${projectType}" found. Available templates:\n${getWBSTemplateNames().join(", ")}`;
         } else {
-          return "No WBS templates found.";
+          return "No templates found.";
         }
       }
       
-      // Format as a simple list
-      let response = projectType 
-        ? `Templates for "${projectType}":\n` 
-        : "Available templates:\n";
+      // Format as a simple comma-separated list
+      const templateNames = templates.map(t => t.name).join(", ");
       
-      templates.forEach((template) => {
-        response += `• ${template.name}\n`;
-      });
-      
-      // Simple usage instructions
-      response += "\nTo apply: Type 'Apply [template name]'";
-      
-      // Only add alternative suggestion if needed
-      if (projectType && projectType.includes('data') && projectType.includes('center')) {
-        response += "\nTip: For data centers, try the Industrial Facility template";
-      }
-      
-      return response;
+      return projectType 
+        ? `Templates for "${projectType}": ${templateNames}` 
+        : `Available templates: ${templateNames}`;
     } catch (error) {
       console.error("Error listing WBS templates:", error);
       return "Failed to list templates. Please try again.";
     }
   }
   
-  /**
-   * Apply a WBS template to create swimlanes
-   */
+  // Simplify WBS template application response
   async applyWBSTemplate(args: any): Promise<string> {
     try {
       const templateIdOrType = args.templateId;
@@ -2558,38 +2536,11 @@ Always strive to be both helpful and educational, balancing efficient task execu
         createdSwimlanes.push({ id, name: category });
       }
       
-      // Format a simple response
-      let response = `Applied "${template.name}" template with ${createdSwimlanes.length} swimlanes.\n\n`;
-      
-      // List the first few swimlanes
-      for (let i = 0; i < Math.min(createdSwimlanes.length, 5); i++) {
-        response += `• ${createdSwimlanes[i].name}\n`;
-      }
-      
-      if (createdSwimlanes.length > 5) {
-        response += `• ...and ${createdSwimlanes.length - 5} more\n`;
-      }
-      
-      // Simple next steps
-      response += "\nNext steps:\n";
-      response += "• Add tasks to swimlanes\n";
-      response += "• Create task sequences\n";
-      
-      // Brief tip based on template type
-      if (template.id === 'healthcare_facility') {
-        response += "\nTip: Add medical equipment and systems tasks";
-      } else if (template.id === 'industrial_facility') {
-        response += "\nTip: Add equipment installation and piping tasks";
-      } else if (template.id.includes('commercial')) {
-        response += "\nTip: Add core & shell and tenant improvement tasks";
-      } else if (template.id.includes('residential')) {
-        response += "\nTip: Add unit finishes and common area tasks";
-      }
-      
-      return response;
+      // Format a simpler response
+      return `Applied ${template.name} template with ${createdSwimlanes.length} swimlanes.`;
     } catch (error) {
       console.error("Error applying WBS template:", error);
-      return "Failed to apply WBS template due to an error.";
+      return "Failed to apply template. Please try again.";
     }
   }
 }
