@@ -133,6 +133,7 @@
       <div id="toolbar-html">
         <button id="add-task-btn" class="toolbar-btn" title="Add Task" onclick="console.log('Add task button clicked inline'); if(window.canvasApp) window.canvasApp.sidebar.show('add-task', window.canvasApp); return false;">➕</button>
         <button id="edit-swimlanes-btn" class="toolbar-btn" title="Edit Swimlanes" onclick="console.log('Edit swimlanes button clicked inline'); if(window.canvasApp) window.canvasApp.sidebar.show('edit-swimlanes', window.canvasApp); return false;">🏊</button>
+        <button id="manage-trades-btn" class="toolbar-btn" title="Manage Trades" onclick="console.log('Manage trades button clicked inline'); if(window.canvasApp) window.canvasApp.sidebar.show('manage-trades', window.canvasApp); return false;">🛠️</button>
         <button id="go-to-today-btn" class="toolbar-btn" title="Go to Today" onclick="console.log('Go to today button clicked inline'); if(window.canvasApp) { const x = window.canvasApp.timeAxis.getTodayPosition(); window.canvasApp.camera.x = x; window.canvasApp.render(); } return false;">📅</button>
         <button id="export-pdf-btn" class="toolbar-btn" title="Export PDF" onclick="console.log('Export PDF button clicked inline'); if(window.canvasApp) window.canvasApp.exportToPDF(); return false;">📄</button>
         <button id="toggle-deps-btn" class="toolbar-btn" title="Toggle Dependencies" onclick="console.log('Toggle deps button clicked inline'); if(window.canvasApp) { window.canvasApp.taskManager.areDependenciesVisible = !window.canvasApp.taskManager.areDependenciesVisible; window.canvasApp.render(); } return false;">🔗</button>
@@ -228,6 +229,12 @@
           e.stopPropagation();
           console.log('Edit Swimlanes button clicked');
           window.canvasApp.sidebar.show('edit-swimlanes', window.canvasApp);
+        });
+        
+        document.getElementById('manage-trades-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('Manage Trades button clicked');
+          window.canvasApp.sidebar.show('manage-trades', window.canvasApp);
         });
         
         document.getElementById('go-to-today-btn')?.addEventListener('click', (e) => {
