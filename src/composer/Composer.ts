@@ -30,6 +30,8 @@ class Composer {
   private functions: any[];
   private debugMode: boolean = true; // Enable debug mode
   private maxTokens: number;
+  // Add static property for tracking last suggested template
+  private static lastSuggestedTemplate: string = '';
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
@@ -430,6 +432,18 @@ class Composer {
     try {
       this.debug(`Processing prompt: "${userInput}"`);
       
+      // Handle simple affirmative responses to previous template suggestions
+      const normalizedInput = userInput.toLowerCase().trim();
+      const isAffirmative = ['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'apply it', 'use it', 'sounds good'].includes(normalizedInput);
+      
+      // Check if this is a direct confirmation to apply a previously suggested template
+      if (isAffirmative && Composer.lastSuggestedTemplate) {
+        this.debug(`Detected affirmative response for template: ${Composer.lastSuggestedTemplate}`);
+        const result = await this.applyWBSTemplate({ templateId: Composer.lastSuggestedTemplate });
+        Composer.lastSuggestedTemplate = ''; // Reset after applying
+        return result;
+      }
+      
       // Continue with normal processing
       if (!this.apiKey) {
         return "API key not set. Please set an API key first.";
@@ -438,6 +452,43 @@ class Composer {
       // Special debug case
       if (userInput.startsWith('/')) {
         return this.handleDebugCommand(userInput);
+      }
+      
+      // Check for direct template application requests without going through the LLM
+      // These are patterns like "use a [type] template" or "apply [type] template"
+      const directTemplateMatch = userInput.match(/(?:use|apply)(?:\s+an?|\s+the)?\s+(\w+)(?:\s+wbs|\s+template)/i);
+      if (directTemplateMatch) {
+        const requestedType = directTemplateMatch[1].toLowerCase();
+        const wbsTemplates = getAllWBSTemplates();
+        
+        // Find matching templates
+        const matchingTemplates = wbsTemplates.filter(template => 
+          template.id.toLowerCase().includes(requestedType) || 
+          template.name.toLowerCase().includes(requestedType) ||
+          template.projectTypes.some(type => type.toLowerCase().includes(requestedType))
+        );
+        
+        if (matchingTemplates.length === 1) {
+          // Single match - apply it directly
+          return await this.applyWBSTemplate({ templateId: matchingTemplates[0].id });
+        } else if (matchingTemplates.length > 1) {
+          // Multiple matches - show available options
+          let response = `I found multiple templates that could match "${requestedType}":\n\n`;
+          matchingTemplates.forEach(template => {
+            response += `- ${template.name} (ID: ${template.id})\n`;
+          });
+          response += "\nPlease specify which one you'd like to use. You can say something like 'use the [template ID]' template.";
+          // Store the first match as a fallback for simple affirmative responses
+          Composer.lastSuggestedTemplate = matchingTemplates[0].id;
+          return response;
+        } else if (requestedType.includes('data') && requestedType.includes('center')) {
+          // Special case for data centers
+          Composer.lastSuggestedTemplate = 'industrial_facility';
+          return `We don't have a specific Data Center template, but the Industrial Facility template would be the closest match. Would you like to apply the Industrial Facility template?`;
+        } else {
+          // No matching templates, set last suggested template to empty
+          Composer.lastSuggestedTemplate = '';
+        }
       }
       
       try {
@@ -513,6 +564,24 @@ Debug Commands:
       const availableTemplates = getTemplateNames();
       const wbsTemplates = getWBSTemplateNames();
       
+      // Check if the request is directly about WBS templates
+      const isWBSRequest = userInput.toLowerCase().includes('wbs') || 
+                          userInput.toLowerCase().includes('template') ||
+                          userInput.toLowerCase().includes('breakdown structure');
+      
+      // If this is a WBS template-related request, enhance the system message
+      const wbsSpecificGuidance = isWBSRequest ? `
+TEMPLATE REQUEST DETECTION: I detect that you're asking about Work Breakdown Structure templates.
+
+IMPORTANT GUIDELINES FOR WBS REQUESTS:
+1. When users ask for a specific industry template, first check if we have an exact match.
+2. If not, suggest the closest alternative template (e.g., industrial_facility for data centers).
+3. For vague requests, present available options clearly formatted with line breaks between templates.
+4. When a user confirms they want to use a template with "yes" or similar, use the applyWBSTemplate function.
+5. Remember, applying a template creates the swimlane structure but doesn't add tasks.
+
+The user appears to be requesting WBS template information. Please respond with clear, well-formatted information.` : '';
+      
       const systemMessage = `You are a friendly, conversational construction planning assistant for Dingplan, an interactive construction planning tool. You help users create and manage construction project timelines for commercial and industrial projects.
 
 YOUR CAPABILITIES:
@@ -574,10 +643,13 @@ GUIDANCE APPROACH:
 
 ${isExplicitTaskRequest ? "NOTE: The user has explicitly requested a single task, not a template." : ""}
 
+${wbsSpecificGuidance}
+
 VERY IMPORTANT:
 - If the user mentions "healthcare", "hospital", or similar terms AND mentions "WBS" or "template", you should use the applyWBSTemplate function with templateId "healthcare_facility"
 - If the user mentions "commercial building" or similar AND mentions "WBS" or "template", use applyWBSTemplate with templateId "commercial_building"
 - For other project types like residential, industrial, etc., follow the same pattern
+- If the user responds with "yes" to any template suggestion, apply the suggested template
 
 Always strive to be both helpful and educational, balancing efficient task execution with providing valuable planning insights.`;
       
@@ -602,7 +674,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
           ],
           tools: this.functions,
           temperature: 0.7,
-          max_tokens: this.maxTokens
+          max_tokens: this.maxTokens || 4000
         };
         
         response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -630,7 +702,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
           ],
           functions: this.functions,
           temperature: 0.7,
-          max_tokens: this.maxTokens,
+          max_tokens: this.maxTokens || 2000,
           function_call: "auto"
         };
         
@@ -651,6 +723,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       const jsonResponse = await response.json();
       
+      // Debug the raw response to help diagnose issues
+      this.debug('Raw LLM response:', jsonResponse);
+      
       // Convert Anthropic response format to OpenAI format if needed
       if (isAnthropicModel) {
         // Adapt Anthropic response to match OpenAI format expected by our code
@@ -665,11 +740,19 @@ Always strive to be both helpful and educational, balancing efficient task execu
               }
             }]
           };
-        } else {
+        } else if (jsonResponse.content && jsonResponse.content.length > 0) {
           return {
             choices: [{
               message: {
                 content: jsonResponse.content[0].text
+              }
+            }]
+          };
+        } else {
+          return {
+            choices: [{
+              message: {
+                content: "The AI model didn't provide a valid response."
               }
             }]
           };
@@ -2108,20 +2191,27 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       if (templates.length === 0) {
         if (projectType) {
-          return `No WBS templates found for "${projectType}". Available templates include: ${getWBSTemplateNames().join(", ")}`;
+          return `No WBS templates found for "${projectType}".\n\nAvailable templates include:\n${getWBSTemplateNames().map(name => `- ${name}`).join("\n")}`;
         } else {
           return "No WBS templates found.";
         }
       }
       
-      // Format the response
+      // Format the response with better spacing and readability
       let response = projectType 
         ? `Available WBS templates for "${projectType}" projects:\n\n` 
         : "Available Work Breakdown Structure templates:\n\n";
       
       templates.forEach(template => {
-        response += `- ${template.name} (ID: ${template.id})\n  ${template.description}\n  Categories: ${template.categories.length}\n\n`;
+        response += `- ${template.name} (ID: ${template.id})\n`;
+        response += `  Description: ${template.description}\n`;
+        response += `  Categories: ${template.categories.length}\n\n`;
       });
+      
+      // For specialized domains without direct templates, offer alternatives
+      if (projectType && projectType.includes('data') && projectType.includes('center')) {
+        response += "\nNote: While we don't have a specific Data Center template, the Industrial Facility template (industrial_facility) would be the closest match for data center projects.\n";
+      }
       
       return response;
     } catch (error) {
@@ -2148,7 +2238,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
       
       if (!template) {
-        return `No WBS template found matching "${templateIdOrType}". Use listWBSTemplates to see available templates.`;
+        return `No WBS template found matching "${templateIdOrType}".\n\nUse listWBSTemplates to see available templates. Available templates include:\n${getWBSTemplateNames().map(name => `- ${name}`).join("\n")}`;
       }
       
       // Clear existing swimlanes if requested
@@ -2196,7 +2286,45 @@ Always strive to be both helpful and educational, balancing efficient task execu
         createdSwimlanes.push({ id, name: category });
       }
       
-      return `Successfully applied the "${template.name}" WBS template. Created ${createdSwimlanes.length} swimlanes: ${createdSwimlanes.map(s => s.name).join(", ")}.`;
+      // Format a more detailed response with next steps
+      let response = `✅ Successfully applied the "${template.name}" WBS template.\n\n`;
+      response += `Created ${createdSwimlanes.length} swimlanes:\n`;
+      
+      // Group swimlanes logically based on template categories
+      let groupedSwimlanes = [];
+      for (let i = 0; i < createdSwimlanes.length; i++) {
+        const swimlane = createdSwimlanes[i];
+        if (i < 5) {
+          // Show first 5 in detail
+          groupedSwimlanes.push(`- ${swimlane.name}`);
+        } else if (i === 5) {
+          // Indicate there are more
+          groupedSwimlanes.push(`- ... and ${createdSwimlanes.length - 5} more swimlanes`);
+          break;
+        }
+      }
+      
+      response += groupedSwimlanes.join('\n');
+      
+      // Add next steps guidance
+      response += `\n\nNext steps:\n`;
+      response += `1. Review the created swimlanes and customize if needed using customizeSwimlaneTemplate\n`;
+      response += `2. Start adding tasks to each swimlane using createTask\n`;
+      response += `3. Consider applying standard task templates for specific areas using createFromTemplate\n`;
+      
+      if (template.id === 'healthcare_facility') {
+        response += `\nTip: For healthcare facilities, consider adding the following task sequences:\n`;
+        response += `- Medical equipment installation\n`;
+        response += `- MEP systems for medical areas\n`;
+        response += `- Special considerations for patient rooms\n`;
+      } else if (template.id === 'industrial_facility') {
+        response += `\nTip: For industrial facilities, consider adding the following task sequences:\n`;
+        response += `- Equipment installation and hookups\n`;
+        response += `- Process piping and specialized systems\n`;
+        response += `- Testing and commissioning procedures\n`;
+      }
+      
+      return response;
     } catch (error) {
       console.error("Error applying WBS template:", error);
       return "Failed to apply WBS template due to an error.";
