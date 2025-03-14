@@ -444,6 +444,31 @@ class Composer {
         return result;
       }
       
+      // Check for site preparation sequence requests
+      if ((normalizedInput.includes('site') && 
+           (normalizedInput.includes('prep') || normalizedInput.includes('preparation'))) ||
+          normalizedInput.includes('site clearing') ||
+          normalizedInput.includes('clearing sequence') ||
+          normalizedInput.includes('site work')) {
+        
+        // Check if a specific swimlane is mentioned
+        let swimlaneId = null;
+        
+        // Common patterns for specifying swimlanes
+        const inSwimlaneMatch = normalizedInput.match(/in\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|$)/i);
+        if (inSwimlaneMatch && inSwimlaneMatch[1]) {
+          swimlaneId = inSwimlaneMatch[1];
+        }
+        
+        // Another pattern: "to the X swimlane"
+        const toSwimlaneMatch = normalizedInput.match(/to\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|$)/i);
+        if (toSwimlaneMatch && toSwimlaneMatch[1]) {
+          swimlaneId = toSwimlaneMatch[1];
+        }
+        
+        return await this.createSitePreparationSequence(swimlaneId);
+      }
+      
       // Check for default template request - DISTINGUISH BETWEEN WBS AND TASK TEMPLATES
       if (normalizedInput.includes('default') || normalizedInput.includes('standard')) {
         // Check if this is specifically about WBS templates
@@ -1223,6 +1248,26 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Normalize input for better matching
       const normalizedInput = swimlaneNameOrId.toLowerCase().trim();
       
+      // Debug swimlane list
+      this.debug(`Available swimlanes: ${swimlanes.map(lane => `${lane.id}: ${lane.name}`).join(', ')}`);
+      
+      // Handle ordinal references like "first", "second", etc.
+      if (normalizedInput.includes('first') || normalizedInput.includes('1st')) {
+        if (swimlanes.length > 0) return swimlanes[0].id;
+      }
+      if (normalizedInput.includes('second') || normalizedInput.includes('2nd')) {
+        if (swimlanes.length > 1) return swimlanes[1].id;
+      }
+      if (normalizedInput.includes('third') || normalizedInput.includes('3rd')) {
+        if (swimlanes.length > 2) return swimlanes[2].id;
+      }
+      if (normalizedInput.includes('fourth') || normalizedInput.includes('4th')) {
+        if (swimlanes.length > 3) return swimlanes[3].id;
+      }
+      if (normalizedInput.includes('fifth') || normalizedInput.includes('5th')) {
+        if (swimlanes.length > 4) return swimlanes[4].id;
+      }
+      
       // First, try exact match on ID
       const exactIdMatch = swimlanes.find(lane => lane.id.toLowerCase() === normalizedInput);
       if (exactIdMatch) return exactIdMatch.id;
@@ -1262,29 +1307,42 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       // Try partial matches on ID
       const partialIdMatch = swimlanes.find(lane => lane.id.toLowerCase().includes(normalizedInput) || 
-                                               normalizedInput.includes(lane.id.toLowerCase()));
+                                             normalizedInput.includes(lane.id.toLowerCase()));
       if (partialIdMatch) return partialIdMatch.id;
       
       // Try partial matches on name
       const partialNameMatch = swimlanes.find(lane => lane.name.toLowerCase().includes(normalizedInput) || 
-                                                normalizedInput.includes(lane.name.toLowerCase()));
+                                              normalizedInput.includes(lane.name.toLowerCase()));
       if (partialNameMatch) return partialNameMatch.id;
       
-      // Check if input is a descriptive name like "site prep" that might match a swimlane
+      // Handle partial matches on name - improved for common swimlane names
+      // This is especially important for matching composite names like "Site Preparation & Foundations"
       for (const lane of swimlanes) {
-        // Check for common variations and alternatives
         const laneNameLower = lane.name.toLowerCase();
         const laneIdLower = lane.id.toLowerCase();
         
-        // Handle common synonyms and variations
-        if ((normalizedInput.includes('site') && (laneNameLower.includes('site') || laneNameLower.includes('prep'))) ||
-            (normalizedInput.includes('prep') && (laneNameLower.includes('site') || laneNameLower.includes('prep'))) ||
-            (normalizedInput.includes('foundation') && (laneNameLower.includes('foundation') || laneIdLower.includes('foundation'))) ||
-            (normalizedInput.includes('structure') && (laneNameLower.includes('structure') || laneIdLower.includes('structure'))) ||
-            (normalizedInput.includes('interior') && (laneNameLower.includes('interior') || laneIdLower.includes('interior'))) ||
-            (normalizedInput.includes('exterior') && (laneNameLower.includes('exterior') || laneIdLower.includes('exterior'))) ||
-            (normalizedInput.includes('finish') && (laneNameLower.includes('finish') || laneIdLower.includes('finish'))) ||
-            (normalizedInput.includes('floor') && (laneNameLower.includes('floor') || laneIdLower.includes('floor'))) ||
+        // Check for site preparation variations
+        if ((normalizedInput.includes('site') && laneNameLower.includes('site')) ||
+            (normalizedInput.includes('prep') && laneNameLower.includes('prep'))) {
+          this.debug(`Found matching swimlane for site preparation: ${lane.name}`);
+          return lane.id;
+        }
+        
+        // Check for other common variations
+        if ((normalizedInput.includes('found') && laneNameLower.includes('found')) ||
+            (normalizedInput.includes('civil') && laneNameLower.includes('civil')) ||
+            (normalizedInput.includes('struct') && laneNameLower.includes('struct')) ||
+            (normalizedInput.includes('mech') && laneNameLower.includes('mech')) ||
+            (normalizedInput.includes('elec') && laneNameLower.includes('elec')) ||
+            (normalizedInput.includes('interior') && laneNameLower.includes('interior')) ||
+            (normalizedInput.includes('exterior') && laneNameLower.includes('exterior')) ||
+            (normalizedInput.includes('finish') && laneNameLower.includes('finish'))) {
+          this.debug(`Found matching swimlane for ${normalizedInput}: ${lane.name}`);
+          return lane.id;
+        }
+        
+        // Handle common synonyms and variations (from original code)
+        if ((normalizedInput.includes('floor') && (laneNameLower.includes('floor') || laneIdLower.includes('floor'))) ||
             (normalizedInput.includes('section') && (laneNameLower.includes('section') || laneIdLower.includes('section'))) ||
             (normalizedInput.includes('phase') && (laneNameLower.includes('phase') || laneIdLower.includes('phase'))) ||
             (normalizedInput.includes('wing') && (laneNameLower.includes('wing') || laneIdLower.includes('wing'))) ||
@@ -2590,6 +2648,63 @@ Always strive to be both helpful and educational, balancing efficient task execu
 To get started:
 1. First apply a WBS template: "Apply Commercial Building WBS"
 2. Then add task sequences: "Add foundation sequence to Site Preparation swimlane"`;
+  }
+
+  // Add a helper method to create a site preparation sequence
+  private async createSitePreparationSequence(swimlaneId?: string): Promise<string> {
+    try {
+      // Find the best matching swimlane for site preparation
+      const resolvedSwimlaneId = swimlaneId ? 
+        this.findBestMatchingSwimlane(swimlaneId) : 
+        this.findSitePreparationSwimlane();
+      
+      if (!resolvedSwimlaneId) {
+        return "I couldn't find a suitable swimlane for site preparation. Please specify which swimlane to use.";
+      }
+      
+      // Look for templates related to site preparation
+      const templateNames = ['specialized_siteclearing', 'industrial_siteprep'];
+      
+      // Try each template until one works
+      for (const templateName of templateNames) {
+        const template = getTemplate(templateName);
+        if (template) {
+          this.debug(`Using site preparation template: ${templateName}`);
+          return await this.createTemplateSequence({ 
+            templateName, 
+            swimlaneId: resolvedSwimlaneId
+          }, templateName);
+        }
+      }
+      
+      // Fallback to the foundation template which has site prep tasks
+      return await this.createTemplateSequence({
+        templateName: 'foundation',
+        swimlaneId: resolvedSwimlaneId
+      }, 'foundation');
+    } catch (error) {
+      return this.handleError("creating site preparation sequence", error);
+    }
+  }
+  
+  // Add a helper method to find a swimlane suitable for site preparation
+  private findSitePreparationSwimlane(): string | null {
+    const swimlanes = this.canvas.taskManager.swimlanes;
+    if (!swimlanes || swimlanes.length === 0) return null;
+    
+    // Look for swimlanes that match site preparation terminology
+    for (const lane of swimlanes) {
+      const laneNameLower = lane.name.toLowerCase();
+      if (laneNameLower.includes('site') || 
+          laneNameLower.includes('prep') || 
+          laneNameLower.includes('civil') || 
+          laneNameLower.includes('preliminary')) {
+        return lane.id;
+      }
+    }
+    
+    // Default to the first swimlane
+    return swimlanes[0].id;
   }
 }
 
