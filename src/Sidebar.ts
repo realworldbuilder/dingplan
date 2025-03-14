@@ -3,7 +3,7 @@ import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 
-export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes';
+export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
 export class Sidebar {
   private width: number = 360;
@@ -24,6 +24,9 @@ export class Sidebar {
   private composer: Composer | null = null;
   private composerResponseArea: HTMLElement | null = null;
   private apiKeyInput: HTMLInputElement | null = null;
+  
+  // Canvas reference
+  private canvas: any = null;
 
   constructor() {
     this.element = document.createElement('div');
@@ -456,15 +459,6 @@ export class Sidebar {
           </div>
           <div id="composer-view" class="view">
             <div class="ai-composer">
-              <div class="api-key-section" style="margin-top: 5px; font-size: 12px;">
-                <label for="api-key-input" style="font-size: 12px; display: inline-block; margin-bottom: 3px;">OpenAI API Key:</label>
-                <div class="api-key-input-container">
-                  <input type="password" id="api-key-input" class="api-key-input" placeholder="Enter your OpenAI API key" style="font-size: 12px; padding: 4px; height: 24px;">
-                  <button class="api-key-save-button" style="font-size: 12px; padding: 4px 8px; height: 24px;">Save</button>
-                </div>
-                <p class="api-key-help" style="font-size: 10px; margin-top: 2px; color: #777;">Your API key is stored in your browser's local storage.</p>
-              </div>
-              
               <div class="composer-response-area" style="margin-top: 10px;">
                 <p class="composer-initial-message">Composer is ready. Enter a prompt below.</p>
               </div>
@@ -485,33 +479,47 @@ export class Sidebar {
             </div>
           </div>
           <div id="options-view" class="view">
-            <div class="plan-options-section">
-              <h3 class="plan-options-title">Trade Management</h3>
-              <p>Manage trades and their visibility across the plan:</p>
+            <div class="option-section">
+              <h3 class="option-section-title">API Settings</h3>
+              <p>Configure your API keys for AI services:</p>
               
-              <div class="trade-filter-container">
-                <div class="trade-filter-header">
-                  <span>Trades & Visibility</span>
-                  <div class="trade-filter-actions">
-                    <button class="trade-filter-action" id="select-all-trades">Select All</button>
-                    <button class="trade-filter-action" id="clear-all-trades">Clear All</button>
-                    <button class="trade-filter-action" id="add-new-trade">+ Add</button>
+              <div class="api-settings-container">
+                <div class="api-provider-section">
+                  <h4>OpenAI API Key</h4>
+                  <div class="api-key-input-container">
+                    <input type="password" id="openai-api-key-input" class="api-key-input" placeholder="Enter your OpenAI API key">
+                    <button class="api-key-save-button" data-provider="openai">Save</button>
                   </div>
+                  <p class="api-key-help">For GPT-3.5 and GPT-4 models</p>
                 </div>
-                <div class="trade-filter-list">
-                  ${this.trades.map(trade => `
-                    <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
-                      <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
-                      <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
-                      <div class="trade-filter-toggle active" data-id="${trade.id}"></div>
-                      <button class="trade-filter-delete" data-id="${trade.id}">×</button>
-                    </div>
-                  `).join('')}
+                
+                <div class="api-provider-section">
+                  <h4>Anthropic API Key</h4>
+                  <div class="api-key-input-container">
+                    <input type="password" id="anthropic-api-key-input" class="api-key-input" placeholder="Enter your Claude API key">
+                    <button class="api-key-save-button" data-provider="anthropic">Save</button>
+                  </div>
+                  <p class="api-key-help">For Claude models</p>
                 </div>
               </div>
             </div>
+            
             <div class="option-section">
-              <h4>Local Storage</h4>
+              <h3 class="option-section-title">Plan Management</h3>
+              <div class="option-buttons">
+                <button class="option-button" id="manage-trades-button">
+                  <span class="option-button-icon">🧰</span>
+                  <span class="option-button-text">Manage Trades</span>
+                </button>
+                <button class="option-button" id="manage-swimlanes-button">
+                  <span class="option-button-icon">🏊</span>
+                  <span class="option-button-text">Manage Swimlanes</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="option-section">
+              <h3 class="option-section-title">Application</h3>
               <div class="option-row">
                 <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
               </div>
@@ -584,6 +592,37 @@ export class Sidebar {
               <button id="sidebar-add-swimlane" class="btn-secondary">Add Swimlane</button>
               <div class="form-actions">
                 <button id="sidebar-save-swimlanes" class="btn-primary">Save Changes</button>
+              </div>
+            </div>
+          </div>
+          <div id="manage-trades-view" class="view">
+            <!-- Trade Management form will be here -->
+            <div class="manage-trades-form">
+              <h3>Manage Trades</h3>
+              <p>Manage trades and their visibility across the plan:</p>
+              
+              <div class="trade-filter-container">
+                <div class="trade-filter-header">
+                  <span>Trades & Visibility</span>
+                  <div class="trade-filter-actions">
+                    <button class="trade-filter-action" id="select-all-trades">Select All</button>
+                    <button class="trade-filter-action" id="clear-all-trades">Clear All</button>
+                    <button class="trade-filter-action" id="add-new-trade">+ Add</button>
+                  </div>
+                </div>
+                <div class="trade-filter-list">
+                  ${this.trades.map(trade => `
+                    <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
+                      <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
+                      <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
+                      <div class="trade-filter-toggle active" data-id="${trade.id}"></div>
+                      <button class="trade-filter-delete" data-id="${trade.id}">×</button>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="form-actions">
+                <button id="save-trades-button" class="btn-primary">Save Changes</button>
               </div>
             </div>
           </div>
@@ -769,17 +808,86 @@ export class Sidebar {
       .example-command:hover {
         text-decoration: underline;
       }
+      
+      .api-settings-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      
+      .api-provider-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        border: 1px solid #e0e0e0;
+      }
+      
+      .api-provider-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+        color: #333;
+      }
+      
+      .option-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #333;
+      }
+      
+      .option-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      
+      .option-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background-color: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .option-button:hover {
+        background-color: #e5e5e5;
+        transform: translateY(-1px);
+      }
+      
+      .option-button-icon {
+        font-size: 18px;
+      }
+      
+      .manage-trades-form {
+        padding: 10px 0;
+      }
     `;
     document.head.appendChild(styleElement);
     
     // Store references to composer elements
     this.composerResponseArea = this.element.querySelector('.composer-response-area');
-    this.apiKeyInput = this.element.querySelector('#api-key-input') as HTMLInputElement;
+    this.apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
     
     // Check for stored API key
     const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
     if (storedApiKey && this.apiKeyInput) {
       this.apiKeyInput.value = storedApiKey;
+    }
+    
+    // Check for stored Anthropic API key
+    const storedAnthropicApiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
+    const anthropicApiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
+    if (storedAnthropicApiKey && anthropicApiKeyInput) {
+      anthropicApiKeyInput.value = storedAnthropicApiKey;
     }
   }
 
@@ -810,20 +918,67 @@ export class Sidebar {
       });
     }
     
-    // API key save button
-    const saveKeyButton = this.element.querySelector('.api-key-save-button');
-    if (saveKeyButton && this.apiKeyInput) {
-      saveKeyButton.addEventListener('click', () => {
-        const apiKey = this.apiKeyInput?.value.trim() || '';
-        if (apiKey) {
-          localStorage.setItem('constructionPlannerApiKey', apiKey);
-          if (this.composer) {
-            this.composer.setApiKey(apiKey);
+    // API key save buttons
+    const saveKeyButtons = this.element.querySelectorAll('.api-key-save-button');
+    saveKeyButtons.forEach((button) => {
+      button.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const provider = target.getAttribute('data-provider');
+        
+        if (provider === 'openai') {
+          const apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
+          const apiKey = apiKeyInput?.value.trim() || '';
+          if (apiKey) {
+            localStorage.setItem('constructionPlannerApiKey', apiKey);
+            if (this.composer) {
+              this.composer.setApiKey(apiKey);
+            }
+            this.addComposerMessage('OpenAI API key saved successfully!');
+          } else {
+            this.addComposerMessage('Please enter a valid OpenAI API key.');
           }
-          this.addComposerMessage('API key saved successfully!');
-        } else {
-          this.addComposerMessage('Please enter a valid API key.');
+        } else if (provider === 'anthropic') {
+          const apiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
+          const apiKey = apiKeyInput?.value.trim() || '';
+          if (apiKey) {
+            localStorage.setItem('constructionPlannerAnthropicApiKey', apiKey);
+            if (this.composer) {
+              // Add a method to set Anthropic API key if needed
+              // this.composer.setAnthropicApiKey(apiKey);
+            }
+            this.addComposerMessage('Anthropic API key saved successfully!');
+          } else {
+            this.addComposerMessage('Please enter a valid Anthropic API key.');
+          }
         }
+      });
+    });
+    
+    // Manage Trades button
+    const manageTradesButton = this.element.querySelector('#manage-trades-button');
+    if (manageTradesButton) {
+      manageTradesButton.addEventListener('click', () => {
+        this.switchView('manage-trades');
+      });
+    }
+    
+    // Manage Swimlanes button
+    const manageSwimlanesButton = this.element.querySelector('#manage-swimlanes-button');
+    if (manageSwimlanesButton) {
+      manageSwimlanesButton.addEventListener('click', () => {
+        this.switchView('edit-swimlanes');
+        if (this.canvas) {
+          this.populateSwimlanesForm(this.canvas);
+        }
+      });
+    }
+    
+    // Save Trades button
+    const saveTradesButton = this.element.querySelector('#save-trades-button');
+    if (saveTradesButton) {
+      saveTradesButton.addEventListener('click', () => {
+        this.notifyFilterChanged();
+        this.switchView('options');
       });
     }
     
@@ -847,7 +1002,7 @@ export class Sidebar {
         }
         
         if (tradeId) {
-          // Update filter state - create a new map to ensure event fires
+          // Update filter state
           this.tradeFilters.set(tradeId, !isActive);
           
           // Ensure filter changes are propagated
@@ -886,7 +1041,7 @@ export class Sidebar {
       });
     });
     
-    // Add delete trade button event listener
+    // Delete trade buttons
     const deleteButtons = this.element.querySelectorAll('.trade-filter-delete');
     deleteButtons.forEach(button => {
       button.addEventListener('click', (e) => {
@@ -1372,6 +1527,7 @@ export class Sidebar {
 
   // Initialize the Composer with the Canvas instance
   initializeComposer(canvasInstance: any) {
+    this.canvas = canvasInstance; // Store canvas reference
     this.composer = new Composer({
       canvas: canvasInstance
     });
