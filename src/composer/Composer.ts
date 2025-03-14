@@ -430,8 +430,6 @@ class Composer {
     try {
       this.debug(`Processing prompt: "${userInput}"`);
       
-      // Remove special case for healthcare template - we want the LLM to handle this
-      
       // Continue with normal processing
       if (!this.apiKey) {
         return "API key not set. Please set an API key first.";
@@ -515,12 +513,7 @@ Debug Commands:
       const availableTemplates = getTemplateNames();
       const wbsTemplates = getWBSTemplateNames();
       
-      const requestBody = {
-        model: this.model,
-        messages: [
-          {
-            role: "system",
-            content: `You are a friendly, conversational construction planning assistant for Dingplan, an interactive construction planning tool. You help users create and manage construction project timelines for commercial and industrial projects.
+      const systemMessage = `You are a friendly, conversational construction planning assistant for Dingplan, an interactive construction planning tool. You help users create and manage construction project timelines for commercial and industrial projects.
 
 YOUR CAPABILITIES:
 1. Create individual tasks or entire construction sequences
@@ -586,35 +579,104 @@ VERY IMPORTANT:
 - If the user mentions "commercial building" or similar AND mentions "WBS" or "template", use applyWBSTemplate with templateId "commercial_building"
 - For other project types like residential, industrial, etc., follow the same pattern
 
-Always strive to be both helpful and educational, balancing efficient task execution with providing valuable planning insights.`
-          },
-          {
-            role: "user",
-            content: userInput
-          }
-        ],
-        functions: this.functions,
-        temperature: 0.7,
-        max_tokens: this.maxTokens,
-        function_call: "auto"
-      };
+Always strive to be both helpful and educational, balancing efficient task execution with providing valuable planning insights.`;
       
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(requestBody)
-      });
+      // Check if we're using an Anthropic or OpenAI model
+      const isAnthropicModel = this.model.toLowerCase().includes('claude');
+      
+      let response;
+      
+      if (isAnthropicModel) {
+        // Anthropic API format
+        const requestBody = {
+          model: this.model,
+          messages: [
+            {
+              role: "system",
+              content: systemMessage
+            },
+            {
+              role: "user",
+              content: userInput
+            }
+          ],
+          tools: this.functions,
+          temperature: 0.7,
+          max_tokens: this.maxTokens
+        };
+        
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } else {
+        // OpenAI API format
+        const requestBody = {
+          model: this.model,
+          messages: [
+            {
+              role: "system",
+              content: systemMessage
+            },
+            {
+              role: "user",
+              content: userInput
+            }
+          ],
+          functions: this.functions,
+          temperature: 0.7,
+          max_tokens: this.maxTokens,
+          function_call: "auto"
+        };
+        
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+      }
       
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`API request failed: ${response.status} - ${errorText}`);
       }
       
-      return await response.json();
+      const jsonResponse = await response.json();
+      
+      // Convert Anthropic response format to OpenAI format if needed
+      if (isAnthropicModel) {
+        // Adapt Anthropic response to match OpenAI format expected by our code
+        if (jsonResponse.tool_calls && jsonResponse.tool_calls.length > 0) {
+          return {
+            choices: [{
+              message: {
+                function_call: {
+                  name: jsonResponse.tool_calls[0].name,
+                  arguments: JSON.stringify(jsonResponse.tool_calls[0].parameters)
+                }
+              }
+            }]
+          };
+        } else {
+          return {
+            choices: [{
+              message: {
+                content: jsonResponse.content[0].text
+              }
+            }]
+          };
+        }
+      }
+      
+      return jsonResponse;
     } catch (error) {
       this.debug('LLM call error', error);
       throw error;
@@ -637,11 +699,11 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       switch (functionName) {
         case "createTask":
-          return this.createTask(args);
+          return await this.createTask(args);
         case "createMultipleTasks":
-          return this.createMultipleTasks(args);
+          return await this.createMultipleTasks(args);
         case "createTaskSequence":
-          return this.createTaskSequence(args);
+          return await this.createTaskSequence(args);
         case "createFromTemplate":
           return await this.createFromTemplate(args);
         case "listTemplates":
@@ -1162,8 +1224,8 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
 
-  // Update the createTask method to use the suggestSwimlane function
-  createTask(args: any): string {
+  // Update the createTask method to be async
+  async createTask(args: any): Promise<string> {
     try {
       this.debug('Creating task', args);
       
@@ -1181,15 +1243,15 @@ Always strive to be both helpful and educational, balancing efficient task execu
         const potentialTemplate = args.name.toLowerCase();
         
         if (potentialTemplate.includes('foundation')) {
-          return this.createFromTemplate({ templateName: 'foundation', swimlaneId: args.swimlaneId });
+          return await this.createFromTemplate({ templateName: 'foundation', swimlaneId: args.swimlaneId });
         } else if (potentialTemplate.includes('framing')) {
-          return this.createFromTemplate({ templateName: 'framing', swimlaneId: args.swimlaneId });
+          return await this.createFromTemplate({ templateName: 'framing', swimlaneId: args.swimlaneId });
         } else if (potentialTemplate.includes('mep') || potentialTemplate.includes('mechanical') || potentialTemplate.includes('electrical')) {
-          return this.createFromTemplate({ templateName: 'mep', swimlaneId: args.swimlaneId });
+          return await this.createFromTemplate({ templateName: 'mep', swimlaneId: args.swimlaneId });
         } else if (potentialTemplate.includes('kitchen')) {
-          return this.createFromTemplate({ templateName: 'kitchen', swimlaneId: args.swimlaneId });
+          return await this.createFromTemplate({ templateName: 'kitchen', swimlaneId: args.swimlaneId });
         } else if (potentialTemplate.includes('bathroom')) {
-          return this.createFromTemplate({ templateName: 'bathroom', swimlaneId: args.swimlaneId });
+          return await this.createFromTemplate({ templateName: 'bathroom', swimlaneId: args.swimlaneId });
         }
       }
       
@@ -1289,7 +1351,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
     }
   }
 
-  private createMultipleTasks(args: any): string {
+  private async createMultipleTasks(args: any): Promise<string> {
     try {
       this.debug('Creating multiple tasks', args);
       
