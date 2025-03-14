@@ -454,30 +454,84 @@ class Composer {
         return this.handleDebugCommand(userInput);
       }
       
-      // Check for direct template application requests without going through the LLM
-      // These are patterns like "use a [type] template" or "apply [type] template"
-      const directTemplateMatch = userInput.match(/(?:use|apply)(?:\s+an?|\s+the)?\s+(\w+)(?:\s+wbs|\s+template)/i);
+      // IMPROVED DIRECT TEMPLATE MATCHING
+      // First check for explicit template requests by full name
+      const explicitIndustrialMatch = /industrial\s+facility/i.test(normalizedInput);
+      const explicitCommercialMatch = /commercial\s+building/i.test(normalizedInput);
+      const explicitResidentialMatch = /residential\s+building/i.test(normalizedInput);
+      const explicitHealthcareMatch = /healthcare\s+facility/i.test(normalizedInput);
+      const explicitInfrastructureMatch = /infrastructure\s+project/i.test(normalizedInput);
+      const explicitRenewableMatch = /renewable\s+energy/i.test(normalizedInput);
+      const explicitEducationMatch = /education\s+facility/i.test(normalizedInput);
+      const explicitMixedUseMatch = /mixed[\-\s]use/i.test(normalizedInput);
+      
+      // Check for WBS or template keywords
+      const isTemplateRequest = /wbs|template/i.test(normalizedInput);
+      
+      if (isTemplateRequest) {
+        // Apply the template directly if we have an explicit match
+        if (explicitIndustrialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'industrial_facility' });
+        } else if (explicitCommercialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'commercial_building' });
+        } else if (explicitResidentialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'residential_building' });
+        } else if (explicitHealthcareMatch) {
+          return await this.applyWBSTemplate({ templateId: 'healthcare_facility' });
+        } else if (explicitInfrastructureMatch) {
+          return await this.applyWBSTemplate({ templateId: 'infrastructure_project' });
+        } else if (explicitRenewableMatch) {
+          return await this.applyWBSTemplate({ templateId: 'renewable_energy' });
+        } else if (explicitEducationMatch) {
+          return await this.applyWBSTemplate({ templateId: 'education_facility' });
+        } else if (explicitMixedUseMatch) {
+          return await this.applyWBSTemplate({ templateId: 'mixed_use_development' });
+        }
+      }
+      
+      // Improved regex pattern for multi-word template matching
+      const directTemplateMatch = userInput.match(/(?:use|apply|create)(?:\s+an?|\s+the)?\s+(.+?)(?:\s+wbs|\s+template)/i);
       if (directTemplateMatch) {
         const requestedType = directTemplateMatch[1].toLowerCase();
         const wbsTemplates = getAllWBSTemplates();
         
-        // Find matching templates
+        // Find matching templates - improved matching logic
         const matchingTemplates = wbsTemplates.filter(template => 
           template.id.toLowerCase().includes(requestedType) || 
           template.name.toLowerCase().includes(requestedType) ||
-          template.projectTypes.some(type => type.toLowerCase().includes(requestedType))
+          template.projectTypes.some(type => type.toLowerCase().includes(requestedType)) ||
+          // Check if requestedType contains significant parts of template name
+          requestedType.includes(template.id.toLowerCase().replace(/_/g, ' '))
         );
         
         if (matchingTemplates.length === 1) {
           // Single match - apply it directly
           return await this.applyWBSTemplate({ templateId: matchingTemplates[0].id });
         } else if (matchingTemplates.length > 1) {
-          // Multiple matches - show available options
-          let response = `I found multiple templates that could match "${requestedType}":\n\n`;
+          // Multiple matches but with specific keywords that should match one template
+          if (requestedType.includes('industrial')) {
+            const industrialTemplate = matchingTemplates.find(t => t.id === 'industrial_facility');
+            if (industrialTemplate) {
+              return await this.applyWBSTemplate({ templateId: industrialTemplate.id });
+            }
+          } else if (requestedType.includes('commercial')) {
+            const commercialTemplate = matchingTemplates.find(t => t.id === 'commercial_building');
+            if (commercialTemplate) {
+              return await this.applyWBSTemplate({ templateId: commercialTemplate.id });
+            }
+          } else if (requestedType.includes('health')) {
+            const healthcareTemplate = matchingTemplates.find(t => t.id === 'healthcare_facility');
+            if (healthcareTemplate) {
+              return await this.applyWBSTemplate({ templateId: healthcareTemplate.id });
+            }
+          }
+          
+          // Otherwise show options but format them better
+          let response = `Available templates matching "${requestedType}":\n\n`;
           matchingTemplates.forEach(template => {
-            response += `- ${template.name} (ID: ${template.id})\n`;
+            response += `• ${template.name} (${template.id})\n`;
           });
-          response += "\nPlease specify which one you'd like to use. You can say something like 'use the [template ID]' template.";
+          response += "\nPlease specify which one you'd like to use.";
           // Store the first match as a fallback for simple affirmative responses
           Composer.lastSuggestedTemplate = matchingTemplates[0].id;
           return response;
