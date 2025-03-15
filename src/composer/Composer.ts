@@ -1,7 +1,6 @@
 import { Canvas } from '../Canvas';
 import { getTemplate, getTemplateNames, findTemplateMatches, TEMPLATES } from './Templates';
 import { WBSTemplate, getWBSTemplate, getWBSTemplateIds, getWBSTemplateNames, findBestMatchingWBSTemplate, getAllWBSTemplates } from './WBSTemplates';
-import crypto from 'crypto';
 
 interface ComposerConfig {
   apiKey?: string;
@@ -1207,11 +1206,18 @@ Always strive to be both helpful and educational, balancing efficient task execu
   }
 
   // Helper method to parse various date expressions
-  private parseDateExpression(dateExpression: string): Date | null {
+  private parseDateExpression(dateExpression: string | Date | null | undefined): Date | null {
     if (!dateExpression) return null;
     
+    // If dateExpression is already a Date object, just return it
+    if (dateExpression instanceof Date) {
+      return dateExpression;
+    }
+    
+    // Ensure we're working with a string
+    const expressionStr = String(dateExpression);
     const today = new Date();
-    const normalizedExpression = dateExpression.toLowerCase().trim();
+    const normalizedExpression = expressionStr.toLowerCase().trim();
     
     // Handle "today", "tomorrow", "yesterday"
     if (normalizedExpression === 'today') {
@@ -1647,7 +1653,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
       
       // Generate a unique ID for the task
-      const taskId = crypto.randomUUID();
+      const taskId = this.generateUUID();
       
       // Determine the swimlane ID with intelligent matching
       let swimlaneId;
@@ -1880,7 +1886,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         const task = tasks[i];
         
         // Generate a unique ID
-        const taskId = crypto.randomUUID();
+        const taskId = this.generateUUID();
         createdTaskIds.push(taskId);
         
         // Set up dependencies

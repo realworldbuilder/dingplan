@@ -2,6 +2,7 @@ import { Task, TaskConfig } from './Task';
 import { Camera } from './Camera';
 import { Trades, Trade } from './Trades';
 import { Logger } from './utils/logger';
+import { uuid } from './utils/uuid';
 
 interface WorldPosition {
   x: number;
@@ -1025,7 +1026,7 @@ export class TaskManager {
     // Add tasks at cursor position
     this.copiedTasks.forEach(config => {
       const newConfig = { ...config };
-      newConfig.id = crypto.randomUUID(); // Generate new ID
+      newConfig.id = uuid(); // Use our browser-compatible UUID
       
       // Adjust start date based on cursor position
       const newStartDate = new Date(config.startDate.getTime() + timeOffset);
@@ -1157,7 +1158,6 @@ export class TaskManager {
 
     // Draw selection highlight for selected tasks
     ctx.save();
-    Logger.log('Drawing selection highlights for', this.selectedTasks.size, 'tasks');
     this.selectedTasks.forEach(task => {
       // Skip highlighting filtered tasks
       if (task.tradeId && task.color) {
@@ -1173,7 +1173,6 @@ export class TaskManager {
       if (swimlane) {
         const pos = swimlane.taskPositions.get(task.id);
         if (pos) {
-          Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
           const startX = timeAxis.dateToWorld(task.startDate);
           const endX = timeAxis.dateToWorld(task.getEndDate());
           const width = endX - startX;
@@ -1227,12 +1226,6 @@ export class TaskManager {
 
     // Draw selection box if active
     if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
-      Logger.log('Drawing selection box', { 
-        start: this.selectionBoxStart, 
-        end: this.selectionBoxEnd,
-        selectedTasks: this.selectedTasks.size
-      });
-      
       ctx.save();
       
       const left = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
@@ -1524,5 +1517,145 @@ export class TaskManager {
         }
       }
     }
+  }
+
+  // Add method to export state for localStorage
+  exportState(): any {
+    const tasksData = this.tasks.map(task => ({
+      id: task.id,
+      name: task.name,
+      startDate: task.startDate,
+      duration: task.duration,
+      crewSize: task.crewSize,
+      color: task.color,
+      tradeId: task.tradeId,
+      dependencies: task.dependencies,
+      progress: task.progress,
+      status: task.status,
+      xerTaskId: task.xerTaskId,
+      workOnSaturday: task.workOnSaturday,
+      workOnSunday: task.workOnSunday
+    }));
+
+    const swimlanesData = this.swimlanes.map(swimlane => ({
+      id: swimlane.id,
+      name: swimlane.name,
+      y: swimlane.y,
+      height: swimlane.height,
+      color: swimlane.color,
+      wbsId: swimlane.wbsId,
+      taskPositions: Array.from(swimlane.taskPositions.entries()).map(([taskId, pos]) => ({
+        taskId,
+        x: pos.x,
+        y: pos.y
+      })),
+      taskIds: swimlane.tasks.map(task => task.id)
+    }));
+
+    return {
+      tasks: tasksData,
+      swimlanes: swimlanesData,
+      tradeFilters: Array.from(this.tradeFilters.entries())
+    };
+  }
+
+  // Add method to import state from localStorage
+  importState(state: any): void {
+    // Clear current state
+    this.tasks = [];
+    this.selectedTasks.clear();
+    this.selectedTasksInOrder = [];
+    this.swimlanes.length = 0;
+    this.taskPositions.clear();
+
+    // Import swimlanes first (without tasks)
+    if (state.swimlanes && Array.isArray(state.swimlanes)) {
+      state.swimlanes.forEach((swimlaneData: any) => {
+        const swimlane: Swimlane = {
+          id: swimlaneData.id,
+          name: swimlaneData.name,
+          y: swimlaneData.y,
+          height: swimlaneData.height,
+          color: swimlaneData.color,
+          wbsId: swimlaneData.wbsId,
+          tasks: [],
+          taskPositions: new Map()
+        };
+        this.swimlanes.push(swimlane);
+      });
+    }
+
+    // Import tasks
+    if (state.tasks && Array.isArray(state.tasks)) {
+      state.tasks.forEach((taskData: any) => {
+        // Create task with imported data
+        const taskConfig: TaskConfig = {
+          id: taskData.id,
+          name: taskData.name,
+          startDate: new Date(taskData.startDate),
+          duration: taskData.duration,
+          crewSize: taskData.crewSize || 1, 
+          color: taskData.color,
+          tradeId: taskData.tradeId,
+          dependencies: taskData.dependencies || [],
+          progress: taskData.progress || 0,
+          status: taskData.status || 'not-started',
+          xerTaskId: taskData.xerTaskId,
+          workOnSaturday: taskData.workOnSaturday || false,
+          workOnSunday: taskData.workOnSunday || false
+        };
+        
+        const task = new Task(taskConfig);
+        this.tasks.push(task);
+      });
+    }
+
+    // Associate tasks with swimlanes
+    if (state.swimlanes && Array.isArray(state.swimlanes)) {
+      state.swimlanes.forEach((swimlaneData: any, index: number) => {
+        const swimlane = this.swimlanes[index];
+        if (!swimlane) return;
+
+        // Add tasks to swimlane based on taskIds
+        if (swimlaneData.taskIds && Array.isArray(swimlaneData.taskIds)) {
+          swimlaneData.taskIds.forEach((taskId: string) => {
+            const task = this.tasks.find(t => t.id === taskId);
+            if (task) {
+              swimlane.tasks.push(task);
+            }
+          });
+        }
+
+        // Add task positions to swimlane
+        if (swimlaneData.taskPositions && Array.isArray(swimlaneData.taskPositions)) {
+          swimlaneData.taskPositions.forEach((posData: any) => {
+            if (posData.taskId) {
+              swimlane.taskPositions.set(posData.taskId, {
+                x: posData.x || 0,
+                y: posData.y || 0
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Restore trade filters
+    if (state.tradeFilters && Array.isArray(state.tradeFilters)) {
+      this.tradeFilters = new Map(state.tradeFilters);
+    }
+  }
+
+  // Method to ensure all swimlane IDs are consistent and unique
+  renameSwimlanesIfNeeded(): void {
+    const usedIds = new Set<string>();
+    
+    this.swimlanes.forEach((swimlane, index) => {
+      if (!swimlane.id || usedIds.has(swimlane.id)) {
+        // Generate a new unique ID
+        swimlane.id = `swimlane-${index}-${Date.now()}`;
+      }
+      usedIds.add(swimlane.id);
+    });
   }
 }

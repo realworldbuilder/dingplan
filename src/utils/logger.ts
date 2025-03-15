@@ -12,8 +12,8 @@ const isDevelopment = () => {
   );
 };
 
-// Debug mode flag - can be toggled at runtime
-let debugMode = isDevelopment();
+// Debug mode flag - set to false by default to avoid excessive logging
+let debugMode = false;
 
 // Store original console methods
 const originalConsole = {

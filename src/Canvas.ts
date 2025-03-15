@@ -331,24 +331,18 @@ export class Canvas {
   }
 
   render() {
-    Logger.log("Render method called", {
-      canvasWidth: this.canvas.width,
-      canvasHeight: this.canvas.height,
-      cameraZoom: this.camera.zoom,
-      cameraX: this.camera.x,
-      cameraY: this.camera.y
-    });
+    // Remove excessive logging of render method details
     
     // Clear canvas
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    Logger.log("Canvas cleared");
+    // Remove canvas cleared log
 
     // Draw fixed header background
     this.ctx.fillStyle = '#ffffff';
     this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-    this.ctx.shadowBlur = 4;
+    this.ctx.shadowBlur = 5;
     this.ctx.shadowOffsetY = 2;
     this.ctx.fillRect(0, 0, this.canvas.width, this.timeAxis.getHeaderHeight());
     this.ctx.shadowColor = 'transparent';

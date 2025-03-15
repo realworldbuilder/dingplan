@@ -1,4 +1,5 @@
 import { Trades, Trade } from './Trades';
+import { uuid } from './utils/uuid';
 
 export interface TaskConfig {
   id: string;
@@ -36,7 +37,7 @@ export class Task {
   xerTaskId?: string;
 
   constructor(config: TaskConfig) {
-    this.id = config.id || crypto.randomUUID();
+    this.id = config.id || uuid();
     this.name = config.name;
     this.startDate = config.startDate;
     

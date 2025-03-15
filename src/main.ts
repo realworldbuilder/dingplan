@@ -213,34 +213,57 @@ const broadcastTasksToParent = () => {
 };
 
 // Animation loop
-function animate() {
+let needsRender = true; // Flag to track if render is needed
+let lastFrameTime = 0;
+const FPS_LIMIT = 30; // Limit frames per second to reduce unnecessary renders
+
+function animate(timestamp: number) {
   requestAnimationFrame(animate);
+  
+  // Limit frame rate
+  const elapsed = timestamp - lastFrameTime;
+  if (elapsed < 1000 / FPS_LIMIT) {
+    return; // Skip this frame
+  }
   
   // Update monitor
   monitor.update();
   
-  // Render the canvas
-  app.render();
+  // Only render when needed
+  if (needsRender) {
+    app.render();
+    needsRender = false; // Reset the flag
+    lastFrameTime = timestamp;
+  }
   
   // Check for changes in tasks
   const currentTaskCount = app.taskManager.getAllTasks().length;
   if (currentTaskCount !== lastKnownTaskCount) {
     lastKnownTaskCount = currentTaskCount;
     lastTaskModificationTime = performance.now();
-    
-    // Schedule auto-save when tasks change
-    if (!autoSaveScheduled) {
-      autoSaveScheduled = true;
-      setTimeout(() => {
-        broadcastTasksToParent();
-        autoSaveScheduled = false;
-      }, 2000); // Wait 2 seconds after last change to save
-    }
+    needsRender = true; // Set render flag when tasks change
+  }
+  
+  // Schedule auto-save when tasks change
+  if (!autoSaveScheduled) {
+    autoSaveScheduled = true;
+    setTimeout(() => {
+      broadcastTasksToParent();
+      autoSaveScheduled = false;
+    }, 2000); // Wait 2 seconds after last change to save
   }
 }
 
+// Set the needsRender flag on camera movement or other user interactions
+window.addEventListener('mousedown', () => needsRender = true);
+window.addEventListener('mousemove', () => needsRender = true);
+window.addEventListener('mouseup', () => needsRender = true);
+window.addEventListener('wheel', () => needsRender = true);
+window.addEventListener('keydown', () => needsRender = true);
+window.addEventListener('resize', () => needsRender = true);
+
 // Start animation loop
-animate();
+requestAnimationFrame(animate);
 
 // Listen for messages from parent iframe
 window.addEventListener('message', (event) => {
