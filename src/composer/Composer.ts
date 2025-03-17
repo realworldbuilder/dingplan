@@ -35,6 +35,9 @@ class Composer {
   // Add to the Composer class properties (around line 32)
   private conversationHistory: {role: string, content: string}[] = [];
   private maxHistoryLength: number = 10; // Keep last 10 messages for context
+  // Add model parameter configuration properties
+  private temperature: number = 0.7;
+  private maxResponseTokens: number = 1000;
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
@@ -3022,9 +3025,13 @@ To get started:
         console.log(`Chat request to ${modelType} model: ${model}`);
         console.log(`Message: ${message}`);
         console.log(`Including ${this.conversationHistory.length - 1} previous messages for context`);
+        console.log(`Using temperature: ${this.temperature}, max tokens: ${this.maxResponseTokens}`);
       }
       
       let response = '';
+      
+      // Get construction-specific system prompt
+      const systemPrompt = this.getConstructionSystemPrompt();
       
       // OpenAI API Call
       if (modelType === 'openai') {
@@ -3032,7 +3039,7 @@ To get started:
         const messages = [
           {
             role: 'system',
-            content: 'You are an expert construction planning assistant. You understand construction sequencing, scheduling, and building systems. Provide accurate, practical advice based on industry standards and best practices.'
+            content: systemPrompt
           }
         ];
         
@@ -3046,8 +3053,8 @@ To get started:
         const requestData = {
           model: model,
           messages: messages,
-          max_tokens: this.maxTokens || 1000,
-          temperature: 0.7
+          max_tokens: this.maxResponseTokens,
+          temperature: this.temperature
         };
         
         const fetchResponse = await fetch(apiEndpoint, {
@@ -3070,9 +3077,6 @@ To get started:
       }
       // Claude API Call
       else if (modelType === 'claude') {
-        // Build conversation history for Claude
-        let systemPrompt = 'You are an expert construction planning assistant. You understand construction sequencing, scheduling, and building systems. Provide accurate, practical advice based on industry standards and best practices.';
-        
         // Create conversation history
         const recentHistory = this.conversationHistory.slice(-this.maxHistoryLength);
         const content = recentHistory.map(msg => {
@@ -3086,8 +3090,8 @@ To get started:
           model: model,
           system: systemPrompt,
           messages: content,
-          max_tokens: this.maxTokens || 1000,
-          temperature: 0.7
+          max_tokens: this.maxResponseTokens,
+          temperature: this.temperature
         };
         
         const fetchResponse = await fetch(apiEndpoint, {
@@ -3140,6 +3144,52 @@ To get started:
     this.conversationHistory = [];
     if (this.debugMode) {
       console.log('Conversation history cleared');
+    }
+  }
+
+  // Add a method to generate a comprehensive construction-specific system prompt
+  private getConstructionSystemPrompt(): string {
+    return `You are an expert construction planning assistant with deep knowledge of the construction industry. 
+Your expertise includes:
+
+1. Construction Sequencing: Understanding the logical order of construction tasks, dependencies, and critical path planning.
+2. Building Systems: Knowledge of structural, mechanical, electrical, plumbing, and other building systems.
+3. Material Selection: Familiarity with construction materials, their properties, applications, and cost implications.
+4. Resource Allocation: Understanding labor requirements, equipment needs, and resource constraints.
+5. Scheduling: Knowledge of construction timelines, duration estimation, and schedule optimization.
+6. Cost Estimation: Understanding of construction costs, budget management, and cost control.
+
+When responding to user queries:
+- Provide practical, actionable advice based on industry standards and best practices
+- Avoid generic responses in favor of specific, detailed information
+- Consider real-world constraints such as weather, site conditions, and regulatory requirements
+- If uncertain about specific local codes or regulations, acknowledge the need to verify
+- Explain the reasoning behind your recommendations
+- Prioritize safety, quality, and efficiency in all suggestions
+
+For this construction planning application, focus on helping the user create well-structured project plans with realistic task sequences, durations, and dependencies.`;
+  }
+
+  // Add methods to configure model parameters after the clearConversationHistory method
+  public setTemperature(temp: number): void {
+    if (temp >= 0 && temp <= 1) {
+      this.temperature = temp;
+      if (this.debugMode) {
+        console.log(`Temperature set to ${temp}`);
+      }
+    } else {
+      console.warn("Temperature must be between 0 and 1");
+    }
+  }
+
+  public setMaxResponseTokens(tokens: number): void {
+    if (tokens > 0 && tokens <= 4000) {
+      this.maxResponseTokens = tokens;
+      if (this.debugMode) {
+        console.log(`Max response tokens set to ${tokens}`);
+      }
+    } else {
+      console.warn("Max tokens must be between 1 and 4000");
     }
   }
 }
