@@ -85,6 +85,7 @@ export class Canvas {
     // Connect the sidebar trade filters to the task manager
     this.sidebar.onTradeFiltersChanged((filters) => {
       this.taskManager.setTradeFilters(filters);
+      this.resourceHistogram.setTradeFilters(filters); // Add this line to pass filters to ResourceHistogram
       this.render(); // Redraw canvas to reflect filtered tasks
     });
     
@@ -467,7 +468,7 @@ export class Canvas {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     
     // Calculate resource data from tasks
-    this.resourceHistogram.calculateResources(this.taskManager.getAllTasks());
+    this.resourceHistogram.calculateResources(this.taskManager.getFilteredTasks()); // Change getAllTasks() to getFilteredTasks()
     
     // Draw resource histogram at bottom of screen
     this.resourceHistogram.draw(this.ctx, this.camera, this.canvas.height);
@@ -534,7 +535,8 @@ export class Canvas {
 
   // Add a new task to the canvas
   addTask(config: TaskConfig) {
-    return this.taskManager.addTask(config);
+    // Pass the swimlaneId to TaskManager.addTask if it exists in the config
+    return this.taskManager.addTask(config, config.swimlaneId);
   }
 
   // Remove a task from the canvas
@@ -1288,8 +1290,8 @@ export class Canvas {
     const footerHeight = 15; // Space reserved for page footer/legend
     
     // Get date range
-    const startDate = new Date(Math.min(...this.taskManager.getAllTasks().map(t => t.startDate.getTime())));
-    const endDate = new Date(Math.max(...this.taskManager.getAllTasks().map(t => t.getEndDate().getTime())));
+    const startDate = new Date(Math.min(...this.taskManager.getFilteredTasks().map(t => t.startDate.getTime())));
+    const endDate = new Date(Math.max(...this.taskManager.getFilteredTasks().map(t => t.getEndDate().getTime())));
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     
     // Determine if we should use daily or weekly display based on total days
@@ -1565,7 +1567,7 @@ export class Canvas {
     pdf.text('Daily crew size by trade', 15, 20);
     
     // Calculate resource data from tasks
-    this.resourceHistogram.calculateResources(this.taskManager.getAllTasks());
+    this.resourceHistogram.calculateResources(this.taskManager.getFilteredTasks()); // Change getAllTasks() to getFilteredTasks()
     
     // Set histogram dimensions
     const histogramMargin = 15;
@@ -1583,7 +1585,7 @@ export class Canvas {
     pdf.setTextColor(100, 100, 100);
     
     // Find the maximum resource value
-    const allTasks = this.taskManager.getAllTasks();
+    const allTasks = this.taskManager.getFilteredTasks();
     let maxResource = 0;
     
     // Create daily resources map
@@ -1779,7 +1781,7 @@ export class Canvas {
   
   // Export data to JSON format
   exportToJSON(): string {
-    const tasks = this.taskManager.getAllTasks();
+    const tasks = this.taskManager.getFilteredTasks();
     const data = {
       tasks: tasks,
       settings: {

@@ -551,7 +551,8 @@ class Composer {
       // Check for other common template requests
       const templateMatches = [
         { keywords: ['foundation', 'footing'], template: 'foundation' },
-        { keywords: ['frame', 'framing', 'structural'], template: 'framing' },
+        { keywords: ['wood frame', 'wood framing', 'wall framing'], template: 'framing' },
+        { keywords: ['steel structure', 'steel_structure', 'structural steel'], template: 'steel_structure' },
         { keywords: ['mep', 'mechanical', 'electrical', 'plumbing'], template: 'mep' },
         { keywords: ['kitchen'], template: 'kitchen' },
         { keywords: ['bathroom'], template: 'bathroom' },
@@ -559,10 +560,35 @@ class Composer {
         { keywords: ['finish', 'interior finish'], template: 'interior_finishes' }
       ];
       
+      // Check if this is explicitly asking for a steel structure template
+      if (normalizedInput.includes('steel structure') || 
+          normalizedInput.includes('steel_structure') || 
+          normalizedInput.includes('structural steel') ||
+          (normalizedInput.includes('steel') && normalizedInput.includes('structural'))) {
+        this.debug(`Detected explicit steel structure template request with swimlaneId: ${swimlaneId || 'none specified'}`);
+        return await this.createFromTemplate({ 
+          templateName: 'steel_structure', 
+          swimlaneId: swimlaneId 
+        });
+      }
+      
       // Check if any template keywords match and it's not a WBS template request
       if (!normalizedInput.includes('wbs') && !normalizedInput.includes('breakdown structure')) {
         for (const matcher of templateMatches) {
-          if (matcher.keywords.some(keyword => normalizedInput.includes(keyword))) {
+          // Use more precise matching by checking if ALL keywords in a set are present
+          // or if the exact phrase is present
+          const exactMatch = matcher.keywords.some(keyword => 
+            normalizedInput.includes(keyword.toLowerCase()) && keyword.includes(' '));
+          
+          // For single-word keywords, be more cautious to avoid false matches
+          const singleWordMatch = matcher.keywords.some(keyword => 
+            !keyword.includes(' ') && 
+            (normalizedInput.includes(` ${keyword} `) || 
+             normalizedInput.startsWith(`${keyword} `) || 
+             normalizedInput.endsWith(` ${keyword}`) ||
+             normalizedInput === keyword));
+          
+          if (exactMatch || singleWordMatch) {
             this.debug(`Detected template request for: ${matcher.template} with swimlaneId: ${swimlaneId || 'none specified'}`);
             return await this.createFromTemplate({ 
               templateName: matcher.template, 
@@ -1699,7 +1725,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
       
       // Add the task to the canvas task manager
       this.debug(`Adding task to swimlane "${swimlaneId}"`, taskData);
-      const addedTask = this.canvas.taskManager.addTask(taskData);
+      const addedTask = this.canvas.taskManager.addTask(taskData, swimlaneId);
       
       if (!addedTask) {
         return `Error creating task: Failed to add task to the canvas.`;
@@ -1920,7 +1946,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         };
         
         // Add task to canvas
-        this.canvas.taskManager.addTask(taskData);
+        this.canvas.taskManager.addTask(taskData, resolvedSwimlaneId);
         
         // Store task details for the response
         taskDetails.push({
@@ -2079,9 +2105,34 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return "Please specify a template name. Try foundation, framing, mep, site_prep, or use listTemplates to see all options.";
       }
       
-      // If no swimlane provided, use the first available
-      if (!swimlaneId) {
+      // Handle swimlane matching more intelligently 
+      if (swimlaneId) {
+        // Try to find the best matching swimlane based on name
+        const matchedSwimlaneId = this.findBestMatchingSwimlane(swimlaneId);
+        if (matchedSwimlaneId) {
+          swimlaneId = matchedSwimlaneId;
+          this.debug(`Matched swimlane input '${swimlaneId}' to '${matchedSwimlaneId}'`);
+        } else {
+          this.debug(`Could not match swimlane input '${swimlaneId}', falling back to first swimlane`);
+          swimlaneId = this.getValidSwimlaneId();
+        }
+      } else {
+        // If no swimlane provided, use the first available
         swimlaneId = this.getValidSwimlaneId();
+      }
+      
+      // Direct handling of known templates to bypass the matching system for exact matches
+      const directTemplateNames = ['steel_structure', 'mep', 'foundation', 'kitchen', 'bathroom', 'roofing', 'framing'];
+      if (directTemplateNames.includes(templateName)) {
+        this.debug(`Using exact template match for '${templateName}'`);
+        return this.createTemplateSequence({
+          templateName,
+          startDate,
+          location,
+          swimlaneId,
+          scaleFactor,
+          inAllSwimlanes
+        });
       }
       
       // Check if this might actually be a WBS template
@@ -2131,7 +2182,7 @@ Always strive to be both helpful and educational, balancing efficient task execu
         inAllSwimlanes
       });
     } catch (error) {
-      return this.handleError('creating from template', error);
+      return this.handleError("creating from template", error);
     }
   }
   

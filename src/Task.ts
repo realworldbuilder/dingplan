@@ -15,6 +15,7 @@ export interface TaskConfig {
   xerTaskId?: string; // ID used when exporting to XER format
   workOnSaturday?: boolean; // Whether this task includes Saturday as a workday
   workOnSunday?: boolean; // Whether this task includes Sunday as a workday
+  swimlaneId?: string; // ID of the swimlane this task belongs to
 }
 
 export class Task {

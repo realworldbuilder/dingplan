@@ -459,8 +459,12 @@ export class Sidebar {
           </div>
           <div id="composer-view" class="view">
             <div class="ai-composer">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="dev-badge" style="font-size: 12px; background: #ff5722; color: white; padding: 3px 6px; border-radius: 4px; font-weight: bold;">DEV VERSION</div>
+                <div style="font-size: 11px; color: #666;">Last updated: May 17, 2024</div>
+              </div>
               <div class="composer-response-area" style="margin-top: 10px;">
-                <p class="composer-initial-message">Composer is ready. Enter a prompt below.</p>
+                <p class="composer-initial-message">🛠️ Improved template detection active - We've updated the Composer to better handle steel structure templates and swimlane assignments.</p>
               </div>
               
               <textarea 
