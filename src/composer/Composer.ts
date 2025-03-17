@@ -29,6 +29,7 @@ class Composer {
   private functions: any[];
   private debugMode: boolean = true; // Enable debug mode
   private maxTokens: number;
+  private isChatMode: boolean = false; // Track if we're in chat mode
   // Add static property for tracking last suggested template
   private static lastSuggestedTemplate: string = '';
 
@@ -2962,6 +2963,117 @@ To get started:
     // Default to the first swimlane
     this.debug(`No specialized site preparation swimlane found, using first available: ${swimlanes[0].name}`);
     return swimlanes[0].id;
+  }
+
+  // Add a method to set the model
+  public setModel(model: string): void {
+    if (model === 'openai') {
+      this.model = 'gpt-4o'; // Use GPT-4o as the default OpenAI model
+    } else if (model === 'claude') {
+      this.model = 'claude-3-sonnet'; // Use Claude Sonnet as the default Claude model
+    }
+    
+    console.log(`Composer model set to: ${this.model}`);
+  }
+  
+  // Add a method to set chat mode
+  public setChatMode(isChatMode: boolean): void {
+    this.isChatMode = isChatMode;
+    console.log(`Composer mode set to: ${isChatMode ? 'chat' : 'project assistant'}`);
+  }
+  
+  // Add a chat method for direct conversations
+  public async chat(message: string, modelType: string = 'openai'): Promise<string> {
+    try {
+      // Select the API key based on model type
+      let apiKey = '';
+      let apiEndpoint = '';
+      let model = '';
+      
+      if (modelType === 'openai') {
+        apiKey = localStorage.getItem('constructionPlannerApiKey') || this.apiKey;
+        apiEndpoint = 'https://api.openai.com/v1/chat/completions';
+        model = 'gpt-4o';
+      } else if (modelType === 'claude') {
+        apiKey = localStorage.getItem('constructionPlannerAnthropicApiKey') || '';
+        apiEndpoint = 'https://api.anthropic.com/v1/messages';
+        model = 'claude-3-sonnet-20240229';
+      }
+      
+      if (!apiKey) {
+        return `Please set your ${modelType === 'openai' ? 'OpenAI' : 'Claude'} API key in the settings before using chat mode.`;
+      }
+      
+      // Log request info
+      if (this.debugMode) {
+        console.log(`Chat request to ${modelType} model: ${model}`);
+        console.log(`Message: ${message}`);
+      }
+      
+      // Different request formats for OpenAI vs Claude
+      if (modelType === 'openai') {
+        const response = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful assistant for construction planning.'
+              },
+              {
+                role: 'user',
+                content: message
+              }
+            ],
+            max_tokens: 1000
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        return data.choices[0].message.content;
+      } else {
+        // Claude API
+        const response = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              {
+                role: 'user',
+                content: message
+              }
+            ],
+            max_tokens: 1000
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        return data.content[0].text;
+      }
+    } catch (error) {
+      console.error('Error in chat:', error);
+      throw error;
+    }
   }
 }
 

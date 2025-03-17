@@ -28,6 +28,10 @@ export class Sidebar {
   // Canvas reference
   private canvas: any = null;
 
+  // Add new properties to the Sidebar class
+  private selectedModel: string = 'openai'; // Default model
+  private isChatMode: boolean = false; // Default mode is project assistant
+
   constructor() {
     this.element = document.createElement('div');
     this.setupStyles();
@@ -459,10 +463,6 @@ export class Sidebar {
           </div>
           <div id="composer-view" class="view">
             <div class="ai-composer">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div class="dev-badge" style="font-size: 12px; background: #ff5722; color: white; padding: 3px 6px; border-radius: 4px; font-weight: bold;">DEV VERSION</div>
-                <div style="font-size: 11px; color: #666;">Last updated: May 17, 2024</div>
-              </div>
               <div class="composer-response-area" style="margin-top: 10px;">
                 <p class="composer-initial-message">🚀 Composer has been upgraded! We've improved how the AI understands your natural language requests, regardless of phrasing style. Better template matching, swimlane assignment, and task creation - try it out!</p>
               </div>
@@ -474,6 +474,27 @@ export class Sidebar {
               <button class="ai-composer-button">
                 Send Request
               </button>
+              
+              <!-- Mode and Model Settings -->
+              <div class="composer-settings" style="margin-top: 12px; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee;">
+                <!-- Chat mode toggle -->
+                <div class="mode-toggle-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                  <label style="font-size: 13px; color: #555;">Mode:</label>
+                  <div class="mode-toggle-buttons" style="display: flex; flex-grow: 1;">
+                    <button id="project-mode-btn" class="mode-toggle-btn active" style="flex: 1; padding: 8px; border: 1px solid #ddd; background-color: #e5f0fa; font-size: 13px; border-radius: 4px 0 0 4px; cursor: pointer;">Project Assistant</button>
+                    <button id="chat-mode-btn" class="mode-toggle-btn" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-left: none; background-color: #f8f9fa; font-size: 13px; border-radius: 0 4px 4px 0; cursor: pointer;">Chat</button>
+                  </div>
+                </div>
+                
+                <!-- Model selector dropdown -->
+                <div class="model-selector-container" style="display: flex; align-items: center; gap: 10px;">
+                  <label for="ai-model-selector" style="font-size: 13px; color: #555;">AI Model:</label>
+                  <select id="ai-model-selector" class="ai-model-selector" style="flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background-color: #fff; font-size: 13px;">
+                    <option value="openai">OpenAI (GPT-4)</option>
+                    <option value="claude">Claude (Anthropic)</option>
+                  </select>
+                </div>
+              </div>
               
               <div class="composer-guide-link" style="text-align: left; margin-top: 10px; font-size: 12px;">
                 <a href="/composer-guide.html" target="_blank" class="guide-link" style="padding: 3px 6px; font-size: 12px;">
@@ -1131,6 +1152,58 @@ export class Sidebar {
         }
       });
     }
+
+    // Model selector
+    const modelSelector = this.element.querySelector('#ai-model-selector') as HTMLSelectElement;
+    if (modelSelector) {
+      // Set initial value from localStorage if available
+      const savedModel = localStorage.getItem('composerModel');
+      if (savedModel) {
+        modelSelector.value = savedModel;
+        this.selectedModel = savedModel;
+      }
+      
+      modelSelector.addEventListener('change', () => {
+        this.selectedModel = modelSelector.value;
+        localStorage.setItem('composerModel', this.selectedModel);
+        
+        // Update the composer with the selected model
+        if (this.composer) {
+          this.composer.setModel(this.selectedModel);
+          this.addComposerMessage(`Switched to ${this.selectedModel === 'openai' ? 'OpenAI (GPT-4)' : 'Claude'} model.`);
+        }
+      });
+    }
+    
+    // Mode toggle buttons
+    const projectModeBtn = this.element.querySelector('#project-mode-btn');
+    const chatModeBtn = this.element.querySelector('#chat-mode-btn');
+    
+    if (projectModeBtn && chatModeBtn) {
+      // Set initial mode from localStorage if available
+      const savedMode = localStorage.getItem('composerMode');
+      if (savedMode === 'chat') {
+        this.setComposerMode(true);
+        projectModeBtn.classList.remove('active');
+        chatModeBtn.classList.add('active');
+      }
+      
+      projectModeBtn.addEventListener('click', () => {
+        if (!this.isChatMode) return; // Already in project mode
+        
+        projectModeBtn.classList.add('active');
+        chatModeBtn.classList.remove('active');
+        this.setComposerMode(false);
+      });
+      
+      chatModeBtn.addEventListener('click', () => {
+        if (this.isChatMode) return; // Already in chat mode
+        
+        chatModeBtn.classList.add('active');
+        projectModeBtn.classList.remove('active');
+        this.setComposerMode(true);
+      });
+    }
   }
 
   private switchView(view: SidebarView) {
@@ -1182,14 +1255,33 @@ export class Sidebar {
       return;
     }
     
-    // Check for API key
-    const apiKey = localStorage.getItem('constructionPlannerApiKey');
-    if (!apiKey) {
-      // No API key stored
-      input.disabled = true;
-      button.disabled = true;
-      this.addComposerMessage('Please add your OpenAI API key before sending prompts.');
-      return;
+    // Check for appropriate API key based on selected model
+    let apiKey: string | null = null;
+    
+    if (this.selectedModel === 'openai') {
+      apiKey = localStorage.getItem('constructionPlannerApiKey');
+      if (!apiKey) {
+        input.disabled = true;
+        button.disabled = true;
+        this.addComposerMessage('Please add your OpenAI API key in the Options tab before sending prompts.');
+        setTimeout(() => {
+          input.disabled = false;
+          button.disabled = false;
+        }, 3000);
+        return;
+      }
+    } else if (this.selectedModel === 'claude') {
+      apiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
+      if (!apiKey) {
+        input.disabled = true;
+        button.disabled = true;
+        this.addComposerMessage('Please add your Claude API key in the Options tab before sending prompts.');
+        setTimeout(() => {
+          input.disabled = false;
+          button.disabled = false;
+        }, 3000);
+        return;
+      }
     }
     
     try {
@@ -1198,8 +1290,16 @@ export class Sidebar {
       button.disabled = true;
       button.textContent = 'Processing...';
       
-      // Try to process the prompt
-      const response = await this.composer.processPrompt(prompt);
+      let response: string;
+      
+      // Process differently based on mode
+      if (this.isChatMode) {
+        // Chat mode - direct conversation
+        response = await this.composer.chat(prompt, this.selectedModel);
+      } else {
+        // Project mode - use processPrompt for project-specific actions
+        response = await this.composer.processPrompt(prompt);
+      }
       
       // Show the response
       this.addComposerMessage(response);
@@ -1210,7 +1310,7 @@ export class Sidebar {
       // Re-enable input and button
       input.disabled = false;
       button.disabled = false;
-      button.textContent = 'Send Request';
+      button.textContent = this.isChatMode ? 'Send Message' : 'Send Request';
       
       // Clear input field
       input.value = '';
@@ -1546,25 +1646,78 @@ export class Sidebar {
       canvas: canvasInstance
     });
     
-    // Set API key if available
-    const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
-    if (storedApiKey && this.composer) {
-      this.composer.setApiKey(storedApiKey);
-      this.addComposerMessage('Composer initialized with stored API key.');
-    } else {
-      this.addComposerMessage('Please add your OpenAI API key to use the Composer.');
+    // Get saved model and mode preferences
+    const savedModel = localStorage.getItem('composerModel') || 'openai';
+    const savedMode = localStorage.getItem('composerMode') || 'project';
+    
+    // Update instance properties
+    this.selectedModel = savedModel;
+    this.isChatMode = savedMode === 'chat';
+    
+    // Set saved model in composer
+    if (this.composer) {
+      this.composer.setModel(this.selectedModel);
+      this.composer.setChatMode(this.isChatMode);
     }
+    
+    // Set API key if available
+    if (this.selectedModel === 'openai') {
+      const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
+      if (storedApiKey && this.composer) {
+        this.composer.setApiKey(storedApiKey);
+        this.addComposerMessage('Composer initialized with stored OpenAI API key.');
+      } else {
+        this.addComposerMessage('Please add your OpenAI API key in the Options tab to use the Composer.');
+      }
+    } else if (this.selectedModel === 'claude') {
+      const storedApiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
+      if (storedApiKey && this.composer) {
+        // The API key will be used directly from localStorage
+        this.addComposerMessage('Composer initialized with stored Claude API key.');
+      } else {
+        this.addComposerMessage('Please add your Claude API key in the Options tab to use the Composer.');
+      }
+    }
+    
+    // Update UI to match the mode
+    this.updateComposerUI();
   }
   
-  private addComposerMessage(message: string, isUserInput = false) {
-    if (!this.composerResponseArea) return;
+  // Add a helper method to update UI based on selected mode and model
+  private updateComposerUI(): void {
+    // Update model selector
+    const modelSelector = this.element.querySelector('#ai-model-selector') as HTMLSelectElement;
+    if (modelSelector) {
+      modelSelector.value = this.selectedModel;
+    }
     
-    const messageElement = document.createElement('div');
-    messageElement.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
-    messageElement.textContent = isUserInput ? `You: ${message}` : message;
+    // Update mode buttons
+    const projectModeBtn = this.element.querySelector('#project-mode-btn');
+    const chatModeBtn = this.element.querySelector('#chat-mode-btn');
     
-    this.composerResponseArea.appendChild(messageElement);
-    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
+    if (projectModeBtn && chatModeBtn) {
+      if (this.isChatMode) {
+        projectModeBtn.classList.remove('active');
+        chatModeBtn.classList.add('active');
+      } else {
+        projectModeBtn.classList.add('active');
+        chatModeBtn.classList.remove('active');
+      }
+    }
+    
+    // Update input placeholder and button text
+    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    
+    if (input && button) {
+      if (this.isChatMode) {
+        input.placeholder = "Ask me anything...";
+        button.textContent = "Send Message";
+      } else {
+        input.placeholder = "plan, search, build. LFG.";
+        button.textContent = "Send Request";
+      }
+    }
   }
 
   // Function to generate a simple ID for trades based on their name and color
@@ -1888,5 +2041,43 @@ export class Sidebar {
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
+  }
+
+  // Add new setComposerMode method to the Sidebar class
+  private setComposerMode(isChatMode: boolean): void {
+    this.isChatMode = isChatMode;
+    localStorage.setItem('composerMode', isChatMode ? 'chat' : 'project');
+    
+    // Update UI based on mode
+    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    
+    if (isChatMode) {
+      // Chat mode
+      input.placeholder = "Ask me anything...";
+      button.textContent = "Send Message";
+      this.addComposerMessage("Switched to Chat mode. I'm here to answer any general questions you have.");
+    } else {
+      // Project assistant mode
+      input.placeholder = "plan, search, build. LFG.";
+      button.textContent = "Send Request";
+      this.addComposerMessage("Switched to Project Assistant mode. I can help with task creation, project planning, and more.");
+    }
+    
+    // Update the composer mode
+    if (this.composer) {
+      this.composer.setChatMode(isChatMode);
+    }
+  }
+
+  private addComposerMessage(message: string, isUserInput = false) {
+    if (!this.composerResponseArea) return;
+    
+    const messageElement = document.createElement('div');
+    messageElement.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
+    messageElement.textContent = isUserInput ? `You: ${message}` : message;
+    
+    this.composerResponseArea.appendChild(messageElement);
+    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
   }
 } 
