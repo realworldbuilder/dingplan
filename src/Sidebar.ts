@@ -2,6 +2,7 @@ import { Task } from './Task';
 import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
+import { saveToLocalStorage, loadFromLocalStorage } from './utils/localStorage';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
@@ -475,31 +476,26 @@ export class Sidebar {
                 Send Request
               </button>
               
-              <!-- Mode and Model Settings -->
-              <div class="composer-settings" style="margin-top: 12px; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee;">
-                <!-- Chat mode toggle -->
-                <div class="mode-toggle-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                  <label style="font-size: 13px; color: #555;">Mode:</label>
-                  <div class="mode-toggle-buttons" style="display: flex; flex-grow: 1;">
-                    <button id="project-mode-btn" class="mode-toggle-btn active" style="flex: 1; padding: 8px; border: 1px solid #ddd; background-color: #e5f0fa; font-size: 13px; border-radius: 4px 0 0 4px; cursor: pointer;">Project Assistant</button>
-                    <button id="chat-mode-btn" class="mode-toggle-btn" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-left: none; background-color: #f8f9fa; font-size: 13px; border-radius: 0 4px 4px 0; cursor: pointer;">Chat</button>
-                  </div>
+              <!-- Footer controls in a single row -->
+              <div class="composer-footer" style="display: flex; align-items: center; margin-top: 10px; gap: 8px;">
+                <!-- Mode toggle - more compact -->
+                <div class="mode-toggle-container" style="display: flex; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; font-size: 11px;">
+                  <button id="project-mode-btn" class="mode-toggle-btn active" style="padding: 4px 6px; background-color: #e5f0fa; border: none; cursor: pointer;">Project</button>
+                  <button id="chat-mode-btn" class="mode-toggle-btn" style="padding: 4px 6px; background-color: #f8f9fa; border: none; border-left: 1px solid #ddd; cursor: pointer;">Chat</button>
                 </div>
                 
-                <!-- Model selector dropdown -->
-                <div class="model-selector-container" style="display: flex; align-items: center; gap: 10px;">
-                  <label for="ai-model-selector" style="font-size: 13px; color: #555;">AI Model:</label>
-                  <select id="ai-model-selector" class="ai-model-selector" style="flex-grow: 1; padding: 8px; border-radius: 4px; border: 1px solid #ddd; background-color: #fff; font-size: 13px;">
-                    <option value="openai">OpenAI (GPT-4)</option>
-                    <option value="claude">Claude (Anthropic)</option>
-                  </select>
+                <!-- Model selector - more compact -->
+                <select id="ai-model-selector" class="ai-model-selector" style="padding: 4px 6px; border-radius: 4px; border: 1px solid #ddd; font-size: 11px; background-color: #f8f9fa;">
+                  <option value="openai">OpenAI</option>
+                  <option value="claude">Claude</option>
+                </select>
+                
+                <!-- Guide link -->
+                <div class="composer-guide-link" style="margin-left: auto;">
+                  <a href="/composer-guide.html" target="_blank" class="guide-link" style="padding: 4px 6px; font-size: 11px; display: inline-block; background-color: #f5f9ff; border: 1px solid #c0d7e9; border-radius: 4px; color: #2a5885; text-decoration: none;">
+                    <span class="guide-icon">📖</span> Guide
+                  </a>
                 </div>
-              </div>
-              
-              <div class="composer-guide-link" style="text-align: left; margin-top: 10px; font-size: 12px;">
-                <a href="/composer-guide.html" target="_blank" class="guide-link" style="padding: 3px 6px; font-size: 12px;">
-                  <span class="guide-icon">📖</span> Guide
-                </a>
               </div>
             </div>
           </div>
@@ -938,7 +934,7 @@ export class Sidebar {
       aiButton.addEventListener('click', () => {
         const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
         if (input.value.trim()) {
-          this.handleAIComposerSubmit(input.value);
+          this.handleAIComposerSubmit(input);
         }
       });
     }
@@ -1242,79 +1238,87 @@ export class Sidebar {
     }
   }
 
-  private async handleAIComposerSubmit(prompt: string) {
+  private addComposerMessage(message: string, isUserInput = false): void {
+    if (!this.composerResponseArea) return;
+    
+    const messageElement = document.createElement('div');
+    messageElement.className = isUserInput ? 'ai-composer-user-message' : 'ai-composer-response';
+    messageElement.textContent = message;
+    
+    this.composerResponseArea.appendChild(messageElement);
+    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
+  }
+  
+  private async handleAIComposerSubmit(textarea: HTMLTextAreaElement): Promise<void> {
     // Display user input
-    this.addComposerMessage(prompt, true);
+    this.addComposerMessage(textarea.value, true);
     
     // Get reference to input and button
-    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    const inputElement = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+    const buttonElement = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
     
-    if (!this.composer) {
-      this.addComposerMessage('Composer not initialized. Please refresh the page.');
-      return;
+    // Disable input and button while processing
+    if (inputElement && buttonElement) {
+      inputElement.disabled = true;
+      buttonElement.disabled = true;
     }
     
-    // Check for appropriate API key based on selected model
-    let apiKey: string | null = null;
+    // Clear the input
+    textarea.value = '';
     
+    // Check for API key
+    let apiKey = '';
     if (this.selectedModel === 'openai') {
-      apiKey = localStorage.getItem('constructionPlannerApiKey');
+      apiKey = localStorage.getItem('openaiApiKey') || '';
       if (!apiKey) {
-        input.disabled = true;
-        button.disabled = true;
-        this.addComposerMessage('Please add your OpenAI API key in the Options tab before sending prompts.');
-        setTimeout(() => {
-          input.disabled = false;
-          button.disabled = false;
-        }, 3000);
+        this.addComposerMessage("Please set your OpenAI API key in the settings panel to use the AI Composer.");
+        // Re-enable input and button
+        if (inputElement && buttonElement) {
+          inputElement.disabled = false;
+          buttonElement.disabled = true;
+        }
         return;
       }
     } else if (this.selectedModel === 'claude') {
-      apiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
+      apiKey = localStorage.getItem('claudeApiKey') || '';
       if (!apiKey) {
-        input.disabled = true;
-        button.disabled = true;
-        this.addComposerMessage('Please add your Claude API key in the Options tab before sending prompts.');
-        setTimeout(() => {
-          input.disabled = false;
-          button.disabled = false;
-        }, 3000);
+        this.addComposerMessage("Please set your Claude API key in the settings panel to use the AI Composer.");
+        // Re-enable input and button
+        if (inputElement && buttonElement) {
+          inputElement.disabled = false;
+          buttonElement.disabled = true;
+        }
         return;
       }
     }
     
+    // Process the prompt
     try {
-      // Disable input and button while processing
-      input.disabled = true;
-      button.disabled = true;
-      button.textContent = 'Processing...';
+      let response = '';
       
-      let response: string;
-      
-      // Process differently based on mode
       if (this.isChatMode) {
         // Chat mode - direct conversation
-        response = await this.composer.chat(prompt, this.selectedModel);
+        response = await this.composer.chat(textarea.value, this.selectedModel);
       } else {
         // Project mode - use processPrompt for project-specific actions
-        response = await this.composer.processPrompt(prompt);
+        response = await this.composer.processPrompt(textarea.value);
       }
       
-      // Show the response
-      this.addComposerMessage(response);
-    } catch (error: unknown) {
-      // Display error
-      this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+      // Display the response
+      if (response) {
+        this.addComposerMessage(response);
+      } else {
+        this.addComposerMessage("Sorry, I couldn't process your request.");
+      }
+    } catch (error) {
+      console.error('Error processing prompt:', error);
+      this.addComposerMessage(`Error: ${error.message || 'Unknown error occurred.'}`);
     } finally {
       // Re-enable input and button
-      input.disabled = false;
-      button.disabled = false;
-      button.textContent = this.isChatMode ? 'Send Message' : 'Send Request';
-      
-      // Clear input field
-      input.value = '';
-      input.focus();
+      if (inputElement && buttonElement) {
+        inputElement.disabled = false;
+        buttonElement.disabled = false;
+      }
     }
   }
 
@@ -1642,47 +1646,45 @@ export class Sidebar {
   // Initialize the Composer with the Canvas instance
   initializeComposer(canvasInstance: any) {
     this.canvas = canvasInstance; // Store canvas reference
-    this.composer = new Composer({
-      canvas: canvasInstance
-    });
-    
-    // Get saved model and mode preferences
-    const savedModel = localStorage.getItem('composerModel') || 'openai';
-    const savedMode = localStorage.getItem('composerMode') || 'project';
-    
-    // Update instance properties
-    this.selectedModel = savedModel;
-    this.isChatMode = savedMode === 'chat';
-    
-    // Set saved model in composer
+    this.initializeComposerInternal();
+  }
+
+  private initializeComposerInternal(): void {
+    const canvas = this.canvas;
+    if (!canvas) {
+      console.error('Canvas reference not available');
+      return;
+    }
+
+    // Load saved preferences
+    this.selectedModel = localStorage.getItem('composerModel') || 'openai';
+    this.isChatMode = localStorage.getItem('composerMode') === 'chat';
+
+    // Create Composer instance
+    this.composer = new Composer(canvas);
+
+    // Set model and mode
     if (this.composer) {
       this.composer.setModel(this.selectedModel);
       this.composer.setChatMode(this.isChatMode);
     }
-    
-    // Set API key if available
-    if (this.selectedModel === 'openai') {
-      const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
-      if (storedApiKey && this.composer) {
-        this.composer.setApiKey(storedApiKey);
-        this.addComposerMessage('Composer initialized with stored OpenAI API key.');
-      } else {
-        this.addComposerMessage('Please add your OpenAI API key in the Options tab to use the Composer.');
-      }
-    } else if (this.selectedModel === 'claude') {
-      const storedApiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
-      if (storedApiKey && this.composer) {
-        // The API key will be used directly from localStorage
-        this.addComposerMessage('Composer initialized with stored Claude API key.');
-      } else {
-        this.addComposerMessage('Please add your Claude API key in the Options tab to use the Composer.');
-      }
+
+    // Check for API key
+    const apiKey = this.selectedModel === 'openai'
+      ? localStorage.getItem('openaiApiKey') || ''
+      : localStorage.getItem('claudeApiKey') || '';
+
+    if (!apiKey) {
+      const modelName = this.selectedModel === 'openai' ? 'OpenAI' : 'Claude';
+      setTimeout(() => {
+        this.addComposerMessage(`Please set your ${modelName} API key in the settings panel to use the AI Composer.`);
+      }, 500);
     }
-    
-    // Update UI to match the mode
+
+    // Update UI to match current mode and model
     this.updateComposerUI();
   }
-  
+
   // Add a helper method to update UI based on selected mode and model
   private updateComposerUI(): void {
     // Update model selector
@@ -1692,16 +1694,24 @@ export class Sidebar {
     }
     
     // Update mode buttons
-    const projectModeBtn = this.element.querySelector('#project-mode-btn');
-    const chatModeBtn = this.element.querySelector('#chat-mode-btn');
+    const projectModeBtn = this.element.querySelector('#project-mode-btn') as HTMLElement;
+    const chatModeBtn = this.element.querySelector('#chat-mode-btn') as HTMLElement;
     
     if (projectModeBtn && chatModeBtn) {
       if (this.isChatMode) {
         projectModeBtn.classList.remove('active');
         chatModeBtn.classList.add('active');
+        
+        // Update styling for compact buttons
+        projectModeBtn.style.backgroundColor = '#f8f9fa';
+        chatModeBtn.style.backgroundColor = '#e5f0fa';
       } else {
         projectModeBtn.classList.add('active');
         chatModeBtn.classList.remove('active');
+        
+        // Update styling for compact buttons
+        projectModeBtn.style.backgroundColor = '#e5f0fa';
+        chatModeBtn.style.backgroundColor = '#f8f9fa';
       }
     }
     
@@ -2070,14 +2080,181 @@ export class Sidebar {
     }
   }
 
-  private addComposerMessage(message: string, isUserInput = false) {
-    if (!this.composerResponseArea) return;
+  private createAIComposer(): void {
+    // Create container for the composer
+    const composerContainer = document.createElement('div');
+    composerContainer.className = 'ai-composer-container';
     
-    const messageElement = document.createElement('div');
-    messageElement.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
-    messageElement.textContent = isUserInput ? `You: ${message}` : message;
+    // Composer response area
+    const composerResponseArea = document.createElement('div');
+    composerResponseArea.className = 'ai-composer-response-area';
+    this.composerResponseArea = composerResponseArea;
     
-    this.composerResponseArea.appendChild(messageElement);
-    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
+    // Composer input area
+    const composerInput = document.createElement('div');
+    composerInput.className = 'ai-composer-input-container';
+    
+    const textarea = document.createElement('textarea');
+    textarea.className = 'ai-composer-input';
+    textarea.placeholder = 'plan, search, build. LFG.';
+    textarea.rows = 3;
+    
+    const button = document.createElement('button');
+    button.className = 'ai-composer-button';
+    button.textContent = 'Send Request';
+    button.disabled = true;
+    
+    composerInput.appendChild(textarea);
+    composerInput.appendChild(button);
+    
+    // Footer with compact controls
+    const footerControls = document.createElement('div');
+    footerControls.className = 'ai-composer-footer';
+    footerControls.style.display = 'flex';
+    footerControls.style.justifyContent = 'space-between';
+    footerControls.style.alignItems = 'center';
+    footerControls.style.marginTop = '8px';
+    
+    // Mode toggle buttons (made smaller and compact)
+    const modeToggle = document.createElement('div');
+    modeToggle.className = 'ai-composer-mode-toggle';
+    modeToggle.style.display = 'flex';
+    modeToggle.style.alignItems = 'center';
+    
+    const projectModeBtn = document.createElement('button');
+    projectModeBtn.id = 'project-mode-btn';
+    projectModeBtn.className = 'mode-toggle-btn active';
+    projectModeBtn.textContent = 'Project';
+    projectModeBtn.style.padding = '2px 6px';
+    projectModeBtn.style.fontSize = '12px';
+    projectModeBtn.style.backgroundColor = '#e5f0fa';
+    projectModeBtn.style.border = 'none';
+    projectModeBtn.style.borderRadius = '4px 0 0 4px';
+    projectModeBtn.style.cursor = 'pointer';
+    
+    const chatModeBtn = document.createElement('button');
+    chatModeBtn.id = 'chat-mode-btn';
+    chatModeBtn.className = 'mode-toggle-btn';
+    chatModeBtn.textContent = 'Chat';
+    chatModeBtn.style.padding = '2px 6px';
+    chatModeBtn.style.fontSize = '12px';
+    chatModeBtn.style.backgroundColor = '#f8f9fa';
+    chatModeBtn.style.border = 'none';
+    chatModeBtn.style.borderRadius = '0 4px 4px 0';
+    chatModeBtn.style.cursor = 'pointer';
+    
+    modeToggle.appendChild(projectModeBtn);
+    modeToggle.appendChild(chatModeBtn);
+    
+    // Model selector dropdown (made smaller)
+    const modelSelector = document.createElement('select');
+    modelSelector.id = 'ai-model-selector';
+    modelSelector.style.padding = '2px 4px';
+    modelSelector.style.fontSize = '12px';
+    modelSelector.style.marginLeft = '8px';
+    modelSelector.style.borderRadius = '4px';
+    
+    const openaiOption = document.createElement('option');
+    openaiOption.value = 'openai';
+    openaiOption.textContent = 'GPT-4';
+    
+    const claudeOption = document.createElement('option');
+    claudeOption.value = 'claude';
+    claudeOption.textContent = 'Claude';
+    
+    modelSelector.appendChild(openaiOption);
+    modelSelector.appendChild(claudeOption);
+    
+    // Left side controls container
+    const leftControls = document.createElement('div');
+    leftControls.style.display = 'flex';
+    leftControls.style.alignItems = 'center';
+    
+    leftControls.appendChild(modeToggle);
+    leftControls.appendChild(modelSelector);
+    
+    // Guide link (kept in the same style as before)
+    const guideLink = document.createElement('a');
+    guideLink.href = 'https://github.com/founders-project/dingplan/blob/master/docs/AI-Composer-Guide.md';
+    guideLink.target = '_blank';
+    guideLink.className = 'ai-composer-guide-link';
+    guideLink.textContent = 'Guide';
+    guideLink.style.fontSize = '12px';
+    
+    // Add all elements to the footer
+    footerControls.appendChild(leftControls);
+    footerControls.appendChild(guideLink);
+    
+    // Add all composer elements to the main container
+    composerContainer.appendChild(composerResponseArea);
+    composerContainer.appendChild(composerInput);
+    composerContainer.appendChild(footerControls);
+    
+    // Add the composer to the sidebar
+    this.element.appendChild(composerContainer);
+    
+    // Enable/disable button based on textarea content
+    textarea.addEventListener('input', () => {
+      button.disabled = textarea.value.trim() === '';
+    });
+    
+    // Event listener for submitting a request
+    button.addEventListener('click', () => {
+      this.handleAIComposerSubmit(textarea);
+    });
+    
+    // Allow submitting with Enter (but new line with Shift+Enter)
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!button.disabled) {
+          this.handleAIComposerSubmit(textarea);
+        }
+      }
+    });
+    
+    // Event listeners for mode toggle buttons
+    projectModeBtn.addEventListener('click', () => {
+      if (this.isChatMode) {
+        this.isChatMode = false;
+        this.updateComposerUI();
+        
+        // Save mode preference
+        localStorage.setItem('composerMode', 'project');
+      }
+    });
+    
+    chatModeBtn.addEventListener('click', () => {
+      if (!this.isChatMode) {
+        this.isChatMode = true;
+        this.updateComposerUI();
+        
+        // Save mode preference
+        localStorage.setItem('composerMode', 'chat');
+      }
+    });
+    
+    // Event listener for model selection
+    modelSelector.addEventListener('change', () => {
+      this.selectedModel = modelSelector.value;
+      
+      // Update composer model if it exists
+      if (this.composer) {
+        this.composer.setModel(this.selectedModel);
+      }
+      
+      // Save model preference
+      localStorage.setItem('composerModel', this.selectedModel);
+      
+      // Check and display appropriate message for API key
+      const apiKey = this.selectedModel === 'openai' 
+        ? localStorage.getItem('openaiApiKey') || ''
+        : localStorage.getItem('claudeApiKey') || '';
+      
+      if (!apiKey) {
+        const modelName = this.selectedModel === 'openai' ? 'OpenAI' : 'Claude';
+        this.addComposerMessage(`Please set your ${modelName} API key in the settings panel to use the AI Composer.`);
+      }
+    });
   }
 } 
