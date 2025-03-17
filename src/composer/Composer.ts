@@ -485,6 +485,18 @@ class Composer {
 
   async processPrompt(userInput: string): Promise<string> {
     try {
+      // Additional suggestions for specialized templates
+      if (userInput.toLowerCase().includes("steel") || 
+          userInput.toLowerCase().includes("structural system") || 
+          userInput.toLowerCase().includes("beam") || 
+          userInput.toLowerCase().includes("column") || 
+          userInput.toLowerCase().includes("metal frame")) {
+        const steelSuggestion = this.suggestStructuralSteelTemplate();
+        if (steelSuggestion) {
+          return steelSuggestion;
+        }
+      }
+      
       this.debug(`Processing prompt: "${userInput}"`);
       
       // Handle simple affirmative responses to previous template suggestions
@@ -2189,18 +2201,13 @@ Always strive to be both helpful and educational, balancing efficient task execu
   
   // Helper method to get a recommended next template based on the current template
   private getRecommendedNextTemplate(currentTemplate: string): string {
-    // Logic to recommend what template might logically come next
-    if (currentTemplate.includes('site') || currentTemplate.includes('prep') || currentTemplate.includes('clearing')) {
-      return "a foundation or deep foundations template";
-    } else if (currentTemplate.includes('foundation')) {
-      return "a structural steel or framing template";
-    } else if (currentTemplate.includes('steel') || currentTemplate.includes('structure') || currentTemplate.includes('framing')) {
-      return "a building envelope or facade template";
-    } else if (currentTemplate.includes('envelope') || currentTemplate.includes('facade')) {
-      return "an MEP rough-in template";
-    } else if (currentTemplate.includes('mep')) {
+    if (currentTemplate.includes("foundation") || currentTemplate.includes("site")) {
+      return "structural steel or framing templates";
+    } else if (currentTemplate.includes("steel") || currentTemplate.includes("frame")) {
+      return "MEP rough-in or envelope templates";
+    } else if (currentTemplate.includes("envelope") || currentTemplate.includes("facade")) {
       return "interior finishes or specialty systems templates";
-    } else if (currentTemplate.includes('interior') || currentTemplate.includes('finishes')) {
+    } else if (currentTemplate.includes("finishes")) {
       return "commissioning and completion templates";
     } else {
       return "related templates for other building systems";
@@ -3074,6 +3081,16 @@ To get started:
       console.error("Error in chat:", error);
       return `Sorry, I couldn't process that message. Please try again.`;
     }
+  }
+
+  // Add this method around line 2200 where other template suggestion methods are
+  private suggestStructuralSteelTemplate(): string {
+    // Check if the structural steel template is in the last suggested template, 
+    // if not, suggest it for inclusion
+    if (Composer.lastSuggestedTemplate !== 'structural_steel') {
+      return "I've added a detailed Structural Steel System template that includes all phases from shop drawings to fireproofing. You can add it to your project using: 'Add the structural steel template to the Structural Systems swimlane'";
+    }
+    return "";
   }
 }
 

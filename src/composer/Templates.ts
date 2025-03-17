@@ -529,6 +529,29 @@ export const TEMPLATES: Record<string, SequenceTemplate> = {
       { name: "Final Inspection & Energization", duration: 5, tradeId: "management", crewSize: 4, dependsOnPrevious: true }
     ]
   },
+  
+  // New specialized structural steel template
+  structural_steel: {
+    name: "Structural Steel System",
+    description: "Comprehensive structural steel framing sequence for commercial buildings",
+    aliases: ["steel frame", "structural steel system", "steel structure", "steel erection", "steel framing", "metal structure"],
+    tasks: [
+      { name: "Shop Drawings Review", duration: 5, tradeId: "management", crewSize: 2, dependsOnPrevious: false },
+      { name: "Steel Fabrication", duration: 15, tradeId: "framing", crewSize: 8, dependsOnPrevious: true },
+      { name: "Site Preparation & Layout", duration: 2, tradeId: "management", crewSize: 3, dependsOnPrevious: true },
+      { name: "Foundation Anchor Bolts", duration: 3, tradeId: "concrete", crewSize: 4, dependsOnPrevious: true },
+      { name: "Steel Delivery", duration: 2, tradeId: "management", crewSize: 3, dependsOnPrevious: true },
+      { name: "Column Installation", duration: 5, tradeId: "framing", crewSize: 8, dependsOnPrevious: true },
+      { name: "Beam & Girder Installation", duration: 6, tradeId: "framing", crewSize: 8, dependsOnPrevious: true },
+      { name: "Joist & Decking Installation", duration: 4, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Bracing & Connections", duration: 3, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Bolting & Welding", duration: 4, tradeId: "framing", crewSize: 5, dependsOnPrevious: true },
+      { name: "Plumbing & Alignment", duration: 2, tradeId: "framing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Steel Inspection", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true },
+      { name: "Fireproofing Application", duration: 3, tradeId: "insulation", crewSize: 4, dependsOnPrevious: true },
+      { name: "Quality Control", duration: 2, tradeId: "management", crewSize: 2, dependsOnPrevious: true }
+    ]
+  },
 };
 
 /**

@@ -1285,7 +1285,24 @@ export class Sidebar {
     
     const messageElement = document.createElement('div');
     messageElement.className = isUserInput ? 'ai-composer-user-message' : 'ai-composer-response';
-    messageElement.textContent = message;
+    
+    // Add a prefix to clearly indicate who is speaking
+    const messageContent = isUserInput ? `You: ${message}` : `Assistant: ${message}`;
+    messageElement.textContent = messageContent;
+    
+    // Add styling for better visual distinction
+    if (isUserInput) {
+      messageElement.style.fontWeight = 'bold';
+      messageElement.style.backgroundColor = '#e5f0fa';
+      messageElement.style.padding = '8px 12px';
+      messageElement.style.borderRadius = '8px';
+      messageElement.style.marginBottom = '10px';
+    } else {
+      messageElement.style.backgroundColor = '#f8f9fa';
+      messageElement.style.padding = '8px 12px';
+      messageElement.style.borderRadius = '8px';
+      messageElement.style.marginBottom = '10px';
+    }
     
     this.composerResponseArea.appendChild(messageElement);
     this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
