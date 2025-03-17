@@ -1200,6 +1200,48 @@ export class Sidebar {
         this.setComposerMode(true);
       });
     }
+
+    // Save OpenAI API Key
+    const openaiSaveButton = this.element.querySelector('[data-provider="openai"]');
+    if (openaiSaveButton) {
+      openaiSaveButton.addEventListener('click', () => {
+        const apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
+        const apiKey = apiKeyInput?.value.trim() || '';
+        
+        if (apiKey) {
+          // Store with both old and new key names for backward compatibility
+          localStorage.setItem('openaiApiKey', apiKey);
+          localStorage.setItem('constructionPlannerApiKey', apiKey);
+          
+          if (this.composer) {
+            this.composer.setApiKey(apiKey);
+          }
+          
+          alert('OpenAI API key saved successfully!');
+        } else {
+          alert('Please enter a valid API key.');
+        }
+      });
+    }
+    
+    // Save Anthropic API Key
+    const anthropicSaveButton = this.element.querySelector('[data-provider="anthropic"]');
+    if (anthropicSaveButton) {
+      anthropicSaveButton.addEventListener('click', () => {
+        const apiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
+        const apiKey = apiKeyInput?.value.trim() || '';
+        
+        if (apiKey) {
+          // Store with both old and new key names for backward compatibility
+          localStorage.setItem('claudeApiKey', apiKey);
+          localStorage.setItem('constructionPlannerAnthropicApiKey', apiKey);
+          
+          alert('Anthropic API key saved successfully!');
+        } else {
+          alert('Please enter a valid API key.');
+        }
+      });
+    }
   }
 
   private switchView(view: SidebarView) {
@@ -1261,6 +1303,7 @@ export class Sidebar {
     if (inputElement && buttonElement) {
       inputElement.disabled = true;
       buttonElement.disabled = true;
+      buttonElement.textContent = 'Processing...';
     }
     
     // Clear the input
@@ -1269,24 +1312,26 @@ export class Sidebar {
     // Check for API key
     let apiKey = '';
     if (this.selectedModel === 'openai') {
-      apiKey = localStorage.getItem('openaiApiKey') || '';
+      apiKey = localStorage.getItem('openaiApiKey') || localStorage.getItem('constructionPlannerApiKey') || '';
       if (!apiKey) {
         this.addComposerMessage("Please set your OpenAI API key in the settings panel to use the AI Composer.");
         // Re-enable input and button
         if (inputElement && buttonElement) {
           inputElement.disabled = false;
           buttonElement.disabled = true;
+          buttonElement.textContent = this.isChatMode ? 'Send Message' : 'Send Request';
         }
         return;
       }
     } else if (this.selectedModel === 'claude') {
-      apiKey = localStorage.getItem('claudeApiKey') || '';
+      apiKey = localStorage.getItem('claudeApiKey') || localStorage.getItem('constructionPlannerAnthropicApiKey') || '';
       if (!apiKey) {
         this.addComposerMessage("Please set your Claude API key in the settings panel to use the AI Composer.");
         // Re-enable input and button
         if (inputElement && buttonElement) {
           inputElement.disabled = false;
           buttonElement.disabled = true;
+          buttonElement.textContent = this.isChatMode ? 'Send Message' : 'Send Request';
         }
         return;
       }
@@ -1318,6 +1363,7 @@ export class Sidebar {
       if (inputElement && buttonElement) {
         inputElement.disabled = false;
         buttonElement.disabled = false;
+        buttonElement.textContent = this.isChatMode ? 'Send Message' : 'Send Request';
       }
     }
   }
@@ -1667,12 +1713,20 @@ export class Sidebar {
     if (this.composer) {
       this.composer.setModel(this.selectedModel);
       this.composer.setChatMode(this.isChatMode);
+      
+      // Load and set the API key if available
+      if (this.selectedModel === 'openai') {
+        const apiKey = localStorage.getItem('openaiApiKey') || localStorage.getItem('constructionPlannerApiKey') || '';
+        if (apiKey) {
+          this.composer.setApiKey(apiKey);
+        }
+      }
     }
 
     // Check for API key
     const apiKey = this.selectedModel === 'openai'
-      ? localStorage.getItem('openaiApiKey') || ''
-      : localStorage.getItem('claudeApiKey') || '';
+      ? localStorage.getItem('openaiApiKey') || localStorage.getItem('constructionPlannerApiKey') || ''
+      : localStorage.getItem('claudeApiKey') || localStorage.getItem('constructionPlannerAnthropicApiKey') || '';
 
     if (!apiKey) {
       const modelName = this.selectedModel === 'openai' ? 'OpenAI' : 'Claude';
@@ -2180,6 +2234,12 @@ export class Sidebar {
     guideLink.className = 'ai-composer-guide-link';
     guideLink.textContent = 'Guide';
     guideLink.style.fontSize = '12px';
+    guideLink.style.display = 'flex';
+    guideLink.style.alignItems = 'center';
+    guideLink.style.height = '100%';
+    guideLink.style.padding = '2px 6px';
+    guideLink.style.textDecoration = 'none';
+    guideLink.style.color = '#0066cc';
     
     // Add all elements to the footer
     footerControls.appendChild(leftControls);

@@ -2991,11 +2991,11 @@ To get started:
       let model = '';
       
       if (modelType === 'openai') {
-        apiKey = localStorage.getItem('constructionPlannerApiKey') || this.apiKey;
+        apiKey = localStorage.getItem('openaiApiKey') || this.apiKey || localStorage.getItem('constructionPlannerApiKey') || '';
         apiEndpoint = 'https://api.openai.com/v1/chat/completions';
         model = 'gpt-4o';
       } else if (modelType === 'claude') {
-        apiKey = localStorage.getItem('constructionPlannerAnthropicApiKey') || '';
+        apiKey = localStorage.getItem('claudeApiKey') || localStorage.getItem('constructionPlannerAnthropicApiKey') || '';
         apiEndpoint = 'https://api.anthropic.com/v1/messages';
         model = 'claude-3-sonnet-20240229';
       }
@@ -3071,8 +3071,8 @@ To get started:
         return data.content[0].text;
       }
     } catch (error) {
-      console.error('Error in chat:', error);
-      throw error;
+      console.error("Error in chat:", error);
+      return `Sorry, I couldn't process that message. Please try again.`;
     }
   }
 }
