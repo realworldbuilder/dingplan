@@ -25,6 +25,8 @@ export class Sidebar {
   private composer: Composer | null = null;
   private composerResponseArea: HTMLElement | null = null;
   private apiKeyInput: HTMLInputElement | null = null;
+  private clearChatButton: HTMLButtonElement | null = null;
+  private composerTabButton: HTMLElement | null = null;
   
   // Canvas reference
   private canvas: any = null;
@@ -2262,8 +2264,36 @@ export class Sidebar {
     footerControls.appendChild(leftControls);
     footerControls.appendChild(guideLink);
     
+    // Create clear chat button
+    const clearChatButton = document.createElement('button');
+    clearChatButton.className = 'clear-chat-button';
+    clearChatButton.textContent = 'Clear Chat';
+    clearChatButton.style.display = 'none'; // Hidden by default
+    clearChatButton.style.marginBottom = '10px';
+    clearChatButton.style.marginTop = '8px';
+    clearChatButton.style.padding = '5px 10px';
+    clearChatButton.style.fontSize = '12px';
+    clearChatButton.style.backgroundColor = '#f0f0f0';
+    clearChatButton.style.border = '1px solid #ddd';
+    clearChatButton.style.borderRadius = '4px';
+    clearChatButton.style.cursor = 'pointer';
+    this.clearChatButton = clearChatButton;
+    
+    clearChatButton.addEventListener('click', () => {
+      if (this.composer) {
+        this.composer.clearConversationHistory();
+        
+        // Clear the response area
+        if (this.composerResponseArea) {
+          this.composerResponseArea.innerHTML = '';
+          this.addComposerMessage('Chat history cleared. Start a new conversation.', false);
+        }
+      }
+    });
+    
     // Add all composer elements to the main container
     composerContainer.appendChild(composerResponseArea);
+    composerContainer.appendChild(clearChatButton);
     composerContainer.appendChild(composerInput);
     composerContainer.appendChild(footerControls);
     
@@ -2333,5 +2363,35 @@ export class Sidebar {
         this.addComposerMessage(`Please set your ${modelName} API key in the settings panel to use the AI Composer.`);
       }
     });
+  }
+
+  public setChatMode(isChatMode: boolean): void {
+    this.isChatMode = isChatMode;
+    
+    // Update input and button text
+    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    
+    if (isChatMode) {
+      // Chat mode
+      input.placeholder = "Ask me anything...";
+      button.textContent = "Send Message";
+      this.addComposerMessage("Switched to Chat mode. I'm here to answer any general questions you have.");
+    } else {
+      // Project assistant mode
+      input.placeholder = "plan, search, build. LFG.";
+      button.textContent = "Send Request";
+      this.addComposerMessage("Switched to Project Assistant mode. I can help with task creation, project planning, and more.");
+    }
+    
+    // Update the composer mode
+    if (this.composer) {
+      this.composer.setChatMode(isChatMode);
+    }
+    
+    // Show/hide clear chat button based on chat mode
+    if (this.clearChatButton) {
+      this.clearChatButton.style.display = isChatMode ? 'block' : 'none';
+    }
   }
 } 

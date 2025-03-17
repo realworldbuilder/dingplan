@@ -32,6 +32,9 @@ class Composer {
   private isChatMode: boolean = false; // Track if we're in chat mode
   // Add static property for tracking last suggested template
   private static lastSuggestedTemplate: string = '';
+  // Add to the Composer class properties (around line 32)
+  private conversationHistory: {role: string, content: string}[] = [];
+  private maxHistoryLength: number = 10; // Keep last 10 messages for context
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
@@ -2992,6 +2995,9 @@ To get started:
   // Add a chat method for direct conversations
   public async chat(message: string, modelType: string = 'openai'): Promise<string> {
     try {
+      // Add user message to history
+      this.conversationHistory.push({role: 'user', content: message});
+      
       // Select the API key based on model type
       let apiKey = '';
       let apiEndpoint = '';
@@ -3015,68 +3021,104 @@ To get started:
       if (this.debugMode) {
         console.log(`Chat request to ${modelType} model: ${model}`);
         console.log(`Message: ${message}`);
+        console.log(`Including ${this.conversationHistory.length - 1} previous messages for context`);
       }
       
-      // Different request formats for OpenAI vs Claude
+      let response = '';
+      
+      // OpenAI API Call
       if (modelType === 'openai') {
-        const response = await fetch(apiEndpoint, {
+        // Create messages array with system prompt and conversation history
+        const messages = [
+          {
+            role: 'system',
+            content: 'You are an expert construction planning assistant. You understand construction sequencing, scheduling, and building systems. Provide accurate, practical advice based on industry standards and best practices.'
+          }
+        ];
+        
+        // Add conversation history (limited to the most recent messages)
+        const recentHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+        recentHistory.slice(0, -1).forEach(msg => messages.push(msg));
+        
+        // Add the current message
+        messages.push({role: 'user', content: message});
+        
+        const requestData = {
+          model: model,
+          messages: messages,
+          max_tokens: this.maxTokens || 1000,
+          temperature: 0.7
+        };
+        
+        const fetchResponse = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful assistant for construction planning.'
-              },
-              {
-                role: 'user',
-                content: message
-              }
-            ],
-            max_tokens: 1000
-          })
+          body: JSON.stringify(requestData)
         });
         
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error.message);
+        if (!fetchResponse.ok) {
+          const errorData = await fetchResponse.json();
+          console.error('OpenAI API Error:', errorData);
+          return `Error from OpenAI API: ${errorData.error?.message || 'Unknown error'}`;
         }
         
-        return data.choices[0].message.content;
-      } else {
-        // Claude API
-        const response = await fetch(apiEndpoint, {
+        const data = await fetchResponse.json();
+        response = data.choices[0].message.content;
+      }
+      // Claude API Call
+      else if (modelType === 'claude') {
+        // Build conversation history for Claude
+        let systemPrompt = 'You are an expert construction planning assistant. You understand construction sequencing, scheduling, and building systems. Provide accurate, practical advice based on industry standards and best practices.';
+        
+        // Create conversation history
+        const recentHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+        const content = recentHistory.map(msg => {
+          return {
+            role: msg.role,
+            content: msg.content
+          };
+        });
+        
+        const requestData = {
+          model: model,
+          system: systemPrompt,
+          messages: content,
+          max_tokens: this.maxTokens || 1000,
+          temperature: 0.7
+        };
+        
+        const fetchResponse = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01'
           },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              {
-                role: 'user',
-                content: message
-              }
-            ],
-            max_tokens: 1000
-          })
+          body: JSON.stringify(requestData)
         });
         
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error.message);
+        if (!fetchResponse.ok) {
+          const errorData = await fetchResponse.json();
+          console.error('Claude API Error:', errorData);
+          return `Error from Claude API: ${errorData.error?.message || 'Unknown error'}`;
         }
         
-        return data.content[0].text;
+        const data = await fetchResponse.json();
+        response = data.content[0].text;
       }
+      
+      // Add assistant response to history
+      this.conversationHistory.push({role: 'assistant', content: response});
+      
+      // Trim history if exceeds maximum length
+      if (this.conversationHistory.length > this.maxHistoryLength * 2) {
+        this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength * 2);
+      }
+      
+      return response;
     } catch (error) {
       console.error("Error in chat:", error);
       return `Sorry, I couldn't process that message. Please try again.`;
@@ -3091,6 +3133,14 @@ To get started:
       return "I've added a detailed Structural Steel System template that includes all phases from shop drawings to fireproofing. You can add it to your project using: 'Add the structural steel template to the Structural Systems swimlane'";
     }
     return "";
+  }
+
+  // Add a method to clear conversation history (around line 2990)
+  public clearConversationHistory(): void {
+    this.conversationHistory = [];
+    if (this.debugMode) {
+      console.log('Conversation history cleared');
+    }
   }
 }
 
