@@ -464,7 +464,7 @@ export class Sidebar {
                 <div style="font-size: 11px; color: #666;">Last updated: May 17, 2024</div>
               </div>
               <div class="composer-response-area" style="margin-top: 10px;">
-                <p class="composer-initial-message">🛠️ Improved template detection active - We've updated the Composer to better handle steel structure templates and swimlane assignments.</p>
+                <p class="composer-initial-message">🚀 Composer has been upgraded! We've improved how the AI understands your natural language requests, regardless of phrasing style. Better template matching, swimlane assignment, and task creation - try it out!</p>
               </div>
               
               <textarea 
@@ -1518,14 +1518,24 @@ export class Sidebar {
   // Helper method to notify about filter changes
   private notifyFilterChanged() {
     if (this.onTradeFilterChange) {
-      // Always create a new Map instance to ensure change detection
-      const filtersCopy = new Map(this.tradeFilters);
+      // Create a new map that maps trade colors to visibility instead of trade IDs
+      const colorFilterMap = new Map<string, boolean>();
       
-      console.log("Notifying filter change:", Array.from(filtersCopy.entries())
+      // Convert from tradeId-based filters to color-based filters
+      Array.from(this.tradeFilters.entries()).forEach(([tradeId, isVisible]) => {
+        // Find the trade to get its color
+        const trade = this.trades.find(t => t.id === tradeId);
+        if (trade) {
+          // Use color as the key for filtering in resource histogram
+          colorFilterMap.set(trade.color, isVisible);
+        }
+      });
+      
+      console.log("Notifying filter change:", Array.from(colorFilterMap.entries())
         .map(([color, visible]) => `${color}: ${visible}`)
         .join(', '));
       
-      this.onTradeFilterChange(filtersCopy);
+      this.onTradeFilterChange(colorFilterMap);
     }
   }
 
