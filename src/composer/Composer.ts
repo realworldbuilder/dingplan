@@ -489,7 +489,7 @@ class Composer {
     }
   }
 
-  // Add a new method to recognize construction-specific commands
+  // Update the recognizeConstructionCommand method to handle ordinal references
   private recognizeConstructionCommand(userInput: string): { recognized: boolean; intent: string; entities: Record<string, string> } {
     // Default response
     const result = {
@@ -503,22 +503,31 @@ class Composer {
     
     // Define regex patterns for common construction commands
     const patterns = [
-      // Template-related commands
+      // Template-related commands with swimlane by name
       {
-        pattern: /(?:add|create|apply)\s+(?:a\s+)?(\w+)\s+template\s+(?:to|for|in)\s+(?:the\s+)?(\w+(?:\s+\w+)*)\s+(?:swimlane|lane|row)/i,
+        pattern: /(?:add|create|apply)\s+(?:a\s+)?(\w+(?:\s+\w+)*)\s+template\s+(?:to|for|in)\s+(?:the\s+)?(\w+(?:\s+\w+)*)\s+(?:swimlane|lane|row)/i,
         intent: 'add_template_to_swimlane',
         entityNames: ['template_type', 'swimlane_name']
       },
+      // Template-related commands with ordinal swimlane references (first, second, etc.)
+      {
+        pattern: /(?:add|create|apply)\s+(?:a\s+)?(\w+(?:\s+\w+)*)\s+template\s+(?:to|for|in)\s+(?:the\s+)?(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:swimlane|lane|row)/i,
+        intent: 'add_template_to_ordinal_swimlane',
+        entityNames: ['template_type', 'swimlane_ordinal']
+      },
+      // Task creation with swimlane reference
       {
         pattern: /(?:add|create)\s+(?:a\s+)?new\s+(\w+(?:\s+\w+)*)\s+(?:in|to)\s+(?:the\s+)?(\w+(?:\s+\w+)*)/i,
         intent: 'add_task_to_swimlane',
         entityNames: ['task_name', 'swimlane_name']
       },
+      // Create swimlane command
       {
         pattern: /(?:create|add)\s+(?:a\s+)?(?:new\s+)?swimlane\s+(?:for|called)\s+(\w+(?:\s+\w+)*)/i,
         intent: 'create_swimlane',
         entityNames: ['swimlane_name']
       },
+      // List templates command
       {
         pattern: /(?:show|list|display)\s+(?:all\s+)?(?:available\s+)?templates/i,
         intent: 'list_templates',
@@ -544,6 +553,27 @@ class Composer {
       }
     }
     
+    // Additional check for simple but direct steel template requests
+    if (!result.recognized && 
+       (input.includes('steel') || input.includes('metal')) && 
+       (input.includes('template') || input.includes('system'))) {
+      result.recognized = true;
+      result.intent = 'add_steel_template';
+      result.entities['template_type'] = 'steel';
+      
+      // Try to extract swimlane reference if present
+      const swimlaneMatch = input.match(/(?:to|for|in)\s+(?:the\s+)?(\w+(?:\s+\w+)*)\s+(?:swimlane|lane|row)/i);
+      if (swimlaneMatch && swimlaneMatch[1]) {
+        result.entities['swimlane_name'] = swimlaneMatch[1];
+      }
+      
+      // Check for ordinal references
+      const ordinalMatch = input.match(/(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:swimlane|lane|row)/i);
+      if (ordinalMatch && ordinalMatch[1]) {
+        result.entities['swimlane_ordinal'] = ordinalMatch[1];
+      }
+    }
+    
     if (this.debugMode && result.recognized) {
       console.log('Recognized construction command:', result);
     }
@@ -551,7 +581,7 @@ class Composer {
     return result;
   }
 
-  // Update the processPrompt method to use our command recognition
+  // Update the processPrompt method to better handle swimlane references
   async processPrompt(userInput: string): Promise<string> {
     if (!userInput.trim()) {
       return "Please enter a valid prompt";
@@ -571,58 +601,76 @@ class Composer {
     try {
       // If it's a recognized construction command, handle it directly
       if (commandRecognition.recognized) {
-        switch (commandRecognition.intent) {
-          case 'add_template_to_swimlane': {
-            const templateType = commandRecognition.entities.template_type;
-            const swimlaneName = commandRecognition.entities.swimlane_name;
-            
-            // Find the best matching swimlane
-            const swimlaneId = this.findBestMatchingSwimlane(swimlaneName);
-            
-            if (!swimlaneId) {
-              return `I couldn't find a swimlane matching "${swimlaneName}". Would you like me to create it for you?`;
-            }
-            
-            // Handle different template types
-            if (templateType.includes('steel') || templateType.includes('metal')) {
-              // For structural steel template
-              return this.createFromTemplate({ 
-                template: 'Structural Steel System', 
-                swimlaneId: swimlaneId 
-              });
-            }
-            
-            // Try to find a matching template for other types
-            const templates = Object.keys(TEMPLATES);
-            const matchingTemplate = templates.find(t => 
-              t.toLowerCase().includes(templateType.toLowerCase())
-            );
-            
-            if (matchingTemplate) {
-              return this.createFromTemplate({ 
-                template: matchingTemplate, 
-                swimlaneId: swimlaneId 
-              });
+        let swimlaneId: string | null = null;
+        
+        // Handle the case where we have an ordinal swimlane reference
+        if (commandRecognition.intent === 'add_template_to_ordinal_swimlane' || 
+            commandRecognition.entities['swimlane_ordinal']) {
+          const ordinal = commandRecognition.entities['swimlane_ordinal'] || '';
+          const swimlanes = this.canvas.taskManager.swimlanes;
+          
+          // Map the ordinal to an index
+          let index = 0;
+          if (ordinal === 'second' || ordinal === '2nd') index = 1;
+          else if (ordinal === 'third' || ordinal === '3rd') index = 2;
+          else if (ordinal === 'fourth' || ordinal === '4th') index = 3;
+          else if (ordinal === 'fifth' || ordinal === '5th') index = 4;
+          
+          // Get the swimlane if it exists
+          if (swimlanes.length > index) {
+            swimlaneId = swimlanes[index].id;
+            this.debug(`Mapped ordinal ${ordinal} to swimlane: ${swimlaneId}`);
+          } else {
+            return `I couldn't find the ${ordinal} swimlane. There are only ${swimlanes.length} swimlanes in your project.`;
+          }
+        } 
+        // If we have a swimlane name, try to find its ID
+        else if (commandRecognition.entities['swimlane_name']) {
+          swimlaneId = this.findBestMatchingSwimlane(commandRecognition.entities['swimlane_name']);
+          
+          if (!swimlaneId) {
+            return `I couldn't find a swimlane matching "${commandRecognition.entities['swimlane_name']}". Would you like me to create it for you?`;
+          }
+        }
+        
+        // Handle the common case of wanting to add a steel template
+        if ((commandRecognition.intent === 'add_template_to_swimlane' || 
+             commandRecognition.intent === 'add_template_to_ordinal_swimlane' ||
+             commandRecognition.intent === 'add_steel_template') && 
+            (commandRecognition.entities['template_type'].includes('steel') || 
+             commandRecognition.entities['template_type'].includes('metal'))) {
+          
+          // If we found a swimlane ID, use it; otherwise, use the first swimlane
+          if (!swimlaneId) {
+            const swimlanes = this.canvas.taskManager.swimlanes;
+            if (swimlanes.length > 0) {
+              swimlaneId = swimlanes[0].id;
             } else {
-              return `I don't have a template for "${templateType}". Available templates are: ${templates.join(', ')}. Would you like me to suggest one?`;
+              return "I couldn't find any swimlanes to add the steel template to. Would you like me to create a swimlane first?";
             }
           }
           
+          return this.createFromTemplate({ 
+            template: 'Structural Steel System', 
+            swimlaneId: swimlaneId 
+          });
+        }
+        
+        // Handle other intents
+        switch (commandRecognition.intent) {
           case 'list_templates':
             return this.listTemplates();
             
           case 'create_swimlane':
             return this.createSwimlane({ 
-              name: commandRecognition.entities.swimlane_name
+              name: commandRecognition.entities['swimlane_name']
             });
             
           case 'add_task_to_swimlane': {
-            const taskName = commandRecognition.entities.task_name;
-            const swimlaneName = commandRecognition.entities.swimlane_name;
-            const swimlaneId = this.findBestMatchingSwimlane(swimlaneName);
+            const taskName = commandRecognition.entities['task_name'];
             
             if (!swimlaneId) {
-              return `I couldn't find a swimlane matching "${swimlaneName}". Would you like me to create it first?`;
+              return `I couldn't find a swimlane to add the task to. Would you like me to create one first?`;
             }
             
             return this.createTask({
@@ -633,6 +681,7 @@ class Composer {
         }
       }
       
+      // Rest of the existing method stays the same
       // Additional suggestions for specialized templates
       if (userInput.toLowerCase().includes("steel") || 
           userInput.toLowerCase().includes("structural system") || 
@@ -644,6 +693,9 @@ class Composer {
           return steelSuggestion;
         }
       }
+      
+      // Continue with the rest of the existing method
+      // ...
       
       // Handle simple affirmative responses to previous template suggestions
       const normalizedInput = userInput.toLowerCase().trim();
@@ -3002,7 +3054,7 @@ To get started:
         // Add the current message
         messages.push({role: 'user', content: message});
         
-        const requestData = {
+        const requestBody = {
           model: model,
           messages: messages,
           max_tokens: this.maxResponseTokens,
@@ -3015,7 +3067,7 @@ To get started:
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
-          body: JSON.stringify(requestData)
+          body: JSON.stringify(requestBody)
         });
         
         if (!fetchResponse.ok) {
@@ -3038,7 +3090,7 @@ To get started:
           };
         });
         
-        const requestData = {
+        const requestBody = {
           model: model,
           system: systemPrompt,
           messages: content,
@@ -3053,7 +3105,7 @@ To get started:
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01'
           },
-          body: JSON.stringify(requestData)
+          body: JSON.stringify(requestBody)
         });
         
         if (!fetchResponse.ok) {
