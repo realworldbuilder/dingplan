@@ -489,150 +489,8 @@ class Composer {
     }
   }
 
-  // Add a new method to recognize construction-specific commands
-  private recognizeConstructionCommand(userInput: string): { recognized: boolean; intent: string; entities: Record<string, string> } {
-    // Default response
-    const result = {
-      recognized: false,
-      intent: '',
-      entities: {} as Record<string, string>
-    };
-    
-    // Lowercase the input for easier matching
-    const input = userInput.toLowerCase();
-    
-    // Define regex patterns for common construction commands
-    const patterns = [
-      // Template-related commands
-      {
-        pattern: /(?:add|create|apply)\s+(?:a\s+)?(\w+)\s+template\s+(?:to|for|in)\s+(?:the\s+)?(\w+(?:\s+\w+)*)\s+(?:swimlane|lane|row)/i,
-        intent: 'add_template_to_swimlane',
-        entityNames: ['template_type', 'swimlane_name']
-      },
-      {
-        pattern: /(?:add|create)\s+(?:a\s+)?new\s+(\w+(?:\s+\w+)*)\s+(?:in|to)\s+(?:the\s+)?(\w+(?:\s+\w+)*)/i,
-        intent: 'add_task_to_swimlane',
-        entityNames: ['task_name', 'swimlane_name']
-      },
-      {
-        pattern: /(?:create|add)\s+(?:a\s+)?(?:new\s+)?swimlane\s+(?:for|called)\s+(\w+(?:\s+\w+)*)/i,
-        intent: 'create_swimlane',
-        entityNames: ['swimlane_name']
-      },
-      {
-        pattern: /(?:show|list|display)\s+(?:all\s+)?(?:available\s+)?templates/i,
-        intent: 'list_templates',
-        entityNames: []
-      }
-    ];
-    
-    // Try to match the input against patterns
-    for (const {pattern, intent, entityNames} of patterns) {
-      const match = input.match(pattern);
-      if (match) {
-        result.recognized = true;
-        result.intent = intent;
-        
-        // Extract entities
-        entityNames.forEach((name, index) => {
-          if (match[index + 1]) {
-            result.entities[name] = match[index + 1].trim();
-          }
-        });
-        
-        break;
-      }
-    }
-    
-    if (this.debugMode && result.recognized) {
-      console.log('Recognized construction command:', result);
-    }
-    
-    return result;
-  }
-
-  // Update the processPrompt method to use our command recognition
   async processPrompt(userInput: string): Promise<string> {
-    if (!userInput.trim()) {
-      return "Please enter a valid prompt";
-    }
-    
-    // Check for debug commands first
-    if (userInput.startsWith("/debug")) {
-      return this.handleDebugCommand(userInput);
-    }
-    
-    // Try to recognize construction-specific commands
-    const commandRecognition = this.recognizeConstructionCommand(userInput);
-    
-    // Log the user input
-    this.debug(`Processing prompt: ${userInput}`);
-    
     try {
-      // If it's a recognized construction command, handle it directly
-      if (commandRecognition.recognized) {
-        switch (commandRecognition.intent) {
-          case 'add_template_to_swimlane': {
-            const templateType = commandRecognition.entities.template_type;
-            const swimlaneName = commandRecognition.entities.swimlane_name;
-            
-            // Find the best matching swimlane
-            const swimlaneId = this.findBestMatchingSwimlane(swimlaneName);
-            
-            if (!swimlaneId) {
-              return `I couldn't find a swimlane matching "${swimlaneName}". Would you like me to create it for you?`;
-            }
-            
-            // Handle different template types
-            if (templateType.includes('steel') || templateType.includes('metal')) {
-              // For structural steel template
-              return this.createFromTemplate({ 
-                template: 'Structural Steel System', 
-                swimlaneId: swimlaneId 
-              });
-            }
-            
-            // Try to find a matching template for other types
-            const templates = Object.keys(TEMPLATES);
-            const matchingTemplate = templates.find(t => 
-              t.toLowerCase().includes(templateType.toLowerCase())
-            );
-            
-            if (matchingTemplate) {
-              return this.createFromTemplate({ 
-                template: matchingTemplate, 
-                swimlaneId: swimlaneId 
-              });
-            } else {
-              return `I don't have a template for "${templateType}". Available templates are: ${templates.join(', ')}. Would you like me to suggest one?`;
-            }
-          }
-          
-          case 'list_templates':
-            return this.listTemplates();
-            
-          case 'create_swimlane':
-            return this.createSwimlane({ 
-              name: commandRecognition.entities.swimlane_name
-            });
-            
-          case 'add_task_to_swimlane': {
-            const taskName = commandRecognition.entities.task_name;
-            const swimlaneName = commandRecognition.entities.swimlane_name;
-            const swimlaneId = this.findBestMatchingSwimlane(swimlaneName);
-            
-            if (!swimlaneId) {
-              return `I couldn't find a swimlane matching "${swimlaneName}". Would you like me to create it first?`;
-            }
-            
-            return this.createTask({
-              name: taskName,
-              swimlaneId: swimlaneId
-            });
-          }
-        }
-      }
-      
       // Additional suggestions for specialized templates
       if (userInput.toLowerCase().includes("steel") || 
           userInput.toLowerCase().includes("structural system") || 
@@ -644,6 +502,8 @@ class Composer {
           return steelSuggestion;
         }
       }
+      
+      this.debug(`Processing prompt: "${userInput}"`);
       
       // Handle simple affirmative responses to previous template suggestions
       const normalizedInput = userInput.toLowerCase().trim();
@@ -657,33 +517,230 @@ class Composer {
         return result;
       }
       
-      // Extract potential swimlane information with enhanced context awareness
+      // Extract potential swimlane information
       let swimlaneId = null;
       
-      // Try to determine swimlane context from input
-      const swimlaneMatch = normalizedInput.match(/(?:in|to|for|the)\s+(?:the\s+)?(\w+(?:\s+\w+)*)\s+(?:swimlane|lane|row|section|area|category)/i);
-      if (swimlaneMatch && swimlaneMatch[1]) {
-        const potentialSwimlaneId = this.findBestMatchingSwimlane(swimlaneMatch[1]);
-        if (potentialSwimlaneId) {
-          swimlaneId = potentialSwimlaneId;
-          this.debug(`Matched swimlane from context: ${swimlaneId}`);
+      // Common patterns for specifying swimlanes
+      const inSwimlaneMatch = normalizedInput.match(/in\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
+      if (inSwimlaneMatch && inSwimlaneMatch[1]) {
+        swimlaneId = inSwimlaneMatch[1];
+        this.debug(`Detected 'in swimlane' pattern: ${swimlaneId}`);
+      }
+      
+      // Another pattern: "to the X swimlane"
+      const toSwimlaneMatch = normalizedInput.match(/to\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
+      if (toSwimlaneMatch && toSwimlaneMatch[1]) {
+        swimlaneId = toSwimlaneMatch[1];
+        this.debug(`Detected 'to swimlane' pattern: ${swimlaneId}`);
+      }
+      
+      // Pattern for "first/second/etc. swimlane"
+      const ordinalMatch = normalizedInput.match(/(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:swimlane|zone|area|category)/i);
+      if (ordinalMatch && ordinalMatch[1]) {
+        const ordinal = ordinalMatch[1].toLowerCase();
+        const swimlanes = this.canvas.taskManager.swimlanes;
+        
+        // Map the ordinal to an index
+        let index = 0;
+        if (ordinal === 'second' || ordinal === '2nd') index = 1;
+        else if (ordinal === 'third' || ordinal === '3rd') index = 2;
+        else if (ordinal === 'fourth' || ordinal === '4th') index = 3;
+        else if (ordinal === 'fifth' || ordinal === '5th') index = 4;
+        
+        // Get the swimlane if it exists
+        if (swimlanes.length > index) {
+          swimlaneId = swimlanes[index].id;
+          this.debug(`Mapped ordinal ${ordinal} to swimlane: ${swimlaneId}`);
         }
       }
       
       // Check for site preparation sequence requests
       if ((normalizedInput.includes('site') && 
-          (normalizedInput.includes('prep') || normalizedInput.includes('preparation'))) ||
+           (normalizedInput.includes('prep') || normalizedInput.includes('preparation'))) ||
           normalizedInput.includes('site clearing') ||
           normalizedInput.includes('clearing sequence') ||
-          normalizedInput.includes('site work')) {
+          normalizedInput.includes('site work') ||
+          normalizedInput.includes('earthwork') ||
+          normalizedInput.includes('excavation')) {
         
         this.debug(`Detected site preparation request with swimlaneId: ${swimlaneId || 'none specified'}`);
         return await this.createSitePreparationSequence(swimlaneId);
       }
       
-      // Check for API key
+      // Check for other common template requests
+      const templateMatches = [
+        { keywords: ['foundation', 'footing'], template: 'foundation' },
+        { keywords: ['wood frame', 'wood framing', 'wall framing'], template: 'framing' },
+        { keywords: ['steel structure', 'steel_structure', 'structural steel'], template: 'steel_structure' },
+        { keywords: ['mep', 'mechanical', 'electrical', 'plumbing'], template: 'mep' },
+        { keywords: ['kitchen'], template: 'kitchen' },
+        { keywords: ['bathroom'], template: 'bathroom' },
+        { keywords: ['roof', 'roofing'], template: 'roofing' },
+        { keywords: ['finish', 'interior finish'], template: 'interior_finishes' }
+      ];
+      
+      // Check if this is explicitly asking for a steel structure template
+      if (normalizedInput.includes('steel structure') || 
+          normalizedInput.includes('steel_structure') || 
+          normalizedInput.includes('structural steel') ||
+          (normalizedInput.includes('steel') && normalizedInput.includes('structural'))) {
+        this.debug(`Detected explicit steel structure template request with swimlaneId: ${swimlaneId || 'none specified'}`);
+        return await this.createFromTemplate({ 
+          templateName: 'steel_structure', 
+          swimlaneId: swimlaneId 
+        });
+      }
+      
+      // Check if any template keywords match and it's not a WBS template request
+      if (!normalizedInput.includes('wbs') && !normalizedInput.includes('breakdown structure')) {
+        for (const matcher of templateMatches) {
+          // Use more precise matching by checking if ALL keywords in a set are present
+          // or if the exact phrase is present
+          const exactMatch = matcher.keywords.some(keyword => 
+            normalizedInput.includes(keyword.toLowerCase()) && keyword.includes(' '));
+          
+          // For single-word keywords, be more cautious to avoid false matches
+          const singleWordMatch = matcher.keywords.some(keyword => 
+            !keyword.includes(' ') && 
+            (normalizedInput.includes(` ${keyword} `) || 
+             normalizedInput.startsWith(`${keyword} `) || 
+             normalizedInput.endsWith(` ${keyword}`) ||
+             normalizedInput === keyword));
+          
+          if (exactMatch || singleWordMatch) {
+            this.debug(`Detected template request for: ${matcher.template} with swimlaneId: ${swimlaneId || 'none specified'}`);
+            return await this.createFromTemplate({ 
+              templateName: matcher.template, 
+              swimlaneId: swimlaneId 
+            });
+          }
+        }
+      }
+      
+      // Check for default template request - DISTINGUISH BETWEEN WBS AND TASK TEMPLATES
+      if (normalizedInput.includes('default') || normalizedInput.includes('standard')) {
+        // Check if this is specifically about WBS templates
+        if (normalizedInput.includes('wbs') || 
+            normalizedInput.includes('breakdown') || 
+            normalizedInput.includes('structure') || 
+            normalizedInput.includes('swimlane') ||
+            normalizedInput.includes('categories')) {
+          return await this.applyDefaultWBSTemplate();
+        }
+        
+        // If they just say "template" without context, assume WBS template
+        if (normalizedInput.includes('template') && 
+            !normalizedInput.includes('task') && 
+            !normalizedInput.includes('sequence')) {
+          return await this.applyDefaultWBSTemplate();
+        }
+        
+        // Otherwise, they might want a task template
+        if (normalizedInput.includes('task') || 
+            normalizedInput.includes('sequence') || 
+            normalizedInput.includes('foundation') || 
+            normalizedInput.includes('structure') || 
+            normalizedInput.includes('mep')) {
+          return await this.createFromTemplate({ templateName: 'foundation' });
+        }
+      }
+      
+      // Continue with normal processing
       if (!this.apiKey) {
         return "API key not set. Please set an API key first.";
+      }
+      
+      // Special debug case
+      if (userInput.startsWith('/')) {
+        return this.handleDebugCommand(userInput);
+      }
+      
+      // IMPROVED DIRECT TEMPLATE MATCHING
+      // First check for explicit template requests by full name
+      const explicitIndustrialMatch = /industrial\s+facility/i.test(normalizedInput);
+      const explicitCommercialMatch = /commercial\s+building/i.test(normalizedInput);
+      const explicitResidentialMatch = /residential\s+building/i.test(normalizedInput);
+      const explicitHealthcareMatch = /healthcare\s+facility/i.test(normalizedInput);
+      const explicitInfrastructureMatch = /infrastructure\s+project/i.test(normalizedInput);
+      const explicitRenewableMatch = /renewable\s+energy/i.test(normalizedInput);
+      const explicitEducationMatch = /education\s+facility/i.test(normalizedInput);
+      const explicitMixedUseMatch = /mixed[\-\s]use/i.test(normalizedInput);
+      
+      // Check for WBS or template keywords
+      const isTemplateRequest = /wbs|template/i.test(normalizedInput);
+      
+      if (isTemplateRequest) {
+        // Apply the template directly if we have an explicit match
+        if (explicitIndustrialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'industrial_facility' });
+        } else if (explicitCommercialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'commercial_building' });
+        } else if (explicitResidentialMatch) {
+          return await this.applyWBSTemplate({ templateId: 'residential_building' });
+        } else if (explicitHealthcareMatch) {
+          return await this.applyWBSTemplate({ templateId: 'healthcare_facility' });
+        } else if (explicitInfrastructureMatch) {
+          return await this.applyWBSTemplate({ templateId: 'infrastructure_project' });
+        } else if (explicitRenewableMatch) {
+          return await this.applyWBSTemplate({ templateId: 'renewable_energy' });
+        } else if (explicitEducationMatch) {
+          return await this.applyWBSTemplate({ templateId: 'education_facility' });
+        } else if (explicitMixedUseMatch) {
+          return await this.applyWBSTemplate({ templateId: 'mixed_use_development' });
+        }
+      }
+      
+      // Improved regex pattern for multi-word template matching
+      const directTemplateMatch = userInput.match(/(?:use|apply|create)(?:\s+an?|\s+the)?\s+(.+?)(?:\s+wbs|\s+template)/i);
+      if (directTemplateMatch) {
+        const requestedType = directTemplateMatch[1].toLowerCase();
+        const wbsTemplates = getAllWBSTemplates();
+        
+        // Find matching templates - improved matching logic
+        const matchingTemplates = wbsTemplates.filter(template => 
+          template.id.toLowerCase().includes(requestedType) || 
+          template.name.toLowerCase().includes(requestedType) ||
+          template.projectTypes.some(type => type.toLowerCase().includes(requestedType)) ||
+          // Check if requestedType contains significant parts of template name
+          requestedType.includes(template.id.toLowerCase().replace(/_/g, ' '))
+        );
+        
+        if (matchingTemplates.length === 1) {
+          // Single match - apply it directly
+          return await this.applyWBSTemplate({ templateId: matchingTemplates[0].id });
+        } else if (matchingTemplates.length > 1) {
+          // Multiple matches but with specific keywords that should match one template
+          if (requestedType.includes('industrial')) {
+            const industrialTemplate = matchingTemplates.find(t => t.id === 'industrial_facility');
+            if (industrialTemplate) {
+              return await this.applyWBSTemplate({ templateId: industrialTemplate.id });
+            }
+          } else if (requestedType.includes('commercial')) {
+            const commercialTemplate = matchingTemplates.find(t => t.id === 'commercial_building');
+            if (commercialTemplate) {
+              return await this.applyWBSTemplate({ templateId: commercialTemplate.id });
+            }
+          } else if (requestedType.includes('health')) {
+            const healthcareTemplate = matchingTemplates.find(t => t.id === 'healthcare_facility');
+            if (healthcareTemplate) {
+              return await this.applyWBSTemplate({ templateId: healthcareTemplate.id });
+            }
+          }
+          
+          // Simplified multiple match response
+          const templateOptions = matchingTemplates.map(t => t.name).join(", ");
+          
+          // Store the first match as a fallback for simple affirmative responses
+          Composer.lastSuggestedTemplate = matchingTemplates[0].id;
+          return `I found these options: ${templateOptions}. Which one would you like to use?`;
+        } else if (requestedType.includes('data') && requestedType.includes('center')) {
+          // Simplified data center special case
+          Composer.lastSuggestedTemplate = 'industrial_facility';
+          return `I'll use the Industrial Facility template for your data center project. OK?`;
+        } else {
+          // No matching templates, set last suggested template to empty
+          Composer.lastSuggestedTemplate = '';
+        }
       }
       
       try {
@@ -694,23 +751,14 @@ class Composer {
         if (response.choices[0].message.function_call) {
           return await this.handleFunctionCall(response.choices[0].message.function_call);
         } else {
-          // If no function call, return the text response with construction context awareness
-          let content = response.choices[0].message.content || "I don't have a specific response for that. Could you rephrase your question about your construction project?";
-          
-          // If the response is generic and doesn't reference construction, enhance it
-          if (content.length < 80 && !content.toLowerCase().includes('construction') && 
-              !content.toLowerCase().includes('project') && !content.toLowerCase().includes('building') &&
-              !content.toLowerCase().includes('task') && !content.toLowerCase().includes('schedule')) {
-            content += "\n\nIs there something specific about your construction project you'd like assistance with? I can help with creating tasks, planning sequences, or applying templates.";
-          }
-          
-          return content;
+          // If no function call, return the text response
+          return response.choices[0].message.content || "No response from LLM";
         }
       } catch (error: any) {
         return `Error: ${error.message}`;
       }
     } catch (error: any) {
-      return this.handleError("processPrompt", error);
+      return `Error processing prompt: ${error.message}`;
     }
   }
   
@@ -3101,32 +3149,25 @@ To get started:
 
   // Add a method to generate a comprehensive construction-specific system prompt
   private getConstructionSystemPrompt(): string {
-    return `You are an expert construction planning assistant with deep knowledge of the construction industry.
-Your expertise includes construction sequencing, building systems, materials, resource allocation, scheduling, and cost estimation.
+    return `You are an expert construction planning assistant with deep knowledge of the construction industry. 
+Your expertise includes:
 
-IMPORTANT GUIDELINES:
-1. Provide direct, actionable responses to construction-related questions.
-2. When asked to perform a specific task like "add a steel template to the structural system swim lane", directly acknowledge that you'll do that exact action rather than giving a generic greeting.
-3. Never respond with generic greetings like "How can I assist you?" to specific task requests.
-4. Be specific and precise - reference exact construction terms, standards, and best practices.
-5. Focus on being helpful and task-oriented, not conversational.
-6. Prioritize construction expertise over general conversation.
+1. Construction Sequencing: Understanding the logical order of construction tasks, dependencies, and critical path planning.
+2. Building Systems: Knowledge of structural, mechanical, electrical, plumbing, and other building systems.
+3. Material Selection: Familiarity with construction materials, their properties, applications, and cost implications.
+4. Resource Allocation: Understanding labor requirements, equipment needs, and resource constraints.
+5. Scheduling: Knowledge of construction timelines, duration estimation, and schedule optimization.
+6. Cost Estimation: Understanding of construction costs, budget management, and cost control.
 
-Example of GOOD responses:
-- User: "Add a steel template to the structural system swim lane"
-  Response: "I'll add the structural steel template to the structural system swimlane. This will include key steel construction tasks like foundation prep, anchor bolt placement, steel erection, and connections."
+When responding to user queries:
+- Provide practical, actionable advice based on industry standards and best practices
+- Avoid generic responses in favor of specific, detailed information
+- Consider real-world constraints such as weather, site conditions, and regulatory requirements
+- If uncertain about specific local codes or regulations, acknowledge the need to verify
+- Explain the reasoning behind your recommendations
+- Prioritize safety, quality, and efficiency in all suggestions
 
-- User: "How should I sequence my foundation tasks?"
-  Response: "Foundation tasks should typically follow this sequence: 1) Excavation, 2) Formwork, 3) Reinforcement placement, 4) Concrete pouring, 5) Curing, 6) Waterproofing. Each stage should be properly inspected before proceeding."
-
-Example of BAD responses (avoid these):
-- User: "Add a steel template to the structural system swim lane"
-  Response: "Hello! How can I assist you with your construction project planning today?"
-
-- User: "How should I sequence my foundation tasks?"
-  Response: "I'd be happy to help with your question. What specifically would you like to know?"
-
-Remember that you are a construction planning expert first and foremost. Users are consulting you for your specific technical knowledge, not for general conversation.`;
+For this construction planning application, focus on helping the user create well-structured project plans with realistic task sequences, durations, and dependencies.`;
   }
 
   // Add methods to configure model parameters after the clearConversationHistory method
