@@ -33,7 +33,19 @@ export class ProjectManager {
     // Find the sidebar container
     this.sidebarContainer = document.getElementById('sidebar-container');
     if (!this.sidebarContainer) {
-      console.error('Sidebar container not found');
+      console.warn('Sidebar container not found, creating one');
+      // Create a sidebar container if it doesn't exist
+      this.sidebarContainer = document.createElement('div');
+      this.sidebarContainer.id = 'sidebar-container';
+      this.sidebarContainer.style.position = 'fixed';
+      this.sidebarContainer.style.top = '0';
+      this.sidebarContainer.style.right = '0';
+      this.sidebarContainer.style.width = '300px';
+      this.sidebarContainer.style.height = '100%';
+      this.sidebarContainer.style.zIndex = '1000';
+      this.sidebarContainer.style.pointerEvents = 'none'; // Prevent blocking clicks until content is added
+      this.sidebarContainer.style.background = 'transparent';
+      document.body.appendChild(this.sidebarContainer);
     }
     
     // Subscribe to auth state changes

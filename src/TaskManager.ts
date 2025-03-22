@@ -1025,7 +1025,10 @@ export class TaskManager {
     // Add tasks at cursor position
     this.copiedTasks.forEach(config => {
       const newConfig = { ...config };
-      newConfig.id = crypto.randomUUID(); // Generate new ID
+      // Generate new ID using browser's crypto API
+      newConfig.id = self.crypto && self.crypto.randomUUID ? 
+                    self.crypto.randomUUID() : 
+                    'task-' + Math.random().toString(36).substring(2, 15);
       
       // Adjust start date based on cursor position
       const newStartDate = new Date(config.startDate.getTime() + timeOffset);

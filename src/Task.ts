@@ -1,53 +1,115 @@
 import { Trades, Trade } from './Trades';
+import { v4 as uuidv4 } from 'uuid';
+
+// Define missing interfaces
+export interface TaskMaterial {
+  name: string;
+  quantity: number;
+  unit: string;
+  cost?: number;
+}
+
+export interface SubTask {
+  id: string;
+  name: string;
+  completed: boolean;
+}
 
 export interface TaskConfig {
-  id: string;
+  id?: string;
   name: string;
   startDate: Date;
   duration: number; // in business days
-  crewSize: number;
-  color: string;
+  crewSize?: number;
+  color?: string;
   tradeId?: string; // ID of the trade this task belongs to
   dependencies?: string[]; // IDs of tasks that must complete before this one can start
-  progress?: number; // 0-100
+  swimlaneId?: string;
+  isMillestone?: boolean;
+  iconType?: string;
+  tags?: string[];
+  priority?: 'low' | 'medium' | 'high';
   status?: 'not-started' | 'in-progress' | 'completed' | 'blocked';
+  notes?: string;
+  showDetails?: boolean;
+  assignees?: string[];
+  materials?: TaskMaterial[];
+  cost?: number;
+  progress?: number;
+  subtasks?: SubTask[];
   xerTaskId?: string; // ID used when exporting to XER format
   workOnSaturday?: boolean; // Whether this task includes Saturday as a workday
   workOnSunday?: boolean; // Whether this task includes Sunday as a workday
 }
 
+// Generated browser-compatible UUID
+function generateUUID(): string {
+  return self.crypto && self.crypto.randomUUID ? 
+    self.crypto.randomUUID() : 
+    'task-' + Math.random().toString(36).substring(2, 15);
+}
+
 export class Task {
-  readonly id: string;
-  name: string;
-  startDate: Date;
-  duration: number;
-  crewSize: number;
-  color: string;
-  tradeId: string;
-  dependencies: string[];
-  progress: number;
-  status: 'not-started' | 'in-progress' | 'completed' | 'blocked';
-  workOnSaturday: boolean;
-  workOnSunday: boolean;
-  private readonly height: number = 60; // Increased height for better visibility
+  public id: string;
+  public name: string;
+  public startDate: Date;
+  public duration: number;
+  public crewSize: number;
+  public color: string;
+  public dependencies: string[] = [];
+  public swimlaneId: string | null = null;
+  public tradeId: string | null = null;
+  public isMilestone: boolean = false;
+  public iconType: string | null = null;
+  public tags: string[] = [];
+  public priority: 'low' | 'medium' | 'high' = 'medium';
+  public status: 'not-started' | 'in-progress' | 'completed' | 'blocked' = 'not-started';
+  public notes: string = '';
+  public showDetails: boolean = false;
+  public assignees: string[] = [];
+  public materials: TaskMaterial[] = [];
+  public cost: number = 0;
+  public progress: number = 0;
+  public subtasks: SubTask[] = [];
+  public customFields: Map<string, any> = new Map();
+  public workOnSaturday: boolean = false;
+  public workOnSunday: boolean = false;
+  public height: number = 40;
   private isHovered: boolean = false;
   
   // Property for XER export
   xerTaskId?: string;
 
   constructor(config: TaskConfig) {
-    this.id = config.id || crypto.randomUUID();
+    this.id = config.id || self.crypto.randomUUID ? self.crypto.randomUUID() : 'task-' + Math.random().toString(36).substring(2, 15);
     this.name = config.name;
     this.startDate = config.startDate;
-    
-    // Ensure minimum duration of 1 day
     this.duration = Math.max(1, config.duration);
-    
     this.crewSize = config.crewSize || 1;
     this.color = config.color || '#3b82f6';
+    this.dependencies = config.dependencies || [];
+    this.swimlaneId = config.swimlaneId || null;
+    this.tradeId = config.tradeId || null;
+    this.isMilestone = config.isMillestone || false;
+    this.iconType = config.iconType || null;
+    this.tags = config.tags || [];
+    this.priority = config.priority || 'medium';
+    this.status = config.status || 'not-started';
+    this.notes = config.notes || '';
+    this.showDetails = config.showDetails || false;
+    this.assignees = config.assignees || [];
+    this.materials = config.materials || [];
+    this.cost = config.cost || 0;
+    this.progress = config.progress || 0;
+    this.subtasks = config.subtasks || [];
     
     // Handle trade assignment
-    this.tradeId = config.tradeId || '';
+    if (this.tradeId) {
+      const trade = Trades.getTradeById(this.tradeId);
+      if (trade) {
+        this.color = trade.color;
+      }
+    }
     
     // If tradeId is not specified but color is, try to find the trade by color
     if (!this.tradeId && this.color) {
@@ -56,20 +118,6 @@ export class Task {
         this.tradeId = trade.id;
       }
     }
-    
-    // If a trade was found, ensure color matches the trade
-    if (this.tradeId) {
-      const trade = Trades.getTradeById(this.tradeId);
-      if (trade) {
-        this.color = trade.color;
-      }
-    }
-    
-    this.dependencies = config.dependencies || [];
-    this.progress = config.progress || 0;
-    this.status = config.status || 'not-started';
-    this.height = 40;
-    this.isHovered = false;
     
     // Weekend work preferences
     this.workOnSaturday = config.workOnSaturday || false;

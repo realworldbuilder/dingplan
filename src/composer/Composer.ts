@@ -1207,8 +1207,14 @@ Always strive to be both helpful and educational, balancing efficient task execu
   }
 
   // Helper method to parse various date expressions
-  private parseDateExpression(dateExpression: string): Date | null {
+  private parseDateExpression(dateExpression: string | any): Date | null {
     if (!dateExpression) return null;
+    
+    // Check if dateExpression is a string before calling toLowerCase
+    if (typeof dateExpression !== 'string') {
+      console.warn('parseDateExpression received non-string value:', dateExpression);
+      return null;
+    }
     
     const today = new Date();
     const normalizedExpression = dateExpression.toLowerCase().trim();
@@ -1647,7 +1653,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
       }
       
       // Generate a unique ID for the task
-      const taskId = crypto.randomUUID();
+      const taskId = self.crypto && self.crypto.randomUUID ? 
+                    self.crypto.randomUUID() : 
+                    'task-' + Math.random().toString(36).substring(2, 15);
       
       // Determine the swimlane ID with intelligent matching
       let swimlaneId;
@@ -1856,8 +1864,10 @@ Always strive to be both helpful and educational, balancing efficient task execu
       for (let i = 0; i < tasks.length; i++) {
         const task = tasks[i];
         
-        // Generate a unique ID
-        const taskId = crypto.randomUUID();
+        // Generate a unique ID using browser's crypto API instead of Node.js crypto
+        const taskId = self.crypto && self.crypto.randomUUID ? 
+                      self.crypto.randomUUID() : 
+                      'task-' + Math.random().toString(36).substring(2, 15);
         createdTaskIds.push(taskId);
         
         // Set up dependencies
@@ -1936,11 +1946,13 @@ Always strive to be both helpful and educational, balancing efficient task execu
         }
       }
       
-      // Force a render to ensure all tasks are displayed
+      // Return summary of what was created
+      const swimlaneName = this.canvas.taskManager.swimlanes.find(s => s.id === resolvedSwimlaneId)?.name || 'unknown swimlane';
+      
+      // Make sure to render the canvas to show the new tasks
       this.canvas.render();
       
-      // Generate a human-friendly response - SIMPLIFIED
-      return `Created your "${name}" sequence with ${tasks.length} tasks.`;
+      return `Created task sequence "${name}" with ${tasks.length} tasks in ${swimlaneName}`;
     } catch (error) {
       return this.handleError("creating task sequence", error);
     }
@@ -2033,6 +2045,10 @@ Always strive to be both helpful and educational, balancing efficient task execu
       // Generate a more friendly response with location if provided
       const locationText = location ? ` for ${location}` : '';
       const scaleText = scale !== 1.0 ? ` (scaled by ${scale.toFixed(1)})` : '';
+      
+      // Make sure to render the canvas to show the new tasks
+      this.canvas.render();
+      
       return `Created ${template.name} sequence${locationText} in ${swimlaneName}${scaleText}. ${template.tasks.length} tasks added.`;
     } catch (error) {
       const name = templateNameOverride || (args && args.templateName) || 'unknown';
@@ -2102,7 +2118,10 @@ Always strive to be both helpful and educational, balancing efficient task execu
         inAllSwimlanes
       });
     } catch (error) {
-      return this.handleError('creating from template', error);
+      return this.handleError(`creating from template "${args?.templateName || 'unknown'}"`, error);
+    } finally {
+      // Ensure the canvas is rendered after template creation
+      this.canvas.render();
     }
   }
   
