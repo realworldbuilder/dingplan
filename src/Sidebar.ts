@@ -3,12 +3,12 @@ import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 
-export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
+export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades' | 'auth';
 
 export class Sidebar {
   private width: number = 360;
   private isVisible: boolean = false;
-  private element: HTMLElement;
+  public element: HTMLElement;
   private currentView: SidebarView = 'details';
   private task: Task | null = null;
   private currentSwimlane: { id: string; name: string; color: string } | null = null;
@@ -1874,5 +1874,59 @@ export class Sidebar {
       const v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
+  }
+
+  /**
+   * Get the sidebar element for other components to access
+   */
+  getElement(): HTMLElement {
+    return this.element;
+  }
+  
+  /**
+   * Add a tab to the sidebar if it doesn't already exist
+   * @param id Tab ID/identifier
+   * @param title Tab title for hover text
+   * @param iconSvg SVG content for the tab icon
+   */
+  public addSidebarTab(id: SidebarView, title: string, iconSvg: string): HTMLElement | null {
+    // Find the tabs container, or create it if it doesn't exist
+    let tabsContainer = this.element.querySelector('.sidebar-tabs');
+    if (!tabsContainer) {
+      tabsContainer = document.createElement('div');
+      tabsContainer.className = 'sidebar-tabs';
+      this.element.appendChild(tabsContainer);
+    }
+    
+    // Check if the tab already exists
+    let tab = this.element.querySelector(`.sidebar-tab[data-tab="${id}"]`) as HTMLElement;
+    if (!tab) {
+      // Create the tab
+      tab = document.createElement('div');
+      tab.className = 'sidebar-tab';
+      tab.dataset.tab = id;
+      tab.title = title;
+      tab.innerHTML = iconSvg;
+      
+      // Add it to the container
+      tabsContainer.appendChild(tab);
+      
+      // Add event listener
+      tab.addEventListener('click', () => {
+        this.show(id);
+      });
+      
+      console.log(`[Sidebar] Added tab: ${id}`);
+    }
+    
+    return tab;
+  }
+  
+  /**
+   * Check if the sidebar is initialized with tabs
+   */
+  hasTabsContainer(): boolean {
+    const tabsContainer = this.element.querySelector('.sidebar-tabs');
+    return tabsContainer !== null;
   }
 } 

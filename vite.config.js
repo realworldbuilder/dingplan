@@ -30,5 +30,8 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['jspdf', 'rbush']
+  },
+  define: {
+    'process.env': {}
   }
 }); 

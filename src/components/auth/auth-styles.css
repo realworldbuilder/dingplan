@@ -1,0 +1,332 @@
+/* Sidebar Auth Styles */
+.sidebar-auth {
+  padding: 15px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 15px;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Specific styles for left sidebar */
+.sidebar-auth.left-sidebar {
+  padding: 10px;
+  gap: 10px;
+}
+
+.sidebar-auth-header {
+  margin-bottom: 15px;
+}
+
+.left-sidebar .sidebar-auth-header {
+  margin-bottom: 8px;
+}
+
+.sidebar-auth-header h3 {
+  margin-top: 0;
+  margin-bottom: 5px;
+  font-size: 18px;
+  color: #333;
+}
+
+.left-sidebar .sidebar-auth-header h3 {
+  font-size: 16px;
+  margin: 0 0 4px 0;
+}
+
+.auth-subtitle {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.left-sidebar .auth-subtitle {
+  font-size: 12px;
+}
+
+.sidebar-auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.left-sidebar .sidebar-auth-buttons {
+  gap: 8px;
+}
+
+.auth-button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.left-sidebar .auth-button {
+  padding: 8px;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.btn-outline {
+  background-color: white;
+  color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.btn-outline:hover {
+  background-color: #f0f7ff;
+}
+
+.auth-loading {
+  padding: 15px;
+  text-align: center;
+  color: #666;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 1s ease-in-out infinite;
+  margin-top: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.sidebar-user-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.left-sidebar .sidebar-user-profile {
+  padding: 10px;
+  gap: 10px;
+  background-color: transparent;
+  border: none;
+}
+
+.sidebar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.left-sidebar .sidebar-user-info {
+  gap: 8px;
+}
+
+.user-details {
+  flex: 1;
+  overflow: hidden;
+}
+
+.user-name {
+  font-weight: 500;
+  margin: 0;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.left-sidebar .user-name {
+  font-size: 13px;
+}
+
+.user-email {
+  color: #666;
+  font-size: 14px;
+  margin: 5px 0 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.left-sidebar .user-email {
+  font-size: 11px;
+}
+
+.sign-out-button {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #475569;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.left-sidebar .sign-out-button {
+  padding: 6px 10px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.sign-out-button:hover {
+  background-color: #e2e8f0;
+}
+
+/* Error state */
+.sidebar-auth-error {
+  padding: 15px;
+  background-color: #fff0f0;
+  border: 1px solid #ffd7d7;
+  border-radius: 6px;
+  color: #e11d48;
+}
+
+.sidebar-auth-error h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.sidebar-auth-error p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.code-block {
+  background-color: #1e293b;
+  color: #f8fafc;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  margin: 10px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sidebar-auth-error a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* Minimalist Auth Styles */
+.auth-container-minimal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.auth-message {
+  padding: 10px 15px;
+  color: #888;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Auth buttons */
+.auth-button {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.sign-in {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.sign-in:hover {
+  background-color: #2563eb;
+}
+
+.sign-up {
+  background-color: #f8fafc;
+  color: #3b82f6;
+  border: 1px solid #e2e8f0;
+}
+
+.sign-up:hover {
+  background-color: #f1f5f9;
+}
+
+/* User section */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.sign-out {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background-color: #f5f5f5;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.sign-out:hover {
+  background-color: #e5e5e5;
+}
+
+/* Override Clerk components to match our styling */
+.cl-component, 
+.cl-auth-form-box, 
+.cl-card, 
+.cl-button, 
+.cl-footer, 
+.cl-form-field, 
+.cl-header, 
+.cl-input, 
+.cl-rootBox,
+.cl-userButtonBox,
+.cl-userButtonTrigger {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+/* Fix UserButton styles to match our UI */
+.cl-userButtonBox {
+  height: 32px !important;
+}
+
+.cl-userButtonTrigger {
+  height: 32px !important;
+  width: 32px !important;
+} 

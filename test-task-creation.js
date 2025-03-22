@@ -1,0 +1,2 @@
+// Run this code in the browser console to test task creation:
+const testTaskConfig = { id: crypto.randomUUID(), name: 'Test Task', startDate: new Date(), duration: 3, crewSize: 2, color: '#ff0000', tradeId: 'default' }; const swimlaneId = window.canvasApp.taskManager.swimlanes[0].id; const newTask = window.canvasApp.taskManager.addTask(testTaskConfig, swimlaneId); console.log('Task added, all tasks count:', window.canvasApp.taskManager.getAllTasks().length); console.log('Swimlane 0 tasks count:', window.canvasApp.taskManager.swimlanes[0].tasks.length);

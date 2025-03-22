@@ -11,6 +11,7 @@ import { generateUUID } from './utils';
 import { TouchManager } from './TouchManager';
 import { Logger } from './utils/logger';
 import { saveToLocalStorage, loadFromLocalStorage, hasSavedState } from './utils/localStorage';
+import { ProjectManager } from './components/ProjectManager';
 
 export interface CanvasConfig {
   canvas: HTMLCanvasElement;
@@ -45,6 +46,7 @@ export class Canvas {
 
   sidebar: Sidebar;
   resourceHistogram: ResourceHistogram;
+  projectManager: ProjectManager;
 
   // Use the centralized trade definitions
   private readonly trades: Trade[] = Trades.getAllTrades();
@@ -75,6 +77,9 @@ export class Canvas {
     this.timeAxis = new TimeAxis(startDate);
     this.sidebar = new Sidebar();
     
+    // Initialize the project manager with sidebar access
+    this.projectManager = new ProjectManager();
+    
     // Center the view with today on the left third of the screen
     const todayX = this.timeAxis.getTodayPosition();
     this.camera.x = todayX + (this.canvas.width / (3 * this.camera.zoom));
@@ -103,11 +108,23 @@ export class Canvas {
     // Initialize the touch manager for mobile devices
     this.initTouchSupport();
     
-    // Load saved state from localStorage if available
-    this.loadFromLocalStorage();
+    // Check for project ID in URL before loading from localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('project');
+    
+    // Only load from localStorage if there's a project ID and saved state
+    if (projectId && hasSavedState(projectId)) {
+      this.loadFromLocalStorage();
+    } else {
+      console.log('No project ID or saved state found, starting with empty canvas');
+    }
     
     // Set up autosave
     this.setupAutosave();
+    
+    // Initialize project manager with canvas instance
+    // This needs to happen after canvas is fully initialized
+    this.projectManager.init(this);
   }
 
   /**
@@ -1830,43 +1847,70 @@ export class Canvas {
   }
 
   /**
-   * Save the current application state to localStorage
+   * Save current application state to localStorage
    */
   saveToLocalStorage(): void {
-    // Get the state from task manager
-    const state = this.taskManager.exportState();
-    
-    // Add camera position and zoom
-    state.camera = {
-      x: this.camera.x,
-      y: this.camera.y,
-      zoom: this.camera.zoom
-    };
-    
-    // Add other important canvas settings
-    state.settings = {
-      areDependenciesVisible: this.areDependenciesVisible
-    };
-    
-    // Save to localStorage
-    saveToLocalStorage(state);
+    try {
+      // Get the current project ID from the project manager
+      const projectId = this.projectManager?.currentProjectId || null;
+      
+      // Skip saving if no project is loaded
+      if (!projectId) {
+        console.log('No project loaded, skipping localStorage save');
+        return;
+      }
+      
+      // Prepare state object
+      const state = {
+        tasks: this.taskManager.exportState().tasks,
+        swimlanes: this.taskManager.exportState().swimlanes,
+        camera: {
+          x: this.camera.x,
+          y: this.camera.y,
+          zoom: this.camera.zoom
+        },
+        settings: {
+          areDependenciesVisible: this.areDependenciesVisible
+        }
+      };
+      
+      // Save to localStorage with project ID for isolation
+      saveToLocalStorage(state, projectId);
+    } catch (error) {
+      console.error('Error saving application state to localStorage:', error);
+    }
   }
 
   /**
    * Load application state from localStorage
    */
   loadFromLocalStorage(): void {
-    // Only attempt to load if there's saved state
-    if (!hasSavedState()) {
-      console.log('No saved state found, starting with default configuration');
+    // Check if there's a project parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('project');
+    
+    // If there's no project ID in the URL, don't load from localStorage
+    if (!projectId) {
+      console.log('No project ID in URL, starting with a clean state');
       return;
     }
     
-    // Load from localStorage
-    const state = loadFromLocalStorage();
+    // Only attempt to load if there's saved state for this specific project
+    if (!hasSavedState(projectId)) {
+      console.log(`No saved state found for project ${projectId}, starting with default configuration`);
+      return;
+    }
+    
+    // Load from localStorage using project-specific key
+    const state = loadFromLocalStorage(projectId);
     if (!state) return;
     
     try {
+      console.log(`Loading state for project ${projectId} from localStorage`);
+      
+      // Clear existing tasks first to avoid duplication
+      this.taskManager.importState({ tasks: [], swimlanes: [] });
+      
       // Import task manager state
       this.taskManager.importState(state);
       
@@ -1891,7 +1935,7 @@ export class Canvas {
       // Render with the loaded state
       this.render();
       
-      console.log('Successfully loaded application state from localStorage');
+      console.log(`Successfully loaded application state for project ${projectId} from localStorage`);
     } catch (error) {
       console.error('Error loading application state from localStorage:', error);
     }
@@ -1942,5 +1986,71 @@ export class Canvas {
     setInterval(() => {
       this.saveToLocalStorage();
     }, 60000);
+  }
+
+  /**
+   * Clear the canvas state and all tasks
+   */
+  clearCanvas(): void {
+    console.log('Clearing canvas state completely');
+    
+    // Clear task manager state by importing empty state
+    this.taskManager.importState({ tasks: [], swimlanes: [] });
+    
+    // Reset camera position
+    const todayX = this.timeAxis.getTodayPosition();
+    this.camera.x = todayX + (this.canvas.width / (3 * this.camera.zoom));
+    this.camera.y = 200;
+    this.camera.zoom = 1;
+    
+    // Reset other settings
+    this.areDependenciesVisible = true;
+    
+    // Render empty canvas
+    this.render();
+    
+    console.log('Canvas cleared and reset to default state');
+  }
+
+  /**
+   * Get JSON representation of the canvas state
+   */
+  toJSON() {
+    try {
+      console.log('[Canvas] toJSON called - generating JSON representation');
+      
+      // Check if taskManager is available
+      if (!this.taskManager) {
+        console.error('[Canvas] taskManager is not available');
+        return null;
+      }
+      
+      // Get task state
+      const taskState = this.taskManager.exportState();
+      console.log('[Canvas] Task state exported', {
+        taskCount: taskState.tasks ? taskState.tasks.length : 0,
+        swimlaneCount: taskState.swimlanes ? taskState.swimlanes.length : 0
+      });
+      
+      // Create the canvas state
+      const canvasState = {
+        tasks: taskState.tasks || [],
+        swimlanes: taskState.swimlanes || [],
+        camera: {
+          x: this.camera.x,
+          y: this.camera.y,
+          zoom: this.camera.zoom
+        },
+        settings: {
+          areDependenciesVisible: this.areDependenciesVisible
+        }
+      };
+      
+      console.log('[Canvas] JSON representation created successfully');
+      return canvasState;
+    } catch (error) {
+      console.error('[Canvas] Error generating JSON representation:', error);
+      return null;
+    }
   }
 } 

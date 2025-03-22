@@ -1,6 +1,8 @@
 import { Canvas } from './Canvas';
 import { Composer } from './composer/Composer';
 import { initializeDiagnostics } from './diagnostic';
+import { generateUUID } from './utils';
+import authConnector from './components/auth/AuthConnector';
 
 // Declare the global window object to have our canvasApp property
 declare global {
@@ -79,245 +81,219 @@ class Monitor {
   }
 }
 
-// Initialize canvas
-const canvas = document.getElementById('canvas') as HTMLCanvasElement;
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-// Set start date to beginning of current month
-const startDate = new Date();
-startDate.setDate(1);
-startDate.setHours(0, 0, 0, 0);
-
-const app = new Canvas({
-  canvas,
-  backgroundColor: '#f0f0f0',
-  gridColor: '#e0e0e0',
-  startDate,
-});
-
-// IMMEDIATELY make app available globally with multiple approaches for maximum compatibility
-console.log('Making Canvas app available globally');
-window.canvasApp = app;
-
-// Also set as global variable for older browser compatibility
-try {
-  (window as any).canvasApp = app;
-  (globalThis as any).canvasApp = app;
-  console.log('Canvas app exposed globally via multiple methods');
-} catch (err) {
-  console.error('Error exposing canvas app globally:', err);
-}
-
-// Verify global availability
-setTimeout(() => {
-  if (window.canvasApp) {
-    console.log('SUCCESS: Canvas app is available on window.canvasApp');
-  } else {
-    console.error('FAILURE: Canvas app is NOT available on window.canvasApp');
-  }
-}, 100);
-
-// Set initial cursor style
-canvas.style.cursor = 'grab';
-
-// Create monitor
-const monitor = new Monitor(app);
-
-// Initialize the Composer via sidebar
-// Wait a short time for the sidebar to be fully initialized
-setTimeout(() => {
-  if (app && app.sidebar) {
-    app.sidebar.initializeComposer(app);
-    console.log('Composer initialized through sidebar.');
-  }
-}, 500);
-
-// Add keyboard shortcut to open sidebar composer view
-document.addEventListener('keydown', (e) => {
-  // Toggle Composer with Ctrl+Space
-  if (e.ctrlKey && e.code === 'Space') {
-    if (app && app.sidebar) {
-      app.sidebar.show('composer');
-      e.preventDefault();
-    }
-  }
-});
-
-// Handle window resize
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  app.resize(window.innerWidth, window.innerHeight);
-});
-
-// Set up the toolbar buttons if the function exists
-if ((window as any).setupToolbarButtons) {
-  console.log('setupToolbarButtons found, calling it');
-  (window as any).setupToolbarButtons(app);
-}
-
-// Attempt to set up toolbar buttons after a delay in case the function isn't ready yet
-setTimeout(() => {
-  if ((window as any).setupToolbarButtons) {
-    console.log('setupToolbarButtons found after timeout, calling it');
-    (window as any).setupToolbarButtons(app);
-  }
-}, 1000);
-
 // Variables for change detection and autosave
 let lastKnownTaskCount = 0;
 let lastTaskModificationTime = 0;
 let autoSaveScheduled = false;
 let areDependenciesVisible = true; // Flag for dependency visibility
 
-// Generate a UUID 
-function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
+// Wait for the DOM to be fully loaded before initializing the app
+document.addEventListener('DOMContentLoaded', () => {
+  // Set up the canvas with initial size
+  const canvasElement = document.getElementById('canvas') as HTMLCanvasElement;
+  if (!canvasElement) {
+    console.error('Canvas element not found');
+    return;
+  }
+  
+  canvasElement.width = window.innerWidth;
+  canvasElement.height = window.innerHeight;
+  
+  // Set initial cursor style
+  canvasElement.style.cursor = 'grab';
+
+  // Set start date to beginning of current month
+  const startDate = new Date();
+  startDate.setDate(1);
+  startDate.setHours(0, 0, 0, 0);
+  
+  console.log('Initializing Canvas application...');
+  
+  // Create Canvas instance with initial configuration
+  const app = new Canvas({
+    canvas: canvasElement,
+    backgroundColor: '#f0f0f0',
+    gridColor: '#e0e0e0',
+    startDate,
   });
-}
-
-// Function to broadcast the current tasks to the parent window
-const broadcastTasksToParent = () => {
-  if (window.parent && window.parent !== window) {
-    const tasks = app.taskManager.getAllTasks();
-    const data = {
-      tasks: tasks.map(task => ({
-        id: task.id,
-        name: task.name,
-        startDate: task.startDate.toISOString(),
-        duration: task.duration,
-        crewSize: task.crewSize,
-        color: task.color,
-        tradeId: task.tradeId,
-        dependencies: task.dependencies
-      })),
-      settings: {
-        showGrid: true,
-        areDependenciesVisible: areDependenciesVisible,
-        tradeVisibility: {}
-      },
-      version: '1.0.0'
-    };
-    
-    window.parent.postMessage({
-      type: 'CP_SAVE',
-      data: data
-    }, '*');
-    
-    console.log('Sent task data to parent:', tasks.length, 'tasks');
-  }
-};
-
-// Animation loop
-function animate() {
-  requestAnimationFrame(animate);
   
-  // Update monitor
-  monitor.update();
-  
-  // Render the canvas
-  app.render();
-  
-  // Check for changes in tasks
-  const currentTaskCount = app.taskManager.getAllTasks().length;
-  if (currentTaskCount !== lastKnownTaskCount) {
-    lastKnownTaskCount = currentTaskCount;
-    lastTaskModificationTime = performance.now();
-    
-    // Schedule auto-save when tasks change
-    if (!autoSaveScheduled) {
-      autoSaveScheduled = true;
-      setTimeout(() => {
-        broadcastTasksToParent();
-        autoSaveScheduled = false;
-      }, 2000); // Wait 2 seconds after last change to save
+  // Function to broadcast the current tasks to the parent window
+  const broadcastTasksToParent = () => {
+    if (window.parent && window.parent !== window) {
+      const tasks = app.taskManager.getAllTasks();
+      window.parent.postMessage({
+        type: 'TASKS_UPDATE',
+        tasks: tasks
+      }, '*');
+      console.log('Broadcast tasks update to parent window', tasks.length);
     }
+  };
+  
+  // Make app available globally
+  console.log('Making Canvas app available globally');
+  window.canvasApp = app;
+  
+  // Initialize performance monitor if enabled
+  if (document.getElementById('monitor')) {
+    const monitor = new Monitor(app);
+    setInterval(() => monitor.update(), 500);
   }
-}
+  
+  // Initialize the Composer via sidebar after a short delay
+  setTimeout(() => {
+    if (app && app.sidebar) {
+      app.sidebar.initializeComposer?.(app);
+      console.log('Composer initialized through sidebar.');
+      app.sidebar.show();
 
-// Start animation loop
-animate();
-
-// Listen for messages from parent iframe
-window.addEventListener('message', (event) => {
-  try {
-    if (event.data && event.data.type) {
-      console.log('Received message from parent:', event.data.type);
-      
-      switch (event.data.type) {
-        case 'LOAD_DATA':
-          console.log('Received data from parent:', event.data.data);
-          if (event.data.data) {
-            try {
-              // Extract and apply settings
-              if (event.data.data.settings) {
-                areDependenciesVisible = !!event.data.data.settings.areDependenciesVisible;
-              }
-              
-              // Clear existing tasks
-              const existingTasks = app.taskManager.getAllTasks();
-              existingTasks.forEach(task => {
-                app.taskManager.removeTask(task.id);
-              });
-              
-              // Add tasks from data
-              if (event.data.data.tasks && Array.isArray(event.data.data.tasks)) {
-                event.data.data.tasks.forEach((taskData: any) => {
-                  try {
-                    // Create the task
-                    app.taskManager.addTask({
-                      id: taskData.id || generateUUID(),
-                      name: taskData.name || taskData.title || 'Untitled Task',
-                      startDate: new Date(taskData.startDate),
-                      duration: taskData.duration || 3,
-                      crewSize: taskData.crewSize || 1,
-                      color: taskData.color || '#3B82F6',
-                      tradeId: taskData.tradeId || taskData.trade || '',
-                      dependencies: taskData.dependencies || []
-                    });
-                  } catch (taskErr) {
-                    console.error('Error adding task:', taskErr, taskData);
-                  }
-                });
-                
-                // Update tracking variables
-                lastKnownTaskCount = app.taskManager.getAllTasks().length;
-                console.log(`Successfully loaded ${lastKnownTaskCount} tasks into construction planner`);
-              } else {
-                console.warn('No tasks found in the data or tasks is not an array');
-              }
-            } catch (err) {
-              console.error('Error loading data:', err);
-              window.parent.postMessage({
-                type: 'CP_ERROR',
-                message: 'Failed to load data into construction planner: ' + (err as Error).message
-              }, '*');
-            }
-          }
-          break;
-        
-        case 'SAVE_REQUEST':
-          console.log('Save requested from parent');
-          broadcastTasksToParent();
-          break;
+      // Initialize auth connector after components are ready
+      setTimeout(() => {
+        console.log('Initializing auth connector with increased delay');
+        // Ensure the sidebar is visible before initializing
+        if (app && app.sidebar) {
+          app.sidebar.show();
+        }
+        authConnector.init();
+      }, 3000); // Increased delay to ensure DOM is fully loaded
+    }
+  }, 500);
+  
+  // Add keyboard shortcut to open sidebar composer view
+  document.addEventListener('keydown', (e) => {
+    // Toggle Composer with Ctrl+Space
+    if (e.ctrlKey && e.code === 'Space') {
+      if (app && app.sidebar) {
+        app.sidebar.show?.('composer');
+        e.preventDefault();
       }
     }
-  } catch (err) {
-    console.error('Error processing message from parent:', err);
-    window.parent.postMessage({
-      type: 'CP_ERROR',
-      message: 'Error processing message: ' + (err as Error).message
-    }, '*');
+  });
+  
+  // Set up the toolbar buttons if the function exists
+  if ((window as any).setupToolbarButtons) {
+    console.log('setupToolbarButtons found, calling it');
+    (window as any).setupToolbarButtons(app);
   }
-});
-
-// Send ready message to parent
-window.addEventListener('load', () => {
-  console.log('Construction planner loaded, checking if in iframe...');
+  
+  // Attempt to set up toolbar buttons after a delay in case the function isn't ready yet
+  setTimeout(() => {
+    if ((window as any).setupToolbarButtons) {
+      console.log('setupToolbarButtons found after timeout, calling it');
+      (window as any).setupToolbarButtons(app);
+    }
+  }, 1000);
+  
+  // Animation loop with task change detection
+  function animate() {
+    app.render();
+    
+    // Check for changes in tasks
+    const currentTaskCount = app.taskManager.getAllTasks().length;
+    if (currentTaskCount !== lastKnownTaskCount) {
+      lastKnownTaskCount = currentTaskCount;
+      lastTaskModificationTime = performance.now();
+      
+      // Schedule auto-save when tasks change
+      if (!autoSaveScheduled) {
+        autoSaveScheduled = true;
+        setTimeout(() => {
+          broadcastTasksToParent();
+          autoSaveScheduled = false;
+        }, 2000); // Wait 2 seconds after last change to save
+      }
+    }
+    
+    requestAnimationFrame(animate);
+  }
+  
+  // Start the animation loop
+  animate();
+  
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    canvasElement.width = window.innerWidth;
+    canvasElement.height = window.innerHeight;
+    app.resize(window.innerWidth, window.innerHeight);
+  });
+  
+  // Listen for messages from parent iframe
+  window.addEventListener('message', (event) => {
+    try {
+      if (event.data && event.data.type) {
+        console.log('Received message from parent:', event.data.type);
+        
+        switch (event.data.type) {
+          case 'GET_TASKS':
+            broadcastTasksToParent();
+            break;
+            
+          case 'LOAD_DATA':
+            console.log('Received data from parent:', event.data.data);
+            if (event.data.data) {
+              try {
+                // Extract and apply settings
+                if (event.data.data.settings) {
+                  areDependenciesVisible = !!event.data.data.settings.areDependenciesVisible;
+                }
+                
+                // Clear existing tasks
+                const existingTasks = app.taskManager.getAllTasks();
+                existingTasks.forEach(task => {
+                  app.taskManager.removeTask(task.id);
+                });
+                
+                // Add tasks from data
+                if (event.data.data.tasks && Array.isArray(event.data.data.tasks)) {
+                  event.data.data.tasks.forEach((taskData: any) => {
+                    try {
+                      // Create the task
+                      app.taskManager.addTask({
+                        id: taskData.id || generateUUID(),
+                        name: taskData.name || taskData.title || 'Untitled Task',
+                        startDate: new Date(taskData.startDate),
+                        duration: taskData.duration || 3,
+                        crewSize: taskData.crewSize || 1,
+                        color: taskData.color || '#3B82F6',
+                        tradeId: taskData.tradeId || taskData.trade || '',
+                        dependencies: taskData.dependencies || []
+                      });
+                    } catch (taskErr) {
+                      console.error('Error adding task:', taskErr, taskData);
+                    }
+                  });
+                  
+                  // Update tracking variables
+                  lastKnownTaskCount = app.taskManager.getAllTasks().length;
+                  console.log(`Successfully loaded ${lastKnownTaskCount} tasks into construction planner`);
+                } else {
+                  console.warn('No tasks found in the data or tasks is not an array');
+                }
+              } catch (err) {
+                console.error('Error loading data:', err);
+                window.parent.postMessage({
+                  type: 'CP_ERROR',
+                  message: 'Failed to load data into construction planner: ' + (err as Error).message
+                }, '*');
+              }
+            }
+            break;
+          
+          case 'SAVE_REQUEST':
+            console.log('Save requested from parent');
+            broadcastTasksToParent();
+            break;
+        }
+      }
+    } catch (err) {
+      console.error('Error processing message from parent:', err);
+      window.parent.postMessage({
+        type: 'CP_ERROR',
+        message: 'Error processing message: ' + (err as Error).message
+      }, '*');
+    }
+  });
+  
+  // Send ready message to parent
   if (window.parent && window.parent !== window) {
     console.log('In iframe, sending ready message to parent');
     window.parent.postMessage({
@@ -326,12 +302,19 @@ window.addEventListener('load', () => {
   } else {
     console.log('Not in iframe, running standalone');
   }
-});
-
-// Set up the page unload handler to ensure state is saved
-window.addEventListener('beforeunload', () => {
-  if (window.canvasApp) {
-    // Final save before unloading the page
-    window.canvasApp.saveToLocalStorage();
+  
+  // Set up the page unload handler to ensure state is saved
+  window.addEventListener('beforeunload', () => {
+    if (window.canvasApp) {
+      // Final save before unloading the page
+      window.canvasApp.saveToLocalStorage();
+    }
+  });
+  
+  // Ensure auto-save is set up
+  if (window.canvasApp && window.canvasApp.saveToLocalStorage) {
+    setInterval(() => {
+      window.canvasApp.saveToLocalStorage();
+    }, 60000); // Auto-save every minute
   }
 }); 

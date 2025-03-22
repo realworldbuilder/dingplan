@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "vercel-build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "cd server && npm run dev"
   },
   "keywords": [
     "construction",
@@ -19,6 +20,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/rbush": "^3.0.0",
     "terser": "^5.39.0",
     "typescript": "^5.2.2",
@@ -27,6 +29,7 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.24.2",
     "@pixi/math": "^7.3.2",
+    "dotenv": "^16.3.1",
     "jspdf": "^3.0.0",
     "rbush": "^3.0.1",
     "react-router-dom": "^7.3.0"

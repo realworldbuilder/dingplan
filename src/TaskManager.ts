@@ -1525,4 +1525,146 @@ export class TaskManager {
       }
     }
   }
+
+  /**
+   * Export the current state of the task manager for saving
+   * Returns an object containing all necessary data to reconstruct the state
+   */
+  exportState(): any {
+    // Create a serializable version of task positions
+    const serializedTaskPositions: { [key: string]: { x: number; y: number } } = {};
+    this.taskPositions.forEach((position, taskId) => {
+      serializedTaskPositions[taskId] = position;
+    });
+    
+    // Create serializable swimlanes with converted task positions maps
+    const serializedSwimlanes = this.swimlanes.map(swimlane => {
+      // Convert Map to plain object for serialization
+      const taskPositionsObj: { [key: string]: { x: number; y: number } } = {};
+      swimlane.taskPositions.forEach((pos, taskId) => {
+        taskPositionsObj[taskId] = pos;
+      });
+      
+      return {
+        ...swimlane,
+        tasks: swimlane.tasks.map(task => task.id), // Just store task IDs, not the full tasks
+        taskPositions: taskPositionsObj // Replace Map with serializable object
+      };
+    });
+    
+    return {
+      tasks: this.tasks.map(task => ({
+        id: task.id,
+        name: task.name,
+        startDate: task.startDate,
+        duration: task.duration,
+        crewSize: task.crewSize,
+        color: task.color,
+        tradeId: task.tradeId,
+        dependencies: task.dependencies,
+        progress: task.progress,
+        status: task.status,
+        workOnSaturday: task.workOnSaturday,
+        workOnSunday: task.workOnSunday
+      })),
+      swimlanes: serializedSwimlanes,
+      taskPositions: serializedTaskPositions,
+      tradeFilters: Array.from(this.tradeFilters.entries())
+    };
+  }
+
+  /**
+   * Import a previously exported state
+   * @param state The state object to import
+   */
+  importState(state: any): void {
+    // Clear current state
+    this.tasks = [];
+    this.selectedTasks.clear();
+    this.selectedTasksInOrder = [];
+    this.taskPositions.clear();
+    this.swimlanes.length = 0; // Clear swimlanes array
+    
+    // Restore tasks
+    if (state.tasks && Array.isArray(state.tasks)) {
+      state.tasks.forEach((taskData: any) => {
+        const task = new Task({
+          id: taskData.id,
+          name: taskData.name,
+          startDate: new Date(taskData.startDate), // Ensure date is properly instantiated
+          duration: taskData.duration,
+          crewSize: taskData.crewSize,
+          color: taskData.color,
+          tradeId: taskData.tradeId,
+          dependencies: taskData.dependencies || [],
+          progress: taskData.progress,
+          status: taskData.status,
+          workOnSaturday: taskData.workOnSaturday,
+          workOnSunday: taskData.workOnSunday
+        });
+        this.tasks.push(task);
+      });
+    }
+    
+    // Restore swimlanes
+    if (state.swimlanes && Array.isArray(state.swimlanes)) {
+      state.swimlanes.forEach((swimlaneData: any) => {
+        const taskPositionsMap = new Map<string, { x: number; y: number }>();
+        
+        // Convert object back to Map for task positions
+        if (swimlaneData.taskPositions) {
+          Object.entries(swimlaneData.taskPositions).forEach(([taskId, pos]: [string, any]) => {
+            taskPositionsMap.set(taskId, pos);
+          });
+        }
+        
+        // Find tasks that belong to this swimlane
+        const swimlaneTasks = this.tasks.filter(task => 
+          swimlaneData.tasks && swimlaneData.tasks.includes(task.id)
+        );
+        
+        this.swimlanes.push({
+          id: swimlaneData.id,
+          name: swimlaneData.name,
+          y: swimlaneData.y,
+          height: swimlaneData.height,
+          color: swimlaneData.color,
+          tasks: swimlaneTasks,
+          taskPositions: taskPositionsMap,
+          wbsId: swimlaneData.wbsId
+        });
+      });
+    }
+    
+    // Restore global task positions
+    if (state.taskPositions) {
+      Object.entries(state.taskPositions).forEach(([taskId, pos]: [string, any]) => {
+        this.taskPositions.set(taskId, pos);
+      });
+    }
+    
+    // Restore trade filters
+    if (state.tradeFilters && Array.isArray(state.tradeFilters)) {
+      this.tradeFilters = new Map(state.tradeFilters);
+    }
+  }
+
+  /**
+   * Ensure all swimlane IDs are consistent and unique
+   * Called after loading from storage to fix any potential issues
+   */
+  renameSwimlanesIfNeeded(): void {
+    // Check for duplicate swimlane IDs and fix them
+    const usedIds = new Set<string>();
+    
+    this.swimlanes.forEach((swimlane, index) => {
+      if (!swimlane.id || usedIds.has(swimlane.id)) {
+        // Generate a new unique ID
+        const newId = `swimlane-${index}-${Date.now().toString(36)}`;
+        console.log(`Renaming swimlane from ${swimlane.id} to ${newId} to ensure uniqueness`);
+        swimlane.id = newId;
+      }
+      usedIds.add(swimlane.id);
+    });
+  }
 }
