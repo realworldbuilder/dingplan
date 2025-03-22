@@ -104,7 +104,7 @@ export class ProjectManager {
     this.startAutoBackup();
     
     // Add emergency save functionality while debugging
-    this.fixSaving();
+    // this.fixSaving(); // Removing emergency save button
   }
 
   /**
@@ -891,6 +891,18 @@ export class ProjectManager {
     // Store reference to the sidebar
     this.projectSidebar = leftSidebar;
     this.sidebarContainer = leftSidebar;
+    
+    // Initialize the auth connector to render Clerk auth UI in the sidebar
+    if (typeof window !== 'undefined') {
+      // Import and initialize auth connector
+      import('../components/auth/AuthConnector').then(module => {
+        const authConnector = module.default;
+        console.log('[ProjectManager] Initializing auth connector');
+        authConnector.init();
+      }).catch(error => {
+        console.error('[ProjectManager] Error loading auth connector:', error);
+      });
+    }
     
     // Set up event listeners for the close button after the sidebar is added to the DOM
     const closeBtn = document.getElementById('close-projects-sidebar');
