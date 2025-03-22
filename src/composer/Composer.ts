@@ -1709,6 +1709,9 @@ Always strive to be both helpful and educational, balancing efficient task execu
         this.debug(`Task successfully added to swimlane "${swimlaneId}".`);
       }
       
+      // Force the canvas to refresh to show the new task
+      this.canvas.render();
+      
       return `Task created: "${args.name}" (ID: ${taskId}) in ${swimlaneId}, starting on ${startDate.toLocaleDateString()}`;
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -1785,42 +1788,16 @@ Always strive to be both helpful and educational, balancing efficient task execu
         this.canvas.taskManager.addTask(fullTaskData, swimlaneId);
       }
       
-      // Force a render to ensure all tasks are displayed
-      this.canvas.render();
-      
-      // Get task details for better feedback
-      const taskDetails = args.tasks.map((taskData: any, index: number) => {
-        // Use intelligent swimlane matching for each task
-        const requestedSwimlaneId = taskData.swimlaneId || args.swimlaneId;
-        let swimlaneId;
-        
-        if (requestedSwimlaneId) {
-          swimlaneId = this.findBestMatchingSwimlane(requestedSwimlaneId);
-        } else {
-          swimlaneId = this.suggestSwimlane(taskData.name, taskData.tradeId);
-        }
-        
-        if (!swimlaneId) swimlaneId = this.getValidSwimlaneId();
-          
-        const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === swimlaneId);
-        const swimlaneName = swimlane ? swimlane.name : swimlaneId;
-        
-        const startDateInfo = taskData.startDate ? 
-          new Date(taskData.startDate).toLocaleDateString() : 
-          "current date";
-          
-        return `${index + 1}. "${taskData.name}" in ${swimlaneName} starting on ${startDateInfo}`;
-      }).join('\n');
-      
-      // Add swimlane distribution info
-      const swimlaneDistribution = Object.entries(swimlaneAssignments)
-        .map(([id, count]) => {
-          const swimlane = this.canvas.taskManager.swimlanes.find(s => s.id === id);
-          return `${swimlane ? swimlane.name : id}: ${count} tasks`;
-        })
+      // Add summary of what was created
+      const totalTasks = taskIds.length;
+      const swimlaneSummary = Object.entries(swimlaneAssignments)
+        .map(([swimlane, count]) => `${count} in ${swimlane}`)
         .join(', ');
       
-      return `Created ${args.tasks.length} tasks across swimlanes (${swimlaneDistribution}):\n${taskDetails}\n\nIf you don't see them, try scrolling to their dates or checking if any trade filters are active.`;
+      // Force the canvas to refresh to show the new tasks
+      this.canvas.render();
+      
+      return `Created ${totalTasks} tasks (${swimlaneSummary})`;
     } catch (error: unknown) {
       return this.handleError('creating multiple tasks', error);
     }
