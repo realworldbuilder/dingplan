@@ -51,9 +51,6 @@ const SidebarAuth = () => {
   if (!isSignedIn) {
     return (
       <div className="auth-container-minimal">
-        <div className="auth-logo-container">
-          <div className="text-logo">dingplanPM</div>
-        </div>
         <SignInButton mode="modal">
           <button className="auth-button sign-in">Sign In</button>
         </SignInButton>
@@ -73,9 +70,6 @@ const SidebarAuth = () => {
 
   return (
     <div className="auth-container-minimal">
-      <div className="auth-logo-container">
-        <div className="text-logo">dingplanPM</div>
-      </div>
       <div className="user-info">
         <UserButton />
         <span className="user-name">{user.firstName || user.fullName || 'User'}</span>
