@@ -789,6 +789,43 @@ export class ProjectManager {
         overflow-x: hidden !important;
         max-width: 100%;
       }
+      
+      /* Target menu tabs specifically */
+      .sidebar-tabs, 
+      .sidebar-tab,
+      .auth-container-minimal,
+      #auth-container,
+      .sidebar-header {
+        overflow: hidden !important;
+      }
+      
+      /* Only allow vertical scrolling in the projects list */
+      #project-list {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+      }
+      
+      /* Hide all scrollbars by default */
+      #projects-sidebar * {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+      }
+      
+      /* Hide webkit scrollbars */
+      #projects-sidebar *::-webkit-scrollbar {
+        display: none;
+      }
+      
+      /* Only show scrollbars for the project list */
+      #project-list::-webkit-scrollbar {
+        width: 5px;
+        display: block;
+      }
+      
+      #project-list::-webkit-scrollbar-thumb {
+        background: #bbb;
+        border-radius: 5px;
+      }
     `;
     document.head.appendChild(styleElement);
     

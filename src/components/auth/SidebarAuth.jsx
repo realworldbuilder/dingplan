@@ -52,7 +52,7 @@ const SidebarAuth = () => {
     return (
       <div className="auth-container-minimal">
         <div className="auth-logo-container">
-          <img src="https://dingplan.vercel.app/dinglogo.png" alt="Dingplan" className="auth-logo" />
+          <span className="text-logo">dingplan</span>
         </div>
         <SignInButton mode="modal">
           <button className="auth-button sign-in">Sign In</button>
@@ -74,7 +74,7 @@ const SidebarAuth = () => {
   return (
     <div className="auth-container-minimal">
       <div className="auth-logo-container">
-        <img src="https://dingplan.vercel.app/dinglogo.png" alt="Dingplan" className="auth-logo" />
+        <span className="text-logo">dingplan</span>
       </div>
       <div className="user-info">
         <UserButton />
