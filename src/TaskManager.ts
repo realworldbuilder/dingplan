@@ -1752,32 +1752,49 @@ export class TaskManager {
       serializedTaskPositions[taskId] = position;
     });
     
-    // Create a clean copy of each task with validated dependencies
-    const serializedTasks = this.tasks.map(task => ({
-      id: task.id,
-      name: task.name,
-      startDate: task.startDate,
-      duration: task.duration,
-      crewSize: task.crewSize,
-      color: task.color,
-      tradeId: task.tradeId,
-      // Only include valid dependencies (that point to existing tasks)
-      dependencies: Array.isArray(task.dependencies) 
-        ? task.dependencies.filter(depId => validTaskIds.has(depId)) 
-        : [],
-      progress: task.progress,
-      status: task.status,
-      workOnSaturday: task.workOnSaturday,
-      workOnSunday: task.workOnSunday,
-      swimlaneId: task.swimlaneId // Ensure swimlaneId is included
-    }));
+    // Log dependency information before export
+    let totalDependencyCount = 0;
+    const tasksWithDependencies = this.tasks.filter(task => 
+      Array.isArray(task.dependencies) && task.dependencies.length > 0
+    );
     
-    // Return the complete state
+    tasksWithDependencies.forEach(task => {
+      console.log(`Task ${task.id} (${task.name}) has ${task.dependencies.length} dependencies: ${JSON.stringify(task.dependencies)}`);
+      totalDependencyCount += task.dependencies.length;
+    });
+    
+    console.log(`Exporting state with ${tasksWithDependencies.length} tasks having dependencies, ${totalDependencyCount} total dependencies`);
+    
+    // Create a clean copy of each task with validated dependencies
+    const serializedTasks = this.tasks.map(task => {
+      // Ensure dependencies is always an array
+      const dependencies = Array.isArray(task.dependencies) 
+        ? task.dependencies.filter(depId => validTaskIds.has(depId)) 
+        : [];
+        
+      return {
+        id: task.id,
+        name: task.name,
+        startDate: task.startDate,
+        duration: task.duration,
+        crewSize: task.crewSize,
+        color: task.color,
+        tradeId: task.tradeId,
+        dependencies: dependencies,
+        progress: task.progress,
+        status: task.status,
+        workOnSaturday: task.workOnSaturday,
+        workOnSunday: task.workOnSunday,
+        swimlaneId: task.swimlaneId // Ensure swimlaneId is included
+      };
+    });
+    
     return {
       tasks: serializedTasks,
       swimlanes: serializedSwimlanes,
       taskPositions: serializedTaskPositions,
-      tradeFilters: Array.from(this.tradeFilters.entries())
+      tradeFilters: Array.from(this.tradeFilters),
+      version: '1.0'
     };
   }
 

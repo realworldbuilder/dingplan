@@ -1869,6 +1869,20 @@ export class Canvas {
       // Save to localStorage using the utility function to ensure consistent key patterns
       saveToLocalStorage(state, projectId);
       
+      // Also save directly to the server to ensure dependencies are preserved on refresh
+      if (this.projectManager && this.projectManager.currentProjectId) {
+        this.projectManager.saveProjectToServer().then(success => {
+          if (success) {
+            console.log(`Successfully saved to server for project: ${projectId}`);
+          } else {
+            console.error(`Failed to save to server for project: ${projectId}`);
+          }
+        });
+      }
+      
+      // Verify the saved state
+      this.verifySavedState(projectId);
+      
       console.log(`Successfully saved to localStorage for project: ${projectId}`);
     } catch (error) {
       console.error('Error saving to localStorage:', error);
@@ -1996,10 +2010,24 @@ export class Canvas {
       }, 1000); // Debounce for 1 second
     };
     
+    // Function to immediately save state when dependencies change
+    const immediateDepSave = (e: any) => {
+      const hasDependenciesChanged = e.detail?.hasDependencies === true;
+      
+      if (hasDependenciesChanged) {
+        console.log('[Canvas] Dependency change detected, saving immediately');
+        this.saveToLocalStorage();
+        lastSaveTime = Date.now();
+      } else {
+        // For other changes, use the debounced save
+        debouncedSave();
+      }
+    };
+    
     // Listen for events that should trigger an autosave
     
-    // Task updates
-    document.addEventListener('taskUpdated', debouncedSave);
+    // Task updates with special handling for dependency changes
+    document.addEventListener('taskUpdated', immediateDepSave);
     
     // Camera changes (debounced to avoid excessive saves during pan/zoom)
     this.canvas.addEventListener('mouseup', debouncedSave);
@@ -2053,11 +2081,29 @@ export class Canvas {
         return null;
       }
       
+      // First verify all dependencies to ensure we're exporting clean data
+      const verificationResult = this.taskManager.verifyAllDependencies();
+      if (verificationResult.fixedCount > 0) {
+        console.log(`[Canvas] Fixed ${verificationResult.fixedCount} invalid dependencies before JSON conversion`);
+      }
+      
       // Get task state
       const taskState = this.taskManager.exportState();
+      
+      // Count dependencies for logging
+      let dependencyCount = 0;
+      if (taskState.tasks) {
+        taskState.tasks.forEach((task: any) => {
+          if (task.dependencies && Array.isArray(task.dependencies)) {
+            dependencyCount += task.dependencies.length;
+          }
+        });
+      }
+      
       console.log('[Canvas] Task state exported', {
         taskCount: taskState.tasks ? taskState.tasks.length : 0,
-        swimlaneCount: taskState.swimlanes ? taskState.swimlanes.length : 0
+        swimlaneCount: taskState.swimlanes ? taskState.swimlanes.length : 0,
+        dependencyCount: dependencyCount
       });
       
       // Create the canvas state
@@ -2071,7 +2117,8 @@ export class Canvas {
         },
         settings: {
           areDependenciesVisible: this.areDependenciesVisible
-        }
+        },
+        version: taskState.version || '1.0'
       };
       
       console.log('[Canvas] JSON representation created successfully');
