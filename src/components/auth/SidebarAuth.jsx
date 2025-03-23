@@ -52,7 +52,7 @@ const SidebarAuth = () => {
     return (
       <div className="auth-container-minimal">
         <div className="auth-logo-container">
-          <img src="/dinghat.png" alt="Dingplan" className="auth-logo" />
+          <div className="text-logo">dingplanPM</div>
         </div>
         <SignInButton mode="modal">
           <button className="auth-button sign-in">Sign In</button>
@@ -74,7 +74,7 @@ const SidebarAuth = () => {
   return (
     <div className="auth-container-minimal">
       <div className="auth-logo-container">
-        <img src="/dinghat.png" alt="Dingplan" className="auth-logo" />
+        <div className="text-logo">dingplanPM</div>
       </div>
       <div className="user-info">
         <UserButton />
