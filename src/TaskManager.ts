@@ -2,6 +2,7 @@ import { Task, TaskConfig } from './Task';
 import { Camera } from './Camera';
 import { Trades, Trade } from './Trades';
 import { Logger } from './utils/logger';
+import { generateUUID } from './utils';
 
 interface WorldPosition {
   x: number;
@@ -1745,64 +1746,121 @@ export class TaskManager {
     this.taskPositions.clear();
     this.swimlanes.length = 0; // Clear swimlanes array
     
+    // First pass: Create all tasks to ensure they exist for dependency linking
+    const taskMap = new Map<string, Task>();
+    
     // Restore tasks
     if (state.tasks && Array.isArray(state.tasks)) {
+      // First create all the tasks without dependencies
       state.tasks.forEach((taskData: any) => {
-        const task = new Task({
-          id: taskData.id,
-          name: taskData.name,
-          startDate: new Date(taskData.startDate), // Ensure date is properly instantiated
-          duration: taskData.duration,
-          crewSize: taskData.crewSize,
-          color: taskData.color,
-          tradeId: taskData.tradeId,
-          dependencies: taskData.dependencies || [],
-          progress: taskData.progress,
-          status: taskData.status,
-          workOnSaturday: taskData.workOnSaturday,
-          workOnSunday: taskData.workOnSunday,
-          swimlaneId: taskData.swimlaneId || null // Ensure swimlaneId is preserved
-        });
-        this.tasks.push(task);
+        try {
+          // Ensure essential properties are valid
+          const taskId = taskData.id || generateUUID();
+          const taskName = taskData.name || 'Untitled Task';
+          const taskStartDate = taskData.startDate instanceof Date 
+            ? taskData.startDate 
+            : new Date(taskData.startDate || Date.now());
+          
+          // Create the task initially without dependencies
+          const task = new Task({
+            id: taskId,
+            name: taskName,
+            startDate: taskStartDate,
+            duration: taskData.duration || 1,
+            crewSize: taskData.crewSize || 1,
+            color: taskData.color || '#4287f5',
+            tradeId: taskData.tradeId || null,
+            dependencies: [], // Initialize with empty dependencies first
+            progress: taskData.progress || 0,
+            status: taskData.status || 'not-started',
+            workOnSaturday: taskData.workOnSaturday || false,
+            workOnSunday: taskData.workOnSunday || false,
+            swimlaneId: taskData.swimlaneId || null
+          });
+          
+          // Add to our collection and mapping
+          this.tasks.push(task);
+          taskMap.set(taskId, task);
+          
+          // Log for debugging
+          console.log(`[TaskManager] Created task: ${taskId} (${taskName})`);
+        } catch (error) {
+          console.error(`[TaskManager] Error creating task:`, error, taskData);
+        }
+      });
+      
+      // Second pass: Now set dependencies after all tasks exist
+      state.tasks.forEach((taskData: any) => {
+        if (!taskData.id) return;
+        
+        const task = taskMap.get(taskData.id);
+        if (!task) return;
+        
+        // Set dependencies if they exist
+        if (Array.isArray(taskData.dependencies) && taskData.dependencies.length > 0) {
+          // Validate and add each dependency
+          const validDependencies: string[] = [];
+          taskData.dependencies.forEach((depId: string) => {
+            // Check if the dependency target exists
+            if (taskMap.has(depId)) {
+              validDependencies.push(depId);
+            } else {
+              console.warn(`[TaskManager] Skipping invalid dependency ${depId} for task ${task.id} - referenced task doesn't exist`);
+            }
+          });
+          
+          // Set the validated dependencies
+          task.dependencies = validDependencies;
+          
+          if (validDependencies.length > 0) {
+            console.log(`[TaskManager] Set ${validDependencies.length} dependencies for task ${task.id}:`, JSON.stringify(validDependencies));
+          }
+        }
       });
     }
     
     // Restore swimlanes
     if (state.swimlanes && Array.isArray(state.swimlanes)) {
       state.swimlanes.forEach((swimlaneData: any) => {
-        const taskPositionsMap = new Map<string, { x: number; y: number }>();
-        
-        // Convert object back to Map for task positions
-        if (swimlaneData.taskPositions) {
-          Object.entries(swimlaneData.taskPositions).forEach(([taskId, pos]: [string, any]) => {
-            taskPositionsMap.set(taskId, pos);
-          });
-        }
-        
-        // Find tasks that belong to this swimlane
-        const swimlaneTasks = this.tasks.filter(task => 
-          (swimlaneData.tasks && swimlaneData.tasks.includes(task.id)) || 
-          task.swimlaneId === swimlaneData.id
-        );
-        
-        // Ensure these tasks have the correct swimlaneId
-        swimlaneTasks.forEach(task => {
-          if (task.swimlaneId !== swimlaneData.id) {
-            console.log(`[TaskManager] Setting swimlaneId for task ${task.id} (${task.name}) to ${swimlaneData.id}`);
-            task.swimlaneId = swimlaneData.id;
+        try {
+          const taskPositionsMap = new Map<string, { x: number; y: number }>();
+          
+          // Convert object back to Map for task positions
+          if (swimlaneData.taskPositions) {
+            Object.entries(swimlaneData.taskPositions).forEach(([taskId, pos]: [string, any]) => {
+              taskPositionsMap.set(taskId, pos);
+            });
           }
-        });
-        
-        this.swimlanes.push({
-          id: swimlaneData.id,
-          name: swimlaneData.name,
-          y: swimlaneData.y,
-          height: swimlaneData.height,
-          color: swimlaneData.color,
-          tasks: swimlaneTasks,
-          taskPositions: taskPositionsMap,
-          wbsId: swimlaneData.wbsId
-        });
+          
+          // Find tasks that belong to this swimlane
+          const swimlaneTasks = this.tasks.filter(task => 
+            (swimlaneData.tasks && swimlaneData.tasks.includes(task.id)) || 
+            task.swimlaneId === swimlaneData.id
+          );
+          
+          // Ensure these tasks have the correct swimlaneId
+          swimlaneTasks.forEach(task => {
+            if (task.swimlaneId !== swimlaneData.id) {
+              console.log(`[TaskManager] Setting swimlaneId for task ${task.id} (${task.name}) to ${swimlaneData.id}`);
+              task.swimlaneId = swimlaneData.id;
+            }
+          });
+          
+          this.swimlanes.push({
+            id: swimlaneData.id,
+            name: swimlaneData.name,
+            y: swimlaneData.y,
+            height: swimlaneData.height,
+            color: swimlaneData.color,
+            tasks: swimlaneTasks,
+            taskPositions: taskPositionsMap,
+            wbsId: swimlaneData.wbsId
+          });
+          
+          console.log(`[TaskManager] Created swimlane ${swimlaneData.id} with ${swimlaneTasks.length} tasks`);
+        } catch (error) {
+          console.error(`[TaskManager] Error creating swimlane:`, error, swimlaneData);
+        }
       });
     }
     
@@ -1826,8 +1884,42 @@ export class TaskManager {
     // Force a full integrity check once after import
     this.forceIntegrityCheck();
     
+    // Verify dependencies were properly imported
+    this.verifyDependencies();
+    
     // Log success
     console.log(`[TaskManager] Successfully imported ${this.tasks.length} tasks and ${this.swimlanes.length} swimlanes`);
+  }
+  
+  /**
+   * Verify dependencies after import
+   */
+  private verifyDependencies(): void {
+    let tasksWithDeps = 0;
+    let totalDeps = 0;
+    
+    this.tasks.forEach(task => {
+      if (task.dependencies && task.dependencies.length > 0) {
+        tasksWithDeps++;
+        totalDeps += task.dependencies.length;
+        
+        // Check if all dependencies point to valid tasks
+        const invalidDeps = task.dependencies.filter(depId => 
+          !this.tasks.some(t => t.id === depId)
+        );
+        
+        if (invalidDeps.length > 0) {
+          console.warn(`[TaskManager] Task ${task.id} has ${invalidDeps.length} invalid dependencies:`, invalidDeps);
+          
+          // Remove invalid dependencies
+          task.dependencies = task.dependencies.filter(depId => 
+            !invalidDeps.includes(depId)
+          );
+        }
+      }
+    });
+    
+    console.log(`[TaskManager] Dependency verification: ${tasksWithDeps} tasks have ${totalDeps} total dependencies`);
   }
 
   /**

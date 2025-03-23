@@ -1849,19 +1849,32 @@ export class Canvas {
       // Get the full state from task manager
       const taskManagerState = this.taskManager.exportState();
       
+      // Create a safe copy of tasks with explicit dependency handling
+      const tasksCopy = taskManagerState.tasks.map(task => {
+        // Create a clean copy with explicit dependencies
+        return {
+          ...task,
+          dependencies: Array.isArray(task.dependencies) ? [...task.dependencies] : [],
+          startDate: task.startDate instanceof Date ? new Date(task.startDate) : new Date()
+        };
+      });
+      
       // Log dependencies for debugging
       const dependencyCounts = {};
-      taskManagerState.tasks.forEach(task => {
+      tasksCopy.forEach(task => {
         if (task.dependencies && task.dependencies.length > 0) {
-          console.log(`[Canvas] Saving task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, task.dependencies);
+          console.log(`[Canvas] Saving task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, JSON.stringify(task.dependencies));
           dependencyCounts[task.id] = task.dependencies.length;
         }
       });
       console.log(`[Canvas] Saving ${Object.keys(dependencyCounts).length} tasks with dependencies`);
       
-      // Prepare state object
+      // Explicitly force a sync with localStorage
+      window.localStorage.removeItem(`dingplan_state_${projectId}`);
+      
+      // Prepare state object with our safe copy
       const state = {
-        tasks: taskManagerState.tasks,
+        tasks: tasksCopy,
         swimlanes: taskManagerState.swimlanes,
         camera: {
           x: this.camera.x,
@@ -1870,13 +1883,68 @@ export class Canvas {
         },
         settings: {
           areDependenciesVisible: this.areDependenciesVisible
-        }
+        },
+        version: "1.1.0" // Add version tracking for future compatibility
       };
       
+      // Use a more explicit serialization approach
+      const serializedState = JSON.stringify(state, (key, value) => {
+        // Special handling for Date objects
+        if (value instanceof Date) {
+          return { __type: 'Date', value: value.toISOString() };
+        }
+        // Handle dependencies explicitly
+        if (key === 'dependencies' && Array.isArray(value)) {
+          return value.slice(0); // Create a copy of the array
+        }
+        return value;
+      });
+      
       // Save to localStorage with project ID for isolation
-      saveToLocalStorage(state, projectId);
+      localStorage.setItem(`dingplan_state_${projectId}`, serializedState);
+      console.log(`[Canvas] State saved to localStorage with key: dingplan_state_${projectId}`);
+      
+      // Verify the saved data by reading it back
+      this.verifySavedState(projectId);
+      
     } catch (error) {
       console.error('Error saving application state to localStorage:', error);
+    }
+  }
+  
+  /**
+   * Verify the saved state by reading it back
+   */
+  private verifySavedState(projectId: string): void {
+    try {
+      const savedData = localStorage.getItem(`dingplan_state_${projectId}`);
+      if (!savedData) {
+        console.error(`[Canvas] Failed to verify: no data found for key dingplan_state_${projectId}`);
+        return;
+      }
+      
+      const state = JSON.parse(savedData, (key, value) => {
+        // Revive Date objects
+        if (value && typeof value === 'object' && value.__type === 'Date') {
+          return new Date(value.value);
+        }
+        return value;
+      });
+      
+      if (!state.tasks) {
+        console.error('[Canvas] Failed to verify: no tasks found in saved state');
+        return;
+      }
+      
+      const tasksWithDeps = state.tasks.filter(t => t.dependencies && t.dependencies.length > 0);
+      console.log(`[Canvas] Verification: found ${tasksWithDeps.length} tasks with dependencies in saved state`);
+      
+      tasksWithDeps.forEach(task => {
+        console.log(`[Canvas] Verification: task ${task.id} has ${task.dependencies.length} dependencies:`, JSON.stringify(task.dependencies));
+      });
+      
+    } catch (error) {
+      console.error('[Canvas] Error verifying saved state:', error);
     }
   }
 
@@ -1884,29 +1952,43 @@ export class Canvas {
    * Load application state from localStorage
    */
   loadFromLocalStorage(): void {
-    // Check if there's a project parameter in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('project') || 'default';
-    
-    // Only attempt to load if there's saved state for this specific project
-    if (!hasSavedState(projectId)) {
-      console.log(`No saved state found for project ${projectId}, starting with default configuration`);
-      return;
-    }
-    
-    // Load from localStorage using project-specific key
-    const state = loadFromLocalStorage(projectId);
-    if (!state) return;
-    
     try {
+      // Check if there's a project parameter in the URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const projectId = urlParams.get('project') || 'default';
+      
+      // Get the storage key
+      const storageKey = `dingplan_state_${projectId}`;
+      
+      // Check if we have saved state
+      const savedData = localStorage.getItem(storageKey);
+      if (!savedData) {
+        console.log(`No saved state found for project ${projectId}, starting with default configuration`);
+        return;
+      }
+      
       console.log(`Loading state for project ${projectId} from localStorage`);
+      
+      // Parse JSON and revive objects
+      const state = JSON.parse(savedData, (key, value) => {
+        // Revive Date objects
+        if (value && typeof value === 'object' && value.__type === 'Date') {
+          return new Date(value.value);
+        }
+        return value;
+      });
       
       // Log dependencies from loaded state for debugging
       const dependencyCounts = {};
       if (state.tasks && Array.isArray(state.tasks)) {
         state.tasks.forEach(task => {
+          // Ensure dependencies is always an array
+          if (!Array.isArray(task.dependencies)) {
+            task.dependencies = [];
+          }
+          
           if (task.dependencies && task.dependencies.length > 0) {
-            console.log(`[Canvas] Loading task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, task.dependencies);
+            console.log(`[Canvas] Loading task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, JSON.stringify(task.dependencies));
             dependencyCounts[task.id] = task.dependencies.length;
           }
         });
@@ -1916,15 +1998,32 @@ export class Canvas {
       // Clear existing tasks first to avoid duplication
       this.taskManager.importState({ tasks: [], swimlanes: [] });
       
+      // Make a clean copy of the state for import
+      const cleanState = {
+        tasks: state.tasks.map(task => ({
+          ...task,
+          dependencies: Array.isArray(task.dependencies) ? [...task.dependencies] : [],
+          startDate: task.startDate instanceof Date ? task.startDate : new Date(task.startDate)
+        })),
+        swimlanes: state.swimlanes,
+        camera: state.camera,
+        settings: state.settings
+      };
+      
       // Import task manager state
-      this.taskManager.importState(state);
+      this.taskManager.importState(cleanState);
       
       // Check dependencies after import
       const tasksAfterImport = this.taskManager.getAllTasks();
       const dependencyCountsAfterImport = {};
       tasksAfterImport.forEach(task => {
+        if (!Array.isArray(task.dependencies)) {
+          task.dependencies = [];
+          console.error(`[Canvas] Fixed invalid dependencies for task ${task.id}`);
+        }
+        
         if (task.dependencies && task.dependencies.length > 0) {
-          console.log(`[Canvas] After import: task ${task.id} (${task.name}) has ${task.dependencies.length} dependencies:`, task.dependencies);
+          console.log(`[Canvas] After import: task ${task.id} (${task.name}) has ${task.dependencies.length} dependencies:`, JSON.stringify(task.dependencies));
           dependencyCountsAfterImport[task.id] = task.dependencies.length;
         }
       });
@@ -1959,6 +2058,13 @@ export class Canvas {
       this.render();
       
       console.log(`Successfully loaded application state for project ${projectId} from localStorage`);
+      
+      // Save the state again to ensure it's in the correct format
+      setTimeout(() => {
+        console.log("[Canvas] Performing post-load save to ensure data integrity");
+        this.saveToLocalStorage();
+      }, 1000);
+      
     } catch (error) {
       console.error('Error loading application state from localStorage:', error);
     }

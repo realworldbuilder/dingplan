@@ -138,6 +138,7 @@
         <button id="export-pdf-btn" class="toolbar-btn" title="Export PDF" onclick="console.log('Export PDF button clicked inline'); if(window.canvasApp) window.canvasApp.exportToPDF(); return false;">📄</button>
         <button id="toggle-deps-btn" class="toolbar-btn" title="Toggle Dependencies" onclick="console.log('Toggle deps button clicked inline'); if(window.canvasApp) { window.canvasApp.taskManager.areDependenciesVisible = !window.canvasApp.taskManager.areDependenciesVisible; window.canvasApp.render(); } return false;">🔗</button>
         <button id="link-selected-btn" class="toolbar-btn" title="Link Selected" onclick="console.log('Link selected button clicked inline'); if(window.canvasApp) { window.canvasApp.taskManager.linkSelectedTasksInSequence(); window.canvasApp.render(); } return false;">⛓️</button>
+        <button id="force-save-btn" class="toolbar-btn" title="Force Save" onclick="console.log('Force save button clicked'); if(window.forceSave) { window.forceSave(); alert('State saved!'); } return false;">💾</button>
         <button id="composer-btn" class="toolbar-btn" title="Composer" onclick="console.log('Composer button clicked inline'); if(window.canvasApp) window.canvasApp.sidebar.show('composer'); return false;">🤖</button>
       </div>
     </div>
@@ -263,6 +264,15 @@
           console.log('Link Selected button clicked');
           window.canvasApp.taskManager.linkSelectedTasksInSequence();
           window.canvasApp.render();
+        });
+        
+        document.getElementById('force-save-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('Force Save button clicked');
+          if (window.forceSave) {
+            window.forceSave();
+            alert('State saved!');
+          }
         });
         
         document.getElementById('composer-btn')?.addEventListener('click', (e) => {
