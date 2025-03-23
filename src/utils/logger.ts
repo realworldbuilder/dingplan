@@ -73,7 +73,7 @@ export const Logger = {
     if (!debugMode) return;
 
     // Convert message to string for filtering
-    const message = args.join(' ');
+    const message = String(args[0] || '');
     
     // Filter out noisy messages
     if (shouldFilterMessage(message)) return;
@@ -118,10 +118,13 @@ export const Logger = {
   },
 
   /**
-   * Always log errors regardless of environment
+   * Log error message (always logged)
    */
   error: function(...args: any[]): void {
-    // Errors should always be logged
+    // Always log errors, but limit frequency in production
+    if (!debugMode && shouldThrottleMessage(String(args[0] || ''))) {
+      return;
+    }
     originalConsole.error(...args);
   },
 
@@ -151,7 +154,7 @@ export const Logger = {
   },
 
   /**
-   * Get current debug mode status
+   * Check if debug mode is enabled
    */
   isDebugMode: function(): boolean {
     return debugMode;

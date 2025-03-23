@@ -8,6 +8,7 @@ import authConnector from './components/auth/AuthConnector';
 declare global {
   interface Window {
     canvasApp: any;
+    renderTimeout: any;
   }
 }
 
@@ -179,64 +180,170 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 1000);
   
   // Animation loop with task change detection
-  function animate() {
-    app.render();
+  let lastRenderTime = 0;
+  const FRAME_TIME = 1000 / 60; // Target 60fps (16.7ms per frame)
+  let needsRender = true;
+  let isAnimating = false;
+  let pendingAnimationFrame = null;
+
+  // Track mouse/touch movement
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+  let hasViewChanged = false;
+  
+  function animate(timestamp = 0) {
+    // Clear the pending animation frame reference
+    pendingAnimationFrame = null;
     
-    // Check for changes in tasks
-    const currentTaskCount = app.taskManager.getAllTasks().length;
-    if (currentTaskCount !== lastKnownTaskCount) {
-      lastKnownTaskCount = currentTaskCount;
-      lastTaskModificationTime = performance.now();
+    // Calculate time since last render
+    const elapsed = timestamp - lastRenderTime;
+    
+    // Only render if enough time has passed AND we need to render
+    if ((elapsed >= FRAME_TIME) && (needsRender || hasViewChanged)) {
+      // Perform the render
+      console.log('[animate] Rendering frame, elapsed:', elapsed);
+      app.render();
       
-      // Schedule auto-save when tasks change
-      if (!autoSaveScheduled) {
-        autoSaveScheduled = true;
-        setTimeout(() => {
-          broadcastTasksToParent();
-          autoSaveScheduled = false;
-        }, 2000); // Wait 2 seconds after last change to save
+      // Reset flags
+      lastRenderTime = timestamp;
+      needsRender = false;
+      hasViewChanged = false;
+      
+      // Check for changes in tasks
+      const currentTaskCount = app.taskManager.getAllTasks().length;
+      if (currentTaskCount !== lastKnownTaskCount) {
+        lastKnownTaskCount = currentTaskCount;
+        lastTaskModificationTime = performance.now();
+        
+        // Schedule auto-save when tasks change
+        if (!autoSaveScheduled) {
+          autoSaveScheduled = true;
+          setTimeout(() => {
+            broadcastTasksToParent();
+            autoSaveScheduled = false;
+          }, 2000); // Wait 2 seconds after last change to save
+        }
       }
     }
     
-    requestAnimationFrame(animate);
+    // Continue animation loop only if we're actively animating
+    if (isAnimating) {
+      pendingAnimationFrame = requestAnimationFrame(animate);
+    }
   }
   
-  // Start the animation loop
-  animate();
+  // Function to start animation if not already running
+  function startAnimation() {
+    if (!isAnimating) {
+      isAnimating = true;
+      if (!pendingAnimationFrame) {
+        pendingAnimationFrame = requestAnimationFrame(animate);
+      }
+    }
+  }
+  
+  // Function to stop animation after a period of inactivity
+  function stopAnimation() {
+    isAnimating = false;
+    if (pendingAnimationFrame) {
+      cancelAnimationFrame(pendingAnimationFrame);
+      pendingAnimationFrame = null;
+    }
+  }
+  
+  // Trigger renders when needed
+  const triggerRender = () => {
+    needsRender = true;
+    startAnimation();
+    
+    // Stop animation after 300ms of inactivity
+    clearTimeout(window.renderTimeout);
+    window.renderTimeout = setTimeout(() => {
+      // Only stop if no view changes detected
+      if (!hasViewChanged) {
+        stopAnimation();
+      }
+    }, 300);
+  };
+  
+  // Track view changes
+  const trackViewChange = (e) => {
+    const newX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : lastMouseX);
+    const newY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : lastMouseY);
+    
+    // Only consider it a view change if moved more than 5 pixels
+    if (Math.abs(newX - lastMouseX) > 5 || Math.abs(newY - lastMouseY) > 5) {
+      hasViewChanged = true;
+      startAnimation();
+      lastMouseX = newX;
+      lastMouseY = newY;
+    }
+  };
+  
+  // Start with an initial render
+  needsRender = true;
+  startAnimation();
+  
+  // Force render on important events
+  window.addEventListener('resize', () => {
+    canvasElement.width = window.innerWidth;
+    canvasElement.height = window.innerHeight;
+    app.resize(window.innerWidth, window.innerHeight);
+    triggerRender();
+  });
+  
+  window.addEventListener('focus', triggerRender);
+  
+  // Touch events should trigger renders
+  canvasElement.addEventListener('touchstart', (e) => {
+    trackViewChange(e);
+    triggerRender();
+  });
+  
+  canvasElement.addEventListener('touchmove', (e) => {
+    trackViewChange(e);
+  });
+  
+  canvasElement.addEventListener('touchend', triggerRender);
+  
+  // Mouse events should trigger renders
+  canvasElement.addEventListener('mousedown', (e) => {
+    trackViewChange(e);
+    triggerRender();
+  });
+  
+  canvasElement.addEventListener('mousemove', (e) => {
+    trackViewChange(e);
+  });
+  
+  canvasElement.addEventListener('mouseup', triggerRender);
+  
+  // Throttle wheel events as they fire frequently
+  let wheelTimeout;
+  canvasElement.addEventListener('wheel', (e) => {
+    clearTimeout(wheelTimeout);
+    trackViewChange(e);
+    triggerRender();
+    
+    // Ensure we render the final state
+    wheelTimeout = setTimeout(triggerRender, 100);
+  });
   
   // Set up periodic data integrity checks to ensure tasks remain visible
   const runDataIntegrityCheck = () => {
     console.log('Running periodic data integrity check...');
     
-    // Validate trade filters to ensure tasks are visible
+    // Run only critical validation
     if (app.taskManager.validateTradeFilters) {
       app.taskManager.validateTradeFilters();
     }
     
-    // Validate task positions
-    if (app.taskManager.validateTaskPositions) {
-      app.taskManager.validateTaskPositions();
-    }
-    
     // Force a render to apply any fixes
-    app.render();
+    triggerRender();
   };
   
-  // Run integrity check every 30 seconds
-  setInterval(runDataIntegrityCheck, 30000);
-  
-  // Also run a check when the window regains focus
-  window.addEventListener('focus', () => {
-    console.log('Window regained focus, running data integrity check');
-    runDataIntegrityCheck();
-  });
-  
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    canvasElement.width = window.innerWidth;
-    canvasElement.height = window.innerHeight;
-    app.resize(window.innerWidth, window.innerHeight);
-  });
+  // Run integrity check less frequently - every 60 seconds instead of 30
+  setInterval(runDataIntegrityCheck, 60000);
   
   // Listen for messages from parent iframe
   window.addEventListener('message', (event) => {

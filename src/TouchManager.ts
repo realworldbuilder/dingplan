@@ -188,7 +188,25 @@ export class TouchManager {
     let velocityY = this.velocityY * 20;
     const friction = 0.95; // Friction factor (lower = more friction)
     
+    // Skip momentum if velocity is too low
+    if (Math.abs(velocityX) < 0.5 && Math.abs(velocityY) < 0.5) {
+      return;
+    }
+    
+    let lastTime = performance.now();
+    const targetFps = 60;
+    const frameTime = 1000 / targetFps;
+    
     const animate = () => {
+      const now = performance.now();
+      const elapsed = now - lastTime;
+      
+      // Limit frame rate for smoother animation
+      if (elapsed < frameTime) {
+        requestAnimationFrame(animate);
+        return;
+      }
+      
       // Slow down with friction
       velocityX *= friction;
       velocityY *= friction;
@@ -196,10 +214,11 @@ export class TouchManager {
       // Move the camera
       this.canvasApp.camera.x -= velocityX;
       this.canvasApp.camera.y -= velocityY;
-      this.canvasApp.render();
       
-      // Continue animation if velocity is significant
-      if (Math.abs(velocityX) > 0.1 || Math.abs(velocityY) > 0.1) {
+      // Only render if we moved by a significant amount
+      if (Math.abs(velocityX) > 0.05 || Math.abs(velocityY) > 0.05) {
+        this.canvasApp.render();
+        lastTime = now;
         requestAnimationFrame(animate);
       }
     };

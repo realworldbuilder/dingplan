@@ -340,28 +340,34 @@ export class Canvas {
   }
 
   render() {
-    Logger.log("Render method called", {
-      canvasWidth: this.canvas.width,
-      canvasHeight: this.canvas.height,
-      cameraZoom: this.camera.zoom,
-      cameraX: this.camera.x,
-      cameraY: this.camera.y
-    });
+    // Skip debug logging in production to improve performance
+    if (Logger.isDebugMode()) {
+      Logger.log("Render method called", {
+        canvasWidth: this.canvas.width,
+        canvasHeight: this.canvas.height,
+        cameraZoom: this.camera.zoom,
+        cameraX: this.camera.x,
+        cameraY: this.camera.y
+      });
+    }
     
-    // Clear canvas
+    // Performance tracking
+    const renderStart = performance.now();
+    
+    // Clear canvas - use direct clear method for better performance
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    Logger.log("Canvas cleared");
 
-    // Draw fixed header background
-    this.ctx.fillStyle = '#ffffff';
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-    this.ctx.shadowBlur = 4;
-    this.ctx.shadowOffsetY = 2;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.timeAxis.getHeaderHeight());
+    // Skip shadow effects for better performance
     this.ctx.shadowColor = 'transparent';
-    Logger.log("Header drawn");
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowOffsetX = 0;
+    this.ctx.shadowOffsetY = 0;
+
+    // Draw fixed header background - simple rect with no shadow
+    this.ctx.fillRect(0, 0, this.canvas.width, this.timeAxis.getHeaderHeight());
 
     // Apply main transform for all content
     this.ctx.setTransform(
@@ -379,32 +385,43 @@ export class Canvas {
     const visibleEndX = this.camera.x + (this.canvas.width / 2 / this.camera.zoom);
     const startX = Math.floor(visibleStartX / dayWidth) * dayWidth;
     const endX = Math.ceil(visibleEndX / dayWidth) * dayWidth;
+    
+    // Calculate visible y range for culling
+    const visibleStartY = this.camera.y - (this.canvas.height / 2 / this.camera.zoom);
+    const visibleEndY = this.camera.y + (this.canvas.height / 2 / this.camera.zoom);
 
-    // Draw swimlanes first
-    const totalHeight = this.taskManager.getTotalHeight();
-    this.taskManager.swimlanes.forEach(lane => {
-      // Draw swimlane background with opacity based on zoom
-      const bgOpacity = Math.min(0.08, 0.08 * (this.camera.zoom));
-      this.ctx.fillStyle = `${lane.color}${Math.floor(bgOpacity * 255).toString(16).padStart(2, '0')}`;
-      this.ctx.fillRect(
-        visibleStartX,
-        lane.y,
-        visibleEndX - visibleStartX,
-        lane.height
-      );
+    // PERFORMANCE: Skip drawing if zoomed out too far (just draw basic grid)
+    const isZoomedOutTooFar = this.camera.zoom < 0.2;
 
-      // Draw swimlane header with opacity based on zoom
-      const headerOpacity = Math.min(0.15, 0.15 * (this.camera.zoom));
-      this.ctx.fillStyle = `${lane.color}${Math.floor(headerOpacity * 255).toString(16).padStart(2, '0')}`;
-      this.ctx.fillRect(
-        visibleStartX,
-        lane.y,
-        visibleEndX - visibleStartX,
-        40 / this.camera.zoom
-      );
+    // Draw only visible swimlanes (culling)
+    if (!isZoomedOutTooFar) {
+      this.taskManager.swimlanes.forEach(lane => {
+        // Skip rendering if swimlane is not visible
+        if (lane.y > visibleEndY || lane.y + lane.height < visibleStartY) {
+          return;
+        }
+        
+        // Draw swimlane background with opacity based on zoom
+        const bgOpacity = Math.min(0.08, 0.08 * (this.camera.zoom));
+        this.ctx.fillStyle = `${lane.color}${Math.floor(bgOpacity * 255).toString(16).padStart(2, '0')}`;
+        this.ctx.fillRect(
+          visibleStartX,
+          lane.y,
+          visibleEndX - visibleStartX,
+          lane.height
+        );
 
-      // Don't draw lane labels here anymore (we'll draw them in fixed position later)
-    });
+        // Draw swimlane header with opacity based on zoom
+        const headerOpacity = Math.min(0.15, 0.15 * (this.camera.zoom));
+        this.ctx.fillStyle = `${lane.color}${Math.floor(headerOpacity * 255).toString(16).padStart(2, '0')}`;
+        this.ctx.fillRect(
+          visibleStartX,
+          lane.y,
+          visibleEndX - visibleStartX,
+          40 / this.camera.zoom
+        );
+      });
+    }
 
     // Draw main grid based on zoom level
     this.ctx.beginPath();
@@ -414,15 +431,30 @@ export class Canvas {
     const effectivePixelsPerDay = dayWidth * this.camera.zoom;
     const showDayLines = effectivePixelsPerDay >= 25;
     const showWeekLines = effectivePixelsPerDay >= 10;
-    const showMonthLines = true; // Always show month lines
+    const showMonthLines = true;
 
-    // Draw vertical time lines
-    for (let x = startX; x <= endX; x += dayWidth) {
+    // Optimize grid rendering based on zoom
+    let gridLineInterval = dayWidth; // Default to daily
+    
+    if (effectivePixelsPerDay < 5) {
+      // At very low zoom, only show month lines
+      gridLineInterval = dayWidth * 30;
+    } else if (effectivePixelsPerDay < 15) {
+      // At low zoom, show weekly lines
+      gridLineInterval = dayWidth * 7;
+    }
+
+    // Draw vertical time lines (with optimized interval)
+    for (let x = startX; x <= endX; x += gridLineInterval) {
       const date = this.timeAxis.worldToDate(x);
       const isMonthStart = date.getDate() === 1;
       const isWeekStart = date.getDay() === 1; // Monday
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
+      // Skip drawing based on zoom level
+      if (gridLineInterval === dayWidth * 30 && !isMonthStart) continue;
+      if (gridLineInterval === dayWidth * 7 && !isWeekStart && !isMonthStart) continue;
+      
       if (isMonthStart) {
         // Month lines are always visible and more prominent
         this.ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
@@ -437,20 +469,28 @@ export class Canvas {
       }
 
       this.ctx.beginPath();
-      this.ctx.moveTo(x, -this.canvas.height);
-      this.ctx.lineTo(x, this.taskManager.getTotalHeight() + this.canvas.height);
+      this.ctx.moveTo(x, visibleStartY); // Only draw within visible area
+      this.ctx.lineTo(x, visibleEndY);
       this.ctx.stroke();
     }
 
-    // Draw horizontal swimlane borders
-    this.taskManager.swimlanes.forEach(lane => {
-      const borderOpacity = Math.min(0.2, 0.2 * (this.camera.zoom));
-      this.ctx.strokeStyle = `rgba(200, 200, 200, ${borderOpacity})`;
-      this.ctx.beginPath();
-      this.ctx.moveTo(visibleStartX, lane.y);
-      this.ctx.lineTo(visibleEndX, lane.y);
-      this.ctx.stroke();
-    });
+    // Skip swimlane borders when zoomed out too far
+    if (!isZoomedOutTooFar) {
+      // Draw horizontal swimlane borders (only for visible swimlanes)
+      this.taskManager.swimlanes.forEach(lane => {
+        // Skip if not visible
+        if (lane.y > visibleEndY || lane.y + lane.height < visibleStartY) {
+          return;
+        }
+        
+        const borderOpacity = Math.min(0.2, 0.2 * (this.camera.zoom));
+        this.ctx.strokeStyle = `rgba(200, 200, 200, ${borderOpacity})`;
+        this.ctx.beginPath();
+        this.ctx.moveTo(visibleStartX, lane.y);
+        this.ctx.lineTo(visibleEndX, lane.y);
+        this.ctx.stroke();
+      });
+    }
 
     // Draw time axis on top of everything
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -465,30 +505,62 @@ export class Canvas {
     // Draw swimlane labels with fixed positioning
     this.drawFixedSwimlaneLabels();
 
-    // Restore transform for tasks
-    this.ctx.setTransform(
-      this.camera.zoom,
-      0,
-      0,
-      this.camera.zoom,
-      -this.camera.x * this.camera.zoom + this.canvas.width / 2,
-      -this.camera.y * this.camera.zoom + this.canvas.height / 2 + this.timeAxis.getHeaderHeight()
-    );
+    // Only draw tasks if we're not zoomed out too far
+    if (!isZoomedOutTooFar) {
+      // Restore transform for tasks
+      this.ctx.setTransform(
+        this.camera.zoom,
+        0,
+        0,
+        this.camera.zoom,
+        -this.camera.x * this.camera.zoom + this.canvas.width / 2,
+        -this.camera.y * this.camera.zoom + this.canvas.height / 2 + this.timeAxis.getHeaderHeight()
+      );
 
-    // Draw tasks
-    this.taskManager.drawTasks(this.ctx, this.timeAxis, this.camera);
+      // Draw tasks with visible range parameters
+      this.taskManager.drawTasks(
+        this.ctx, 
+        this.timeAxis, 
+        this.camera,
+        {
+          visibleStartX,
+          visibleEndX,
+          visibleStartY,
+          visibleEndY
+        }
+      );
+    }
     
-    // Reset transformation for resource histogram
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Skip resource histogram when performance is critical
+    const skipHistogram = isZoomedOutTooFar || this.camera.zoom < 0.5;
     
-    // Calculate resource data from tasks
-    this.resourceHistogram.calculateResources(this.taskManager.getAllTasks());
-    
-    // Draw resource histogram at bottom of screen
-    this.resourceHistogram.draw(this.ctx, this.camera, this.canvas.height);
+    if (!skipHistogram) {
+      // Reset transformation for resource histogram
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      
+      // Calculate resource data from tasks - limit scope to visible date range
+      const visibleStartDate = this.timeAxis.worldToDate(visibleStartX);
+      const visibleEndDate = this.timeAxis.worldToDate(visibleEndX);
+      this.resourceHistogram.calculateResources(
+        this.taskManager.getAllTasks(),
+        visibleStartDate,
+        visibleEndDate
+      );
+      
+      // Draw resource histogram at bottom of screen
+      this.resourceHistogram.draw(this.ctx, this.camera, this.canvas.height);
+    }
 
     // Draw fixed elements
     this.drawFixedElements();
+    
+    // Performance logging in debug mode
+    if (Logger.isDebugMode()) {
+      const renderTime = performance.now() - renderStart;
+      if (renderTime > 16.7) { // Longer than one frame at 60fps
+        Logger.warn(`Render took ${renderTime.toFixed(2)}ms (longer than 16.7ms frame budget)`);
+      }
+    }
   }
   
   // New method to draw swimlane labels in fixed position
