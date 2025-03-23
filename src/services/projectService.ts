@@ -1,6 +1,5 @@
 /**
  * Service for handling project data persistence with the server
- * TEMPORARY: Using localStorage for persistence instead of server API
  */
 
 import { getCurrentUserId, isAuthenticated } from './authService';
@@ -8,7 +7,7 @@ import { getCurrentUserId, isAuthenticated } from './authService';
 // Base API URL - should be configurable from environment
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// Storage keys for localStorage
+// Storage keys for localStorage fallback
 const PROJECTS_KEY = 'dingplan_projects';
 const CURRENT_PROJECT_INDEX = 'dingplan_current_project_index';
 
@@ -49,7 +48,7 @@ const generateId = (): string => {
 };
 
 /**
- * Save a project to localStorage (mock server)
+ * Save a project to the server API
  */
 export const saveProject = async (
   projectData: any,
@@ -71,6 +70,48 @@ export const saveProject = async (
       console.error('[projectService] Project data is empty or invalid');
       throw new Error('Project data is empty or invalid');
     }
+    
+    // If user is authenticated, save to server API
+    if (isUserAuthenticated && userId !== 'anonymous') {
+      console.log('[projectService] User is authenticated, saving to server API');
+      
+      try {
+        const response = await fetch(`${API_URL}/projects`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            name: metadata.name,
+            description: metadata.description || '',
+            projectData,
+            isPublic: metadata.isPublic || false,
+            tags: metadata.tags || []
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          console.error('[projectService] API error:', result);
+          throw new Error(result.message || 'Failed to save project to server');
+        }
+        
+        console.log('[projectService] Project saved to server successfully:', result);
+        
+        return {
+          success: true,
+          projectId: result.data._id
+        };
+      } catch (apiError) {
+        console.error('[projectService] Server API error, falling back to localStorage:', apiError);
+        // Fall back to localStorage if server API fails
+      }
+    }
+    
+    // Save to localStorage as fallback or for anonymous users
+    console.log('[projectService] Saving to localStorage (fallback or anonymous user)');
     
     // Initialize localStorage if needed
     initializeLocalStorage();
@@ -122,9 +163,6 @@ export const saveProject = async (
                      (storageError instanceof Error ? storageError.message : 'Storage error'));
     }
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
     return {
       success: true,
       projectId: projectId
@@ -139,7 +177,7 @@ export const saveProject = async (
 };
 
 /**
- * Update an existing project in localStorage (mock server)
+ * Update an existing project on the server
  */
 export const updateProject = async (
   projectId: string,
@@ -152,9 +190,14 @@ export const updateProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Updating project locally: ${projectId}`, {
+    const userId = getCurrentUserId();
+    const isUserAuthenticated = isAuthenticated();
+    
+    console.log(`[projectService] Updating project: ${projectId}`, {
       taskCount: projectData?.tasks?.length || 0,
-      swimlaneCount: projectData?.swimlanes?.length || 0
+      swimlaneCount: projectData?.swimlanes?.length || 0,
+      userId,
+      isAuthenticated: isUserAuthenticated
     });
     
     // Count dependencies for logging
@@ -168,6 +211,48 @@ export const updateProject = async (
     }
     console.log(`[projectService] Project includes ${totalDependencyCount} task dependencies`);
     
+    // If user is authenticated, update on server API
+    if (isUserAuthenticated && userId !== 'anonymous') {
+      console.log('[projectService] User is authenticated, updating on server API');
+      
+      try {
+        const response = await fetch(`${API_URL}/projects/${projectId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId,
+            name: metadata.name,
+            description: metadata.description,
+            projectData,
+            isPublic: metadata.isPublic,
+            tags: metadata.tags
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          console.error('[projectService] API error:', result);
+          throw new Error(result.message || 'Failed to update project on server');
+        }
+        
+        console.log('[projectService] Project updated on server successfully:', result);
+        
+        // Also make sure we save the currentProjectId for consistency
+        localStorage.setItem('currentProjectId', projectId);
+        
+        return { success: true };
+      } catch (apiError) {
+        console.error('[projectService] Server API error, falling back to localStorage:', apiError);
+        // Fall back to localStorage if server API fails
+      }
+    }
+    
+    // Update in localStorage as fallback or for anonymous users
+    console.log('[projectService] Updating in localStorage (fallback or anonymous user)');
+    
     // Get existing projects
     const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
     const projects = JSON.parse(projectsJson);
@@ -180,7 +265,6 @@ export const updateProject = async (
     }
     
     // Check if user owns the project
-    const userId = getCurrentUserId();
     if (projects[projectIndex].userId !== userId && projects[projectIndex].userId !== 'anonymous') {
       throw new Error('You do not have permission to edit this project');
     }
@@ -207,9 +291,6 @@ export const updateProject = async (
     
     console.log('[projectService] Project updated locally:', projectId);
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
     return { success: true };
   } catch (error: any) {
     console.error('[projectService] Error updating project:', error);
@@ -221,7 +302,7 @@ export const updateProject = async (
 };
 
 /**
- * Load a project from localStorage (mock server)
+ * Load a project from the server or localStorage
  */
 export const loadProject = async (
   projectId: string
@@ -232,10 +313,85 @@ export const loadProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Loading project locally: ${projectId}`);
+    const userId = getCurrentUserId();
+    const isUserAuthenticated = isAuthenticated();
+    
+    console.log(`[projectService] Loading project: ${projectId}, userId: ${userId}, authenticated: ${isUserAuthenticated}`);
     
     // Set currentProjectId in localStorage for consistency
     localStorage.setItem('currentProjectId', projectId);
+    
+    // First try to load from server API if user is authenticated
+    if (isUserAuthenticated && userId !== 'anonymous') {
+      console.log('[projectService] User is authenticated, trying to load from server API');
+      
+      try {
+        const response = await fetch(`${API_URL}/projects/${projectId}?userId=${encodeURIComponent(userId)}`);
+        
+        // If we get a 404, the project might be in localStorage
+        if (response.status === 404) {
+          console.log('[projectService] Project not found on server, checking localStorage');
+          // Continue to localStorage fallback
+        } else {
+          const result = await response.json();
+          
+          if (!response.ok) {
+            console.error('[projectService] API error:', result);
+            throw new Error(result.message || 'Failed to load project from server');
+          }
+          
+          const project = result.data;
+          
+          console.log('[projectService] Project loaded from server successfully:', { 
+            id: project._id,
+            name: project.name,
+            tasks: project.projectData?.tasks?.length || 0
+          });
+          
+          // Count dependencies for logging
+          let totalDependencyCount = 0;
+          if (project.projectData && project.projectData.tasks) {
+            project.projectData.tasks.forEach((task: any) => {
+              if (task.dependencies && Array.isArray(task.dependencies)) {
+                totalDependencyCount += task.dependencies.length;
+              }
+            });
+          }
+          console.log(`[projectService] Loaded project with ${project.projectData?.tasks?.length || 0} tasks and ${totalDependencyCount} dependencies`);
+          
+          // Format the project data
+          const formattedProject: ProjectData = {
+            metadata: {
+              id: project._id,
+              name: project.name,
+              description: project.description,
+              isPublic: project.isPublic,
+              tags: project.tags,
+              userId: project.userId,
+              createdAt: new Date(project.createdAt),
+              updatedAt: new Date(project.updatedAt)
+            },
+            projectData: project.projectData
+          };
+          
+          return {
+            success: true,
+            project: formattedProject
+          };
+        }
+      } catch (apiError) {
+        if (apiError instanceof Error && apiError.message.includes('Failed to fetch')) {
+          console.warn('[projectService] Server API unavailable, falling back to localStorage');
+          // Continue to localStorage fallback
+        } else {
+          console.error('[projectService] Error loading from server API:', apiError);
+          // Continue to localStorage fallback
+        }
+      }
+    }
+    
+    // Fallback to localStorage
+    console.log('[projectService] Falling back to localStorage to load project');
     
     // Get existing projects
     const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
@@ -245,12 +401,11 @@ export const loadProject = async (
     const project = projects.find((p: any) => p._id === projectId);
     
     if (!project) {
-      throw new Error('Project not found');
+      throw new Error('Project not found in local storage');
     }
     
     // If the project is not public, check if the user owns it
     if (!project.isPublic) {
-      const userId = getCurrentUserId();
       if (project.userId !== userId && project.userId !== 'anonymous') {
         throw new Error('You do not have permission to view this project');
       }
@@ -265,7 +420,7 @@ export const loadProject = async (
         }
       });
     }
-    console.log(`[projectService] Loaded project with ${project.projectData?.tasks?.length || 0} tasks and ${totalDependencyCount} dependencies`);
+    console.log(`[projectService] Loaded project with ${project.projectData?.tasks?.length || 0} tasks and ${totalDependencyCount} dependencies from localStorage`);
     
     // Format the project data
     const formattedProject: ProjectData = {
@@ -282,9 +437,6 @@ export const loadProject = async (
       projectData: project.projectData
     };
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
     return {
       success: true,
       project: formattedProject
@@ -299,7 +451,7 @@ export const loadProject = async (
 };
 
 /**
- * Delete a project from localStorage (mock server)
+ * Delete a project from the server or localStorage
  */
 export const deleteProject = async (
   projectId: string
@@ -310,36 +462,52 @@ export const deleteProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Deleting project locally: ${projectId}`);
-    
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
-    
-    // Find the project before deleting it
-    const projectToDelete = projects.find((p: any) => p._id === projectId);
-    if (!projectToDelete) {
-      throw new Error('Project not found');
-    }
-    
-    // Check if user owns the project
     const userId = getCurrentUserId();
-    if (projectToDelete.userId !== userId && projectToDelete.userId !== 'anonymous') {
-      throw new Error('You do not have permission to delete this project');
+    const isUserAuthenticated = isAuthenticated();
+    
+    console.log(`[projectService] Deleting project: ${projectId}, userId: ${userId}, authenticated: ${isUserAuthenticated}`);
+    
+    // If user is authenticated, delete from server API
+    if (isUserAuthenticated && userId !== 'anonymous') {
+      console.log('[projectService] User is authenticated, deleting from server API');
+      
+      try {
+        const response = await fetch(`${API_URL}/projects/${projectId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId })
+        });
+        
+        // Handle case where project is not found on server
+        if (response.status === 404) {
+          console.log('[projectService] Project not found on server, checking localStorage');
+          // Continue to localStorage fallback
+        } else {
+          const result = await response.json();
+          
+          if (!response.ok) {
+            console.error('[projectService] API error:', result);
+            throw new Error(result.message || 'Failed to delete project from server');
+          }
+          
+          console.log('[projectService] Project deleted from server successfully');
+          
+          // If the project was successfully deleted from the server,
+          // also delete it from localStorage if it exists there
+          deleteFromLocalStorage(projectId, userId);
+          
+          return { success: true };
+        }
+      } catch (apiError) {
+        console.error('[projectService] Server API error, falling back to localStorage:', apiError);
+        // Fall back to localStorage if server API fails
+      }
     }
     
-    // Filter out the project to delete
-    const updatedProjects = projects.filter((p: any) => p._id !== projectId);
-    
-    // Save back to localStorage
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
-    
-    console.log('[projectService] Project deleted locally:', projectId);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    return { success: true };
+    // Fallback to delete from localStorage
+    return deleteFromLocalStorage(projectId, userId);
   } catch (error: any) {
     console.error('[projectService] Error deleting project:', error);
     return {
@@ -350,7 +518,50 @@ export const deleteProject = async (
 };
 
 /**
- * Get all projects for the current user from localStorage (mock server)
+ * Helper function to delete a project from localStorage
+ */
+const deleteFromLocalStorage = (
+  projectId: string,
+  userId: string
+): { success: boolean; error?: string } => {
+  console.log(`[projectService] Deleting project from localStorage: ${projectId}`);
+  
+  try {
+    // Get existing projects
+    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
+    const projects = JSON.parse(projectsJson);
+    
+    // Find the project before deleting it
+    const projectToDelete = projects.find((p: any) => p._id === projectId);
+    if (!projectToDelete) {
+      throw new Error('Project not found in localStorage');
+    }
+    
+    // Check if user owns the project
+    if (projectToDelete.userId !== userId && projectToDelete.userId !== 'anonymous') {
+      throw new Error('You do not have permission to delete this project');
+    }
+    
+    // Filter out the project to delete
+    const updatedProjects = projects.filter((p: any) => p._id !== projectId);
+    
+    // Save back to localStorage
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    
+    console.log('[projectService] Project deleted from localStorage:', projectId);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projectService] Error deleting project from localStorage:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while deleting the project from localStorage'
+    };
+  }
+};
+
+/**
+ * Get all projects for the current user from the server or localStorage
  */
 export const getUserProjects = async (): Promise<{
   success: boolean;
@@ -358,48 +569,99 @@ export const getUserProjects = async (): Promise<{
   error?: string;
 }> => {
   try {
-    console.log('[projectService] Getting user projects locally');
+    const userId = getCurrentUserId();
+    const isUserAuthenticated = isAuthenticated();
+    
+    console.log(`[projectService] Getting user projects, userId: ${userId}, authenticated: ${isUserAuthenticated}`);
+    
+    let serverProjects: ProjectMetadata[] = [];
+    
+    // First try to get projects from server API if user is authenticated
+    if (isUserAuthenticated && userId !== 'anonymous') {
+      console.log('[projectService] User is authenticated, trying to load projects from server API');
+      
+      try {
+        const response = await fetch(`${API_URL}/projects/user/${encodeURIComponent(userId)}`);
+        const result = await response.json();
+        
+        if (!response.ok) {
+          console.error('[projectService] API error:', result);
+          throw new Error(result.message || 'Failed to get projects from server');
+        }
+        
+        serverProjects = result.data.map((p: any) => ({
+          id: p._id,
+          name: p.name,
+          description: p.description,
+          isPublic: p.isPublic,
+          tags: p.tags,
+          userId: p.userId,
+          createdAt: new Date(p.createdAt),
+          updatedAt: new Date(p.updatedAt)
+        }));
+        
+        console.log(`[projectService] Found ${serverProjects.length} projects on server`);
+      } catch (apiError) {
+        console.error('[projectService] Server API error, falling back to localStorage:', apiError);
+        // Fall back to localStorage if server API fails
+      }
+    }
+    
+    // Get local projects as well (for fallback or merging)
+    console.log('[projectService] Getting projects from localStorage');
     
     // Get existing projects
     const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
-    
-    // Current user ID
-    const userId = getCurrentUserId();
+    const localProjects = JSON.parse(projectsJson);
     
     // Get projects based on authentication status
     let userProjects = [];
     
-    if (isAuthenticated()) {
-      // If authenticated, only show this user's projects
-      userProjects = projects.filter((p: any) => p.userId === userId);
+    if (isUserAuthenticated) {
+      // If authenticated, get projects from server and merge with local projects that aren't on server
+      userProjects = serverProjects;
+      
+      // Get IDs of server projects
+      const serverProjectIds = new Set(serverProjects.map(p => p.id));
+      
+      // Add local projects that aren't on server yet
+      const localOnlyProjects = localProjects
+        .filter((p: any) => p.userId === userId && !serverProjectIds.has(p._id))
+        .map((p: any) => ({
+          id: p._id,
+          name: p.name,
+          description: p.description,
+          isPublic: p.isPublic,
+          tags: p.tags,
+          userId: p.userId,
+          createdAt: new Date(p.createdAt),
+          updatedAt: new Date(p.updatedAt),
+          isLocalOnly: true // Mark as local-only projects
+        }));
+      
+      userProjects = [...userProjects, ...localOnlyProjects];
+      console.log(`[projectService] Added ${localOnlyProjects.length} local-only projects`);
     } else {
       // If not authenticated, show only anonymous projects and public projects
-      userProjects = projects.filter(
-        (p: any) => p.userId === 'anonymous' || p.isPublic === true
-      );
+      userProjects = localProjects
+        .filter((p: any) => p.userId === 'anonymous' || p.isPublic === true)
+        .map((p: any) => ({
+          id: p._id,
+          name: p.name,
+          description: p.description,
+          isPublic: p.isPublic,
+          tags: p.tags,
+          userId: p.userId,
+          createdAt: new Date(p.createdAt),
+          updatedAt: new Date(p.updatedAt)
+        }));
     }
     
-    // Format the projects
-    const formattedProjects: ProjectMetadata[] = userProjects.map((p: any) => ({
-      id: p._id,
-      name: p.name,
-      description: p.description,
-      isPublic: p.isPublic,
-      tags: p.tags,
-      userId: p.userId,
-      createdAt: new Date(p.createdAt),
-      updatedAt: new Date(p.updatedAt)
-    }));
-    
-    console.log(`[projectService] Found ${formattedProjects.length} projects locally`);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log(`[projectService] Found ${userProjects.length} total projects for user`);
     
     return {
       success: true,
-      projects: formattedProjects
+      projects: userProjects
     };
   } catch (error: any) {
     console.error('[projectService] Error getting user projects:', error);
@@ -408,4 +670,86 @@ export const getUserProjects = async (): Promise<{
       error: error.message || 'An error occurred while getting projects'
     };
   }
-}; 
+};
+
+/**
+ * Migrate a project from localStorage to the server
+ */
+export const migrateProjectToServer = async (
+  projectId: string
+): Promise<{ success: boolean; serverProjectId?: string; error?: string }> => {
+  try {
+    // Validate the projectId
+    if (!projectId || projectId === 'undefined' || projectId === 'null') {
+      throw new Error('Invalid project ID');
+    }
+    
+    const userId = getCurrentUserId();
+    const isUserAuthenticated = isAuthenticated();
+    
+    // Check if user is authenticated
+    if (!isUserAuthenticated || userId === 'anonymous') {
+      throw new Error('You must be authenticated to migrate a project to the server');
+    }
+    
+    console.log(`[projectService] Migrating project to server: ${projectId}`);
+    
+    // First load the project from localStorage
+    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
+    const projects = JSON.parse(projectsJson);
+    
+    // Find the project
+    const project = projects.find((p: any) => p._id === projectId);
+    
+    if (!project) {
+      throw new Error('Project not found in localStorage');
+    }
+    
+    // Update the userId to the authenticated user's ID
+    project.userId = userId;
+    
+    // Upload to server
+    const response = await fetch(`${API_URL}/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId,
+        name: project.name,
+        description: project.description || '',
+        projectData: project.projectData,
+        isPublic: project.isPublic || false,
+        tags: project.tags || []
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error('[projectService] API error:', result);
+      throw new Error(result.message || 'Failed to migrate project to server');
+    }
+    
+    const serverProjectId = result.data._id;
+    console.log(`[projectService] Project migrated to server successfully with ID: ${serverProjectId}`);
+    
+    // Delete the local copy to avoid duplicates
+    const updatedProjects = projects.filter((p: any) => p._id !== projectId);
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    
+    // Update currentProjectId to the new server ID
+    localStorage.setItem('currentProjectId', serverProjectId);
+    
+    return {
+      success: true,
+      serverProjectId
+    };
+  } catch (error: any) {
+    console.error('[projectService] Error migrating project to server:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while migrating the project to the server'
+    };
+  }
+};

@@ -25,10 +25,28 @@ const SidebarAuth = () => {
         // User is signed in, store their ID
         console.log('[SidebarAuth] Setting current user:', user.id);
         setCurrentUser(user.id);
+        
+        // Dispatch an event to notify the application of authentication change
+        const authChangeEvent = new CustomEvent('auth-state-changed', {
+          detail: { 
+            authenticated: true,
+            userId: user.id
+          }
+        });
+        document.dispatchEvent(authChangeEvent);
       } else {
         // User is signed out, clear their ID
         console.log('[SidebarAuth] Clearing current user');
         clearCurrentUser();
+        
+        // Dispatch an event to notify the application of authentication change
+        const authChangeEvent = new CustomEvent('auth-state-changed', {
+          detail: { 
+            authenticated: false,
+            userId: 'anonymous'
+          }
+        });
+        document.dispatchEvent(authChangeEvent);
       }
     }
   }, [isLoaded, isSignedIn, user]);

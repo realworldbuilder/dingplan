@@ -8,7 +8,8 @@ import {
   updateProject, 
   loadProject, 
   deleteProject, 
-  getUserProjects 
+  getUserProjects,
+  migrateProjectToServer
 } from '../services/projectService';
 import { onAuthStateChanged, isAuthenticated } from '../services/authService';
 
@@ -50,6 +51,12 @@ export class ProjectManager {
     
     // Subscribe to auth state changes
     onAuthStateChanged(this.handleAuthStateChange.bind(this));
+    
+    // Also listen for auth-state-changed events from the React auth component
+    document.addEventListener('auth-state-changed', (e: CustomEvent) => {
+      console.log('[ProjectManager] Received auth-state-changed event:', e.detail);
+      this.handleAuthStateChange(e.detail);
+    });
   }
 
   /**
@@ -189,12 +196,62 @@ export class ProjectManager {
         background-color: rgba(0, 0, 0, 0.03);
       }
       
+      /* Project item content layout */
+      .project-item-content {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
       /* Project name styling */
       .project-name {
         font-size: 14px;
         font-weight: 500;
         margin: 0;
         color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      /* Local indicator styling */
+      .local-indicator {
+        color: #0066cc;
+        font-size: 12px;
+        margin-left: 8px;
+      }
+      
+      /* Project actions styling */
+      .project-actions {
+        display: flex;
+        gap: 8px;
+      }
+      
+      .project-actions button {
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        background-color: #f5f5f5;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      
+      .project-actions button:hover {
+        background-color: #e0e0e0;
+      }
+      
+      .load-project {
+        color: #0066cc;
+      }
+      
+      .delete-project {
+        color: #cc0000;
+      }
+      
+      .migrate-project {
+        color: #006600;
+        background-color: #effbef !important;
       }
       
       /* Remove excess project details */
@@ -2095,13 +2152,57 @@ export class ProjectManager {
           projectItem.className = 'project-item';
           projectItem.dataset.id = project.id;
           
+          // Add a visual indicator for local-only projects
+          const localOnlyIndicator = project.isLocalOnly ? 
+            '<span class="local-indicator" title="Stored locally only">📱</span>' : '';
+          
           projectItem.innerHTML = `
-            <div class="project-name">${project.name}</div>
+            <div class="project-item-content">
+              <div class="project-name">${project.name} ${localOnlyIndicator}</div>
+              <div class="project-actions">
+                <button class="load-project" data-id="${project.id}" title="Load project">Open</button>
+                <button class="delete-project" data-id="${project.id}" title="Delete project">Delete</button>
+                ${project.isLocalOnly ? 
+                  `<button class="migrate-project" data-id="${project.id}" title="Save to server">Migrate</button>` : ''}
+              </div>
+            </div>
           `;
           
-          projectItem.addEventListener('click', () => {
-            this.loadProjectFromServer(project.id);
-          });
+          // Load project when clicking the load button
+          const loadBtn = projectItem.querySelector('.load-project');
+          if (loadBtn) {
+            loadBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const projectId = (e.target as HTMLElement).dataset.id;
+              if (projectId) {
+                this.loadProjectFromServer(projectId);
+              }
+            });
+          }
+          
+          // Delete project when clicking the delete button
+          const deleteBtn = projectItem.querySelector('.delete-project');
+          if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const projectId = (e.target as HTMLElement).dataset.id;
+              if (projectId) {
+                this.deleteProjectFromServer(projectId);
+              }
+            });
+          }
+          
+          // Migrate project when clicking the migrate button
+          const migrateBtn = projectItem.querySelector('.migrate-project');
+          if (migrateBtn) {
+            migrateBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const projectId = (e.target as HTMLElement).dataset.id;
+              if (projectId) {
+                this.migrateProjectToServer(projectId);
+              }
+            });
+          }
           
           return projectItem;
         };
@@ -2544,12 +2645,32 @@ export class ProjectManager {
     });
     
     // Add active class to current project
-    const activeProject = this.projectSidebar.querySelector(`.project-item .load-project[data-id="${projectId}"]`);
-    if (activeProject) {
-      const projectItem = activeProject.closest('.project-item');
+    // First try to find by the load-project button's data-id
+    const activeProjectBtn = this.projectSidebar.querySelector(`.project-item .load-project[data-id="${projectId}"]`);
+    if (activeProjectBtn) {
+      const projectItem = activeProjectBtn.closest('.project-item');
       if (projectItem) {
         projectItem.classList.add('active');
       }
+    } else {
+      // Fallback to find by the project-item's data-id
+      const projectItem = this.projectSidebar.querySelector(`.project-item[data-id="${projectId}"]`);
+      if (projectItem) {
+        projectItem.classList.add('active');
+      }
+    }
+    
+    // Add a CSS rule for active project highlighting if not already added
+    if (!document.querySelector('style#project-active-style')) {
+      const style = document.createElement('style');
+      style.id = 'project-active-style';
+      style.textContent = `
+        .project-item.active {
+          background-color: rgba(0, 102, 204, 0.08);
+          border-left: 3px solid #0066cc;
+        }
+      `;
+      document.head.appendChild(style);
     }
   }
 
@@ -2579,6 +2700,48 @@ export class ProjectManager {
       }
     } catch (error) {
       this.showNotification('Error deleting project: ' + (error as Error).message, 'error');
+    }
+  }
+  
+  /**
+   * Migrate a project from localStorage to the server
+   */
+  async migrateProjectToServer(projectId: string) {
+    if (!confirm('This will save your local project to the server. Continue?')) {
+      return;
+    }
+    
+    try {
+      // Show loading indicator
+      this.showLoading('Migrating project to server...');
+      
+      // Call the migration function
+      const response = await migrateProjectToServer(projectId);
+      
+      // Hide loading indicator
+      this.hideLoading();
+      
+      if (response.success) {
+        this.showNotification('Project migrated to server successfully');
+        
+        // If this is the current project, update the ID
+        if (this.currentProjectId === projectId) {
+          this.currentProjectId = response.serverProjectId || null;
+          
+          // Update URL with new project ID
+          if (this.currentProjectId) {
+            this.updateUrlWithProjectId(this.currentProjectId);
+          }
+        }
+        
+        // Refresh the projects list
+        this.loadUserProjects();
+      } else {
+        this.showNotification('Error migrating project: ' + response.error, 'error');
+      }
+    } catch (error) {
+      this.hideLoading();
+      this.showNotification('Error migrating project: ' + (error as Error).message, 'error');
     }
   }
 
