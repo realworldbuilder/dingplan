@@ -1,0 +1,358 @@
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+^C
+cd server && git add src/index.js && git commit -m "Add public test endpoint" && vercel --prod
+/**
+ * Service for handling project data persistence with the server
+ */
+
+import { getCurrentUserId, isAuthenticated } from './authService';
+
+// Base API URL - should be configurable from environment
+// Different API URL depending on the environment
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// In production on the main domain, use the API URL from Vercel
+if (import.meta.env.PROD) {
+  const hostname = window.location.hostname;
+  if (hostname === 'www.dingplan.com' || hostname === 'dingplan.com') {
+    API_URL = 'https://dingplan-ect9zkx45-founders-projects-f9dfa652.vercel.app';
+  } else {
+    // For Vercel preview deployments, use relative path
+    API_URL = '/api';
+  }
+}
+
+console.log('[projectService] Using API URL:', API_URL);
+
+interface ProjectMetadata {
+  id?: string;
+  name: string;
+  description?: string;
+  isPublic?: boolean;
+  tags?: string[];
+  createdAt?: Date;
+  updatedAt?: Date;
+  userId?: string;
+}
+
+interface ProjectData {
+  metadata: ProjectMetadata;
+  projectData: any;
+}
+
+/**
+ * Save a project to the server
+ */
+export const saveProject = async (
+  projectData: any,
+  metadata: ProjectMetadata
+): Promise<{ success: boolean; projectId?: string; error?: string }> => {
+  try {
+    const userId = getCurrentUserId();
+    const isUserAuthenticated = isAuthenticated();
+    
+    console.log('[projectService] Saving project:', { 
+      name: metadata.name,
+      userId,
+      isAuthenticated: isUserAuthenticated,
+      dataSize: projectData ? JSON.stringify(projectData).length : 0
+    });
+    
+    // Validate project data
+    if (!projectData) {
+      console.error('[projectService] Project data is empty or invalid');
+      throw new Error('Project data is empty or invalid');
+    }
+    
+    // Create project object
+    const project = {
+      userId: userId || 'anonymous',
+      name: metadata.name,
+      description: metadata.description || '',
+      projectData: projectData,
+      isPublic: metadata.isPublic || false,
+      tags: metadata.tags || []
+    };
+    
+    // Send to server
+    const response = await fetch(`${API_URL}/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(project)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to save project');
+    }
+    
+    const result = await response.json();
+    console.log(`[projectService] Project saved successfully with ID: ${result.id}`);
+    
+    return {
+      success: true,
+      projectId: result.id
+    };
+  } catch (error: any) {
+    console.error('[projectService] Error saving project:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while saving the project'
+    };
+  }
+};
+
+/**
+ * Update an existing project on the server
+ */
+export const updateProject = async (
+  projectId: string,
+  projectData: any,
+  metadata: ProjectMetadata
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Validate the projectId
+    if (!projectId || projectId === 'undefined' || projectId === 'null') {
+      throw new Error('Invalid project ID');
+    }
+    
+    console.log(`[projectService] Updating project: ${projectId}`);
+    
+    // Update the project
+    const projectUpdate = {
+      name: metadata.name,
+      description: metadata.description,
+      projectData: projectData,
+      isPublic: metadata.isPublic,
+      tags: metadata.tags
+    };
+    
+    // Send to server
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(projectUpdate)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update project');
+    }
+    
+    console.log('[projectService] Project updated:', projectId);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projectService] Error updating project:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while updating the project'
+    };
+  }
+};
+
+/**
+ * Load a project from the server
+ */
+export const loadProject = async (
+  projectId: string
+): Promise<{ success: boolean; project?: ProjectData; error?: string }> => {
+  try {
+    // Validate the projectId
+    if (!projectId || projectId === 'undefined' || projectId === 'null') {
+      throw new Error('Invalid project ID');
+    }
+    
+    console.log(`[projectService] Loading project: ${projectId}`);
+    
+    // Fetch from server
+    const response = await fetch(`${API_URL}/projects/${projectId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to load project');
+    }
+    
+    const project = await response.json();
+    
+    // Format the project data
+    const formattedProject: ProjectData = {
+      metadata: {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        isPublic: project.isPublic,
+        tags: project.tags,
+        userId: project.userId,
+        createdAt: new Date(project.createdAt),
+        updatedAt: new Date(project.updatedAt)
+      },
+      projectData: project.projectData
+    };
+    
+    return {
+      success: true,
+      project: formattedProject
+    };
+  } catch (error: any) {
+    console.error('[projectService] Error loading project:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while loading the project'
+    };
+  }
+};
+
+/**
+ * Delete a project from the server
+ */
+export const deleteProject = async (
+  projectId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Validate the projectId
+    if (!projectId || projectId === 'undefined' || projectId === 'null') {
+      throw new Error('Invalid project ID');
+    }
+    
+    console.log(`[projectService] Deleting project: ${projectId}`);
+    
+    // Delete from server
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete project');
+    }
+    
+    console.log('[projectService] Project deleted successfully');
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('[projectService] Error deleting project:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while deleting the project'
+    };
+  }
+};
+
+/**
+ * Get all projects for the current user from the server
+ */
+export const getUserProjects = async (): Promise<{
+  success: boolean;
+  projects?: ProjectMetadata[];
+  error?: string;
+}> => {
+  try {
+    const userId = getCurrentUserId() || 'anonymous';
+    console.log(`[projectService] Getting projects for user: ${userId}`);
+    
+    // Fetch from server
+    const response = await fetch(`${API_URL}/projects/user/${userId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to load projects');
+    }
+    
+    const projects = await response.json();
+    
+    // Format projects for the UI
+    const formattedProjects = projects.map((project: any) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      isPublic: project.isPublic,
+      tags: project.tags,
+      userId: project.userId,
+      createdAt: new Date(project.createdAt),
+      updatedAt: new Date(project.updatedAt)
+    }));
+    
+    return {
+      success: true,
+      projects: formattedProjects
+    };
+  } catch (error: any) {
+    console.error('[projectService] Error loading user projects:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while loading projects'
+    };
+  }
+};
+
+/**
+ * Get all public projects from the server
+ */
+export const getPublicProjects = async (): Promise<{
+  success: boolean;
+  projects?: ProjectMetadata[];
+  error?: string;
+}> => {
+  try {
+    console.log('[projectService] Getting public projects');
+    
+    // Fetch from server
+    const response = await fetch(`${API_URL}/projects/public`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to load public projects');
+    }
+    
+    const projects = await response.json();
+    
+    // Format projects for the UI
+    const formattedProjects = projects.map((project: any) => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      isPublic: project.isPublic,
+      tags: project.tags,
+      userId: project.userId,
+      createdAt: new Date(project.createdAt),
+      updatedAt: new Date(project.updatedAt)
+    }));
+    
+    return {
+      success: true,
+      projects: formattedProjects
+    };
+  } catch (error: any) {
+    console.error('[projectService] Error loading public projects:', error);
+    return {
+      success: false,
+      error: error.message || 'An error occurred while loading public projects'
+    };
+  }
+}; 

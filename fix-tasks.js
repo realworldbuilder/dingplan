@@ -1,145 +1,223 @@
 /**
- * Direct Fix for Task Creation Issue
+ * Direct Fix for Task Visibility Issue
  * 
- * This script:
- * 1. Silences console logging by overriding console methods
- * 2. Injects a task directly into the tasks array
- * 3. Forces a render to check if tasks appear
+ * This script addresses the issue where tasks are invisible but resources still show up.
+ * It focuses on fixing:
+ * 1. Trade filters that might be hiding tasks
+ * 2. Task positions that might be incorrect
+ * 3. Swimlane-task relationships
  */
 
-// Step 1: Silence console logs
-const originalConsole = {
-  log: console.log
-};
-
-// Override console.log to filter out the spam
-console.log = function(...args) {
-  // Filter out all the task array empty messages
-  if (args[0] && typeof args[0] === 'string' && 
-      (args[0].includes('tasks array is empty') || 
-       args[0].includes('Render method - Total tasks'))) {
-    return; // Don't log these messages
-  }
-  
-  // Log everything else normally
-  originalConsole.log(...args);
-};
-
-// Step 2: Function to directly inject a task
-function injectTestTask() {
-  if (!window.canvasApp || !window.canvasApp.taskManager) {
+// Step 1: Reset all trade filters to ensure everything is visible
+function resetTradeFilters() {
+  if (!window.canvasApp) {
     console.log('Canvas app not found. Try running this after the page fully loads.');
     return false;
   }
   
   try {
-    // Create a task with distinctive properties
-    const uniqueId = 'test-' + Date.now();
-    const testTask = {
-      id: uniqueId,
-      name: `Direct Test Task ${new Date().toLocaleTimeString()}`,
-      startDate: new Date(),
-      duration: 5,
-      crewSize: 3,
-      color: '#ff0000',
-      tradeId: 'default',
-      dependencies: []
-    };
+    console.log('Resetting all trade filters to make all tasks visible...');
     
-    // Get the reference to the tasks array - might be null or private
-    const tasks = window.canvasApp.taskManager.tasks;
-    if (!tasks) {
-      console.log('Tasks array is not accessible directly. Using addTask method instead.');
+    // Reset filters in TaskManager
+    if (window.canvasApp.taskManager.tradeFilters) {
+      // Get all trades
+      const trades = window.canvasApp.taskManager.trades || Trades.getAllTrades();
       
-      // Find first available swimlane
-      if (window.canvasApp.taskManager.swimlanes.length > 0) {
-        const swimlaneId = window.canvasApp.taskManager.swimlanes[0].id;
-        console.log(`Adding task to swimlane ${swimlaneId}`);
-        
-        // Use the addTask method
-        const task = window.canvasApp.addTask(testTask, swimlaneId);
-        console.log('Task created:', task);
-        
-        // Force render
-        window.canvasApp.render();
-        window.canvasApp.scrollToToday();
-        
-        return task;
-      } else {
-        console.log('No swimlanes found. Cannot add tasks without swimlanes.');
-        return false;
-      }
-    }
-    
-    // Try direct modification of the array - this might not work due to TypeScript private members
-    console.log(`Before adding, tasks.length = ${tasks.length}`);
-    tasks.push(testTask);
-    console.log(`After adding, tasks.length = ${tasks.length}`);
-    
-    // Also try to add to a swimlane if possible
-    if (window.canvasApp.taskManager.swimlanes.length > 0) {
-      const swimlane = window.canvasApp.taskManager.swimlanes[0];
-      swimlane.tasks.push(testTask);
-      
-      // Set position in the swimlane
-      swimlane.taskPositions.set(testTask.id, { 
-        x: 0, 
-        y: swimlane.y + 50 + (swimlane.tasks.length * 70)
+      // Create a new map with all trades set to visible
+      const newFilters = new Map();
+      trades.forEach(trade => {
+        newFilters.set(trade.id, true);
+        // Also set by color for backward compatibility
+        if (trade.color) {
+          newFilters.set(trade.color, true);
+        }
       });
       
-      console.log(`Task also added to swimlane ${swimlane.name}`);
+      // Additional protection - make sure any existing task colors are visible
+      const tasks = window.canvasApp.taskManager.getAllTasks();
+      tasks.forEach(task => {
+        if (task.color) {
+          newFilters.set(task.color, true);
+        }
+        if (task.tradeId) {
+          newFilters.set(task.tradeId, true);
+        }
+      });
+      
+      // Apply the new filters
+      window.canvasApp.taskManager.setTradeFilters(newFilters);
+      console.log('Trade filters reset: All trades are now visible');
+      
+      // Also reset in sidebar if available
+      if (window.canvasApp.sidebar) {
+        // Reset sidebar filters too
+        window.canvasApp.sidebar.onTradeFilterChange?.(newFilters);
+      }
+    } else {
+      console.log('Trade filters not found on taskManager');
     }
     
-    // Force render and scroll to see the task
-    window.canvasApp.render();
-    window.canvasApp.scrollToToday();
-    
-    return testTask;
+    return true;
   } catch (error) {
-    console.error('Error injecting test task:', error);
+    console.error('Error resetting trade filters:', error);
     return false;
   }
 }
 
-// Step 3: Verify tasks - run this after injecting a task
-function verifyTasks() {
+// Step 2: Fix task positions and ensure they're in swimlanes
+function fixTaskPositions() {
+  if (!window.canvasApp) {
+    console.log('Canvas app not found. Try running this after the page fully loads.');
+    return false;
+  }
+  
+  try {
+    console.log('Fixing task positions and swimlane assignments...');
+    
+    const taskManager = window.canvasApp.taskManager;
+    const tasks = taskManager.getAllTasks();
+    
+    console.log(`Found ${tasks.length} tasks total`);
+    
+    if (tasks.length === 0) {
+      console.log('No tasks found to fix positions');
+      return false;
+    }
+    
+    // Check if we have swimlanes
+    if (!taskManager.swimlanes || taskManager.swimlanes.length === 0) {
+      console.log('No swimlanes found, cannot fix task positions');
+      return false;
+    }
+    
+    // Keep track of fixes
+    let fixCount = 0;
+    
+    // First make sure all tasks are in a swimlane
+    tasks.forEach(task => {
+      // Find if this task exists in any swimlane
+      const existsInSwimlane = taskManager.swimlanes.some(lane => 
+        lane.tasks.some(t => t.id === task.id)
+      );
+      
+      if (!existsInSwimlane) {
+        // Add to the first swimlane
+        const swimlane = taskManager.swimlanes[0];
+        console.log(`Task ${task.id} (${task.name}) was not in any swimlane. Adding to ${swimlane.name}`);
+        
+        // Add task to swimlane
+        swimlane.tasks.push(task);
+        
+        // Calculate y-position to avoid overlap with existing tasks
+        const yPosition = swimlane.y + 50 + (swimlane.tasks.length * 40);
+        
+        // Set position in taskPositions map
+        swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+        
+        fixCount++;
+      }
+    });
+    
+    // Next fix any invalid positions within swimlanes
+    taskManager.swimlanes.forEach(swimlane => {
+      swimlane.tasks.forEach(task => {
+        const pos = swimlane.taskPositions.get(task.id);
+        
+        // Check if position exists and is valid
+        if (!pos || pos.y < swimlane.y || isNaN(pos.y)) {
+          // Calculate a valid y-position within this swimlane
+          const yPosition = swimlane.y + 50 + (swimlane.tasks.indexOf(task) * 40);
+          
+          console.log(`Fixing position for task ${task.id} (${task.name}) in swimlane ${swimlane.name}`);
+          console.log(`  Old position: ${pos ? `x:${pos.x}, y:${pos.y}` : 'undefined'}`);
+          console.log(`  New position: x:0, y:${yPosition}`);
+          
+          // Set the fixed position
+          swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+          
+          fixCount++;
+        }
+      });
+    });
+    
+    console.log(`Fixed positions for ${fixCount} tasks`);
+    
+    // Force a render to apply changes
+    window.canvasApp.render();
+    
+    return true;
+  } catch (error) {
+    console.error('Error fixing task positions:', error);
+    return false;
+  }
+}
+
+// This function will dump task data to console for debugging
+function dumpTaskData() {
   if (!window.canvasApp) {
     console.log('Canvas app not found');
     return;
   }
   
-  console.log('=== TASK VERIFICATION ===');
-  console.log(`TaskManager.tasks available: ${!!window.canvasApp.taskManager.tasks}`);
+  console.log('=== TASK DATA DUMP ===');
+  const taskManager = window.canvasApp.taskManager;
+  const tasks = taskManager.getAllTasks();
   
-  if (window.canvasApp.taskManager.tasks) {
-    console.log(`Tasks array length: ${window.canvasApp.taskManager.tasks.length}`);
-    
-    // Force getAllTasks() to be called and see if it returns the expected data
-    const allTasks = window.canvasApp.taskManager.getAllTasks();
-    console.log(`getAllTasks() returns ${allTasks.length} tasks`);
-    
-    if (allTasks.length > 0) {
-      console.log('First task:', allTasks[0].name);
-    }
-  }
+  console.log(`Total tasks: ${tasks.length}`);
   
-  // Check swimlanes
-  const swimlanes = window.canvasApp.taskManager.swimlanes;
-  console.log(`Found ${swimlanes.length} swimlanes`);
-  
-  let totalTasksInSwimlanes = 0;
-  swimlanes.forEach((lane, index) => {
-    console.log(`Swimlane ${index}: "${lane.name}" has ${lane.tasks.length} tasks`);
-    totalTasksInSwimlanes += lane.tasks.length;
+  tasks.forEach(task => {
+    console.log(`Task: ${task.id} - "${task.name}"`);
+    console.log(`  - Start date: ${task.startDate}`);
+    console.log(`  - Duration: ${task.duration} days`);
+    console.log(`  - Trade ID: ${task.tradeId}`);
+    console.log(`  - Color: ${task.color}`);
   });
   
-  console.log(`Total tasks in swimlanes: ${totalTasksInSwimlanes}`);
+  // Check swimlanes
+  console.log('=== SWIMLANES ===');
+  const swimlanes = taskManager.swimlanes;
+  console.log(`Found ${swimlanes.length} swimlanes`);
+  
+  swimlanes.forEach((lane, index) => {
+    console.log(`Swimlane ${index}: "${lane.name}" has ${lane.tasks.length} tasks`);
+    lane.tasks.forEach(task => {
+      const pos = lane.taskPositions.get(task.id);
+      console.log(`  - Task: ${task.id} - "${task.name}" at position ${pos ? `x:${pos.x}, y:${pos.y}` : 'unknown'}`);
+    });
+  });
+  
+  // Check trade filters
+  console.log('=== TRADE FILTERS ===');
+  if (taskManager.tradeFilters) {
+    const filters = Array.from(taskManager.tradeFilters.entries());
+    console.log(`Trade filters: ${filters.length} entries`);
+    filters.forEach(([key, value]) => {
+      console.log(`  - ${key}: ${value ? 'visible' : 'hidden'}`);
+    });
+  } else {
+    console.log('No trade filters found');
+  }
 }
 
-// Execute both functions
-console.log('Running task fix script...');
-injectTestTask();
-setTimeout(verifyTasks, 500);
+// Execute all fixes
+console.log('Running task visibility fix script...');
+resetTradeFilters();
+fixTaskPositions();
+dumpTaskData();
+
+// Force render
+if (window.canvasApp) {
+  console.log('Forcing render to apply fixes...');
+  window.canvasApp.render();
+  
+  // Try to center view on tasks
+  window.canvasApp.camera.zoom = 1; // Reset zoom
+  window.canvasApp.camera.y = 200;  // Reset vertical position
+  const todayX = window.canvasApp.timeAxis.getTodayPosition();
+  window.canvasApp.camera.x = todayX + (window.canvasApp.canvas.width / (3 * window.canvasApp.camera.zoom));
+  
+  console.log('View centered on today. Tasks should now be visible if they exist.');
+}
 
 // Return these functions so they can be called from console if needed
-{ injectTestTask, verifyTasks } 
+{ resetTradeFilters, fixTaskPositions, dumpTaskData } 
