@@ -1752,26 +1752,21 @@ export class TaskManager {
       serializedTaskPositions[taskId] = position;
     });
     
-    // Log dependency information before export
-    let totalDependencyCount = 0;
-    const tasksWithDependencies = this.tasks.filter(task => 
-      Array.isArray(task.dependencies) && task.dependencies.length > 0
-    );
-    
-    tasksWithDependencies.forEach(task => {
-      console.log(`Task ${task.id} (${task.name}) has ${task.dependencies.length} dependencies: ${JSON.stringify(task.dependencies)}`);
-      totalDependencyCount += task.dependencies.length;
-    });
-    
-    console.log(`Exporting state with ${tasksWithDependencies.length} tasks having dependencies, ${totalDependencyCount} total dependencies`);
+    // Create a dedicated dependencies map for explicit dependency tracking
+    const dependencyMap: Record<string, string[]> = {};
     
     // Create a clean copy of each task with validated dependencies
     const serializedTasks = this.tasks.map(task => {
-      // Ensure dependencies is always an array
-      const dependencies = Array.isArray(task.dependencies) 
+      // Only include valid dependencies (that point to existing tasks)
+      const validDependencies = Array.isArray(task.dependencies) 
         ? task.dependencies.filter(depId => validTaskIds.has(depId)) 
         : [];
-        
+      
+      // Store valid dependencies in the dedicated map
+      if (validDependencies.length > 0) {
+        dependencyMap[task.id] = [...validDependencies];
+      }
+      
       return {
         id: task.id,
         name: task.name,
@@ -1780,7 +1775,7 @@ export class TaskManager {
         crewSize: task.crewSize,
         color: task.color,
         tradeId: task.tradeId,
-        dependencies: dependencies,
+        dependencies: validDependencies, // Use the validated dependencies
         progress: task.progress,
         status: task.status,
         workOnSaturday: task.workOnSaturday,
@@ -1789,12 +1784,21 @@ export class TaskManager {
       };
     });
     
+    // Count dependencies for logging
+    let totalDependencyCount = 0;
+    Object.values(dependencyMap).forEach(deps => {
+      totalDependencyCount += deps.length;
+    });
+    
+    console.log(`[TaskManager] Exporting state with ${serializedTasks.length} tasks, ${Object.keys(dependencyMap).length} tasks have dependencies (total: ${totalDependencyCount} dependencies)`);
+    
+    // Return the complete state
     return {
       tasks: serializedTasks,
       swimlanes: serializedSwimlanes,
       taskPositions: serializedTaskPositions,
-      tradeFilters: Array.from(this.tradeFilters),
-      version: '1.0'
+      tradeFilters: Array.from(this.tradeFilters.entries()),
+      dependencyMap: dependencyMap // Add the dedicated dependency map as a redundant backup
     };
   }
 
@@ -1807,7 +1811,9 @@ export class TaskManager {
       hasTasks: Boolean(state.tasks),
       taskCount: state.tasks?.length || 0,
       hasSwimlanes: Boolean(state.swimlanes),
-      swimlaneCount: state.swimlanes?.length || 0
+      swimlaneCount: state.swimlanes?.length || 0,
+      hasDependencyMap: Boolean(state.dependencyMap),
+      dependencyMapSize: state.dependencyMap ? Object.keys(state.dependencyMap).length : 0
     });
     
     // Clear current state
@@ -1823,6 +1829,18 @@ export class TaskManager {
     // Keep track of dependencies to ensure they are all properly preserved
     const taskDependencies = new Map<string, string[]>();
     
+    // Prefer the dedicated dependency map if available, as it's more reliable
+    if (state.dependencyMap && typeof state.dependencyMap === 'object') {
+      console.log(`[TaskManager] Using dedicated dependency map with ${Object.keys(state.dependencyMap).length} task dependencies`);
+      
+      // Copy the dependency map
+      Object.entries(state.dependencyMap).forEach(([taskId, deps]: [string, any]) => {
+        if (Array.isArray(deps) && deps.length > 0) {
+          taskDependencies.set(taskId, [...deps]);
+        }
+      });
+    }
+    
     // Restore tasks
     if (state.tasks && Array.isArray(state.tasks)) {
       // First create all the tasks without dependencies
@@ -1835,10 +1853,10 @@ export class TaskManager {
             ? taskData.startDate 
             : new Date(taskData.startDate || Date.now());
           
-          // Store dependencies for later assignment
-          if (Array.isArray(taskData.dependencies) && taskData.dependencies.length > 0) {
+          // Store dependencies from task data if not already in dedicated map
+          if (!taskDependencies.has(taskId) && Array.isArray(taskData.dependencies) && taskData.dependencies.length > 0) {
             taskDependencies.set(taskId, [...taskData.dependencies]);
-            console.log(`[TaskManager] Stored ${taskData.dependencies.length} dependencies for task ${taskId} for later assignment`);
+            console.log(`[TaskManager] Stored ${taskData.dependencies.length} dependencies for task ${taskId} from task data`);
           }
           
           // Create the task initially without dependencies
@@ -1870,6 +1888,8 @@ export class TaskManager {
       });
       
       // Second pass: Now set dependencies after all tasks exist
+      console.log(`[TaskManager] Setting dependencies for ${taskDependencies.size} tasks`);
+      
       this.tasks.forEach(task => {
         // Get stored dependencies for this task
         const dependencies = taskDependencies.get(task.id);
@@ -1893,6 +1913,16 @@ export class TaskManager {
           }
         }
       });
+      
+      // Count total dependencies set for logging
+      let totalDependenciesSet = 0;
+      this.tasks.forEach(task => {
+        if (task.dependencies.length > 0) {
+          totalDependenciesSet += task.dependencies.length;
+        }
+      });
+      
+      console.log(`[TaskManager] Successfully set ${totalDependenciesSet} total dependencies across ${this.tasks.filter(t => t.dependencies.length > 0).length} tasks`);
     }
     
     // Restore swimlanes

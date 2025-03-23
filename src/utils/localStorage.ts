@@ -4,6 +4,7 @@
 
 const BASE_STORAGE_KEY = 'dingplan_state';
 const PROJECTS_KEY = 'dingplan_projects';
+const DEPENDENCIES_KEY = 'dingplan_dependencies'; // Add a specific key for dependencies
 
 /**
  * Save application state to localStorage with project isolation
@@ -11,6 +12,17 @@ const PROJECTS_KEY = 'dingplan_projects';
 export function saveToLocalStorage(state: any, projectId?: string): void {
   try {
     const storageKey = projectId ? `${BASE_STORAGE_KEY}_${projectId}` : BASE_STORAGE_KEY;
+    const dependenciesKey = projectId ? `${DEPENDENCIES_KEY}_${projectId}` : DEPENDENCIES_KEY;
+    
+    // Extract dependencies into a separate map for redundancy
+    const dependencyMap: Record<string, string[]> = {};
+    if (state.tasks && Array.isArray(state.tasks)) {
+      state.tasks.forEach((task: any) => {
+        if (task.id && task.dependencies && Array.isArray(task.dependencies) && task.dependencies.length > 0) {
+          dependencyMap[task.id] = [...task.dependencies];
+        }
+      });
+    }
     
     // Convert dates to ISO strings for proper serialization
     const serializedState = JSON.stringify(state, (key, value) => {
@@ -23,6 +35,12 @@ export function saveToLocalStorage(state: any, projectId?: string): void {
     
     // Store the state
     localStorage.setItem(storageKey, serializedState);
+    
+    // Store dependencies separately for redundancy
+    if (Object.keys(dependencyMap).length > 0) {
+      localStorage.setItem(dependenciesKey, JSON.stringify(dependencyMap));
+      console.log(`Dependencies saved separately to ${dependenciesKey} (${Object.keys(dependencyMap).length} tasks with dependencies)`);
+    }
     
     // Also update state version for backwards compatibility
     if (projectId) {
@@ -43,7 +61,10 @@ export function saveToLocalStorage(state: any, projectId?: string): void {
 export function loadFromLocalStorage(projectId?: string): any | null {
   try {
     const storageKey = projectId ? `${BASE_STORAGE_KEY}_${projectId}` : BASE_STORAGE_KEY;
+    const dependenciesKey = projectId ? `${DEPENDENCIES_KEY}_${projectId}` : DEPENDENCIES_KEY;
+    
     let serializedState = localStorage.getItem(storageKey);
+    const serializedDependencies = localStorage.getItem(dependenciesKey);
     
     // Try legacy key formats if no data found with new key format
     if (!serializedState && projectId) {
@@ -114,6 +135,36 @@ export function loadFromLocalStorage(projectId?: string): any | null {
       return value;
     });
     
+    // Merge in dependencies from the separate dependency storage if available
+    if (serializedDependencies && state && state.tasks) {
+      try {
+        const dependencyMap = JSON.parse(serializedDependencies);
+        
+        // Add any missing dependencies from the separate dependency storage
+        state.tasks.forEach((task: any) => {
+          if (task.id && dependencyMap[task.id]) {
+            // Ensure task.dependencies is initialized as an array
+            if (!Array.isArray(task.dependencies)) {
+              task.dependencies = [];
+            }
+            
+            // Merge dependencies from the backup source
+            const existingDeps = new Set(task.dependencies);
+            dependencyMap[task.id].forEach((depId: string) => {
+              if (!existingDeps.has(depId)) {
+                task.dependencies.push(depId);
+                console.log(`Recovered dependency ${depId} for task ${task.id} from backup storage`);
+              }
+            });
+          }
+        });
+        
+        console.log(`Merged dependencies from separate storage (${Object.keys(dependencyMap).length} tasks with dependencies)`);
+      } catch (depError) {
+        console.error('Error merging dependencies from separate storage:', depError);
+      }
+    }
+    
     console.log(`State loaded from localStorage for key: ${storageKey}`);
     return state;
   } catch (error) {
@@ -130,10 +181,12 @@ export function clearLocalStorage(projectId?: string): void {
     if (projectId) {
       // Clear only the specific project state
       localStorage.removeItem(`${BASE_STORAGE_KEY}_${projectId}`);
+      localStorage.removeItem(`${DEPENDENCIES_KEY}_${projectId}`);
       console.log(`State cleared from localStorage for project: ${projectId}`);
     } else {
       // Clear legacy storage key
       localStorage.removeItem(BASE_STORAGE_KEY);
+      localStorage.removeItem(DEPENDENCIES_KEY);
       console.log('State cleared from localStorage (legacy key)');
     }
   } catch (error) {
@@ -162,6 +215,7 @@ export function clearAllAppData(): void {
       const key = localStorage.key(i);
       if (key && (
         key.startsWith(BASE_STORAGE_KEY) || 
+        key.startsWith(DEPENDENCIES_KEY) ||
         key.startsWith('backup-') || 
         key === PROJECTS_KEY
       )) {

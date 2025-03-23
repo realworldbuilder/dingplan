@@ -2156,7 +2156,7 @@ export class ProjectManager {
   }
 
   /**
-   * Saves the current project to the server
+   * Save the current project to the server based on authentication status
    */
   public async saveProjectToServer(): Promise<boolean> {
     console.log('[ProjectManager] saveProjectToServer() called');
@@ -2179,21 +2179,9 @@ export class ProjectManager {
         return false;
       }
       
-      // Count dependencies for logging
-      let dependencyCount = 0;
-      if (canvasData.tasks && Array.isArray(canvasData.tasks)) {
-        canvasData.tasks.forEach((task: any) => {
-          if (task.dependencies && Array.isArray(task.dependencies)) {
-            dependencyCount += task.dependencies.length;
-          }
-        });
-      }
-      
       console.log('[ProjectManager] Canvas data retrieved successfully', {
         dataSize: JSON.stringify(canvasData).length,
-        taskCount: canvasData.tasks?.length || 0,
-        swimlaneCount: canvasData.swimlanes?.length || 0,
-        dependencyCount: dependencyCount
+        dataType: typeof canvasData
       });
       
       // Get project metadata from form
@@ -2233,10 +2221,6 @@ export class ProjectManager {
       
       // Prepare the result variable
       let result;
-      
-      // Create a backup before saving
-      const backupId = this.createBackup();
-      console.log(`[ProjectManager] Created backup ${backupId} before saving`);
       
       // Update existing project or create a new one
       if (this.currentProjectId) {
@@ -2442,29 +2426,10 @@ export class ProjectManager {
       // Apply project data to canvas if available
       if (projectData.projectData) {
         try {
-          // Count dependencies for logging
-          let dependencyCount = 0;
-          if (projectData.projectData.tasks && Array.isArray(projectData.projectData.tasks)) {
-            projectData.projectData.tasks.forEach((task: any) => {
-              if (task.dependencies && Array.isArray(task.dependencies)) {
-                dependencyCount += task.dependencies.length;
-              }
-            });
-          }
-          console.log(`[ProjectManager] Project data includes ${dependencyCount} task dependencies`);
-          
           // Apply tasks and swimlanes
           if (projectData.projectData.tasks) {
             console.log('[ProjectManager] Loading tasks:', projectData.projectData.tasks.length);
             this.canvas.taskManager.importState(projectData.projectData);
-            
-            // Verify dependencies were properly loaded
-            const loadedDependencyCount = this.canvas.taskManager.getAllTasks().reduce(
-              (count, task) => count + (task.dependencies ? task.dependencies.length : 0), 
-              0
-            );
-            console.log(`[ProjectManager] Successfully loaded ${loadedDependencyCount} dependencies`);
-            
             this.canvas.render();
           }
         } catch (dataErr) {
