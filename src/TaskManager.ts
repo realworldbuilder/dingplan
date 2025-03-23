@@ -146,15 +146,25 @@ export class TaskManager {
       }
     }
     
+    // Ensure swimlaneId is set in the task config
+    config.swimlaneId = swimlaneId;
+    
     // Create the task
     const task = new Task(config);
+    
+    // Add to the main task list
     this.tasks.push(task);
     
-    // Calculate y-position to avoid overlap with existing tasks
-    const yPosition = this.calculateTaskYInSwimlane(swimlane);
-    
+    // Add to the swimlane
     swimlane.tasks.push(task);
-    swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+    
+    // Calculate task position within the swimlane
+    const taskY = this.calculateTaskYInSwimlane(swimlane);
+    
+    // Set the position in both maps for consistency
+    const position = { x: 0, y: taskY };
+    swimlane.taskPositions.set(task.id, position);
+    this.taskPositions.set(task.id, position);
     
     return task;
   }
@@ -1130,6 +1140,9 @@ export class TaskManager {
   }
   
   drawTasks(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera) {
+    // Check integrity before drawing
+    this.checkTaskPositionIntegrity();
+    
     // Safety check - if no tasks, nothing to draw
     if (!this.tasks || this.tasks.length === 0) {
       return;
@@ -1570,31 +1583,37 @@ export class TaskManager {
   }
 
   /**
-   * Export the current state of the task manager for saving
-   * Returns an object containing all necessary data to reconstruct the state
+   * Export the current state as a serializable object
+   * @returns The serialized state
    */
   exportState(): any {
-    // Create a serializable version of task positions
-    const serializedTaskPositions: { [key: string]: { x: number; y: number } } = {};
+    // Create a serializable copy of swimlanes
+    const serializedSwimlanes = this.swimlanes.map(swimlane => {
+      // Convert task positions map to a serializable object
+      const taskPositions: Record<string, { x: number; y: number }> = {};
+      swimlane.taskPositions.forEach((position, taskId) => {
+        taskPositions[taskId] = position;
+      });
+      
+      return {
+        id: swimlane.id,
+        name: swimlane.name,
+        y: swimlane.y,
+        height: swimlane.height,
+        color: swimlane.color,
+        tasks: swimlane.tasks.map(task => task.id),
+        taskPositions,
+        wbsId: swimlane.wbsId
+      };
+    });
+    
+    // Convert global task positions map to a serializable object
+    const serializedTaskPositions: Record<string, { x: number; y: number }> = {};
     this.taskPositions.forEach((position, taskId) => {
       serializedTaskPositions[taskId] = position;
     });
     
-    // Create serializable swimlanes with converted task positions maps
-    const serializedSwimlanes = this.swimlanes.map(swimlane => {
-      // Convert Map to plain object for serialization
-      const taskPositionsObj: { [key: string]: { x: number; y: number } } = {};
-      swimlane.taskPositions.forEach((pos, taskId) => {
-        taskPositionsObj[taskId] = pos;
-      });
-      
-      return {
-        ...swimlane,
-        tasks: swimlane.tasks.map(task => task.id), // Just store task IDs, not the full tasks
-        taskPositions: taskPositionsObj // Replace Map with serializable object
-      };
-    });
-    
+    // Return the complete state
     return {
       tasks: this.tasks.map(task => ({
         id: task.id,
@@ -1608,7 +1627,8 @@ export class TaskManager {
         progress: task.progress,
         status: task.status,
         workOnSaturday: task.workOnSaturday,
-        workOnSunday: task.workOnSunday
+        workOnSunday: task.workOnSunday,
+        swimlaneId: task.swimlaneId // Ensure swimlaneId is included
       })),
       swimlanes: serializedSwimlanes,
       taskPositions: serializedTaskPositions,
@@ -1643,7 +1663,8 @@ export class TaskManager {
           progress: taskData.progress,
           status: taskData.status,
           workOnSaturday: taskData.workOnSaturday,
-          workOnSunday: taskData.workOnSunday
+          workOnSunday: taskData.workOnSunday,
+          swimlaneId: taskData.swimlaneId || null // Ensure swimlaneId is preserved
         });
         this.tasks.push(task);
       });
@@ -1663,8 +1684,17 @@ export class TaskManager {
         
         // Find tasks that belong to this swimlane
         const swimlaneTasks = this.tasks.filter(task => 
-          swimlaneData.tasks && swimlaneData.tasks.includes(task.id)
+          (swimlaneData.tasks && swimlaneData.tasks.includes(task.id)) || 
+          task.swimlaneId === swimlaneData.id
         );
+        
+        // Ensure these tasks have the correct swimlaneId
+        swimlaneTasks.forEach(task => {
+          if (task.swimlaneId !== swimlaneData.id) {
+            console.log(`[TaskManager] Setting swimlaneId for task ${task.id} (${task.name}) to ${swimlaneData.id}`);
+            task.swimlaneId = swimlaneData.id;
+          }
+        });
         
         this.swimlanes.push({
           id: swimlaneData.id,
@@ -1782,6 +1812,9 @@ export class TaskManager {
         // Add task to swimlane
         swimlane.tasks.push(task);
         
+        // Update the swimlaneId on the task itself
+        task.swimlaneId = swimlane.id;
+        
         // Calculate y-position to avoid overlap with existing tasks
         const yPosition = swimlane.y + 50 + (swimlane.tasks.length * 40);
         
@@ -1794,24 +1827,105 @@ export class TaskManager {
     
     // Next fix any invalid positions within swimlanes
     this.swimlanes.forEach(swimlane => {
+      // Get all tasks that should be in this swimlane based on their swimlaneId property
+      const allTasksForSwimlane = this.tasks.filter(task => task.swimlaneId === swimlane.id);
+      
+      // Make sure every task with this swimlaneId is actually in the swimlane's tasks array
+      allTasksForSwimlane.forEach(task => {
+        if (!swimlane.tasks.some(t => t.id === task.id)) {
+          console.log(`[TaskManager] Task ${task.id} (${task.name}) has swimlaneId ${swimlane.id} but is not in the swimlane's tasks array. Adding it.`);
+          swimlane.tasks.push(task);
+          fixCount++;
+        }
+      });
+      
+      // Now fix positions for all tasks in this swimlane
       swimlane.tasks.forEach(task => {
+        // Ensure task's swimlaneId matches current swimlane
+        if (task.swimlaneId !== swimlane.id) {
+          console.log(`[TaskManager] Task ${task.id} (${task.name}) was in swimlane ${swimlane.id} but had swimlaneId ${task.swimlaneId}. Fixing.`);
+          task.swimlaneId = swimlane.id;
+          fixCount++;
+        }
+        
         const pos = swimlane.taskPositions.get(task.id);
         
         // Check if position exists and is valid
-        if (!pos || pos.y < swimlane.y || isNaN(pos.y)) {
+        if (!pos || pos.y < swimlane.y || pos.y > swimlane.y + swimlane.height || isNaN(pos.y)) {
           // Calculate a valid y-position within this swimlane
           const yPosition = swimlane.y + 50 + (swimlane.tasks.indexOf(task) * 40);
           
           // Set the fixed position
-          swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+          swimlane.taskPositions.set(task.id, { x: pos ? pos.x : 0, y: yPosition });
           
+          console.log(`[TaskManager] Fixed position for task ${task.id} (${task.name}) in swimlane ${swimlane.id}`);
           fixCount++;
+        }
+      });
+    });
+    
+    // Update the global taskPositions map to match swimlane positions
+    this.swimlanes.forEach(swimlane => {
+      swimlane.tasks.forEach(task => {
+        const pos = swimlane.taskPositions.get(task.id);
+        if (pos) {
+          this.taskPositions.set(task.id, pos);
         }
       });
     });
     
     if (fixCount > 0) {
       console.log(`[TaskManager] Fixed positions for ${fixCount} tasks`);
+    }
+  }
+
+  /**
+   * Add this function before the drawTasks method
+   * Check task position integrity and log any issues
+   * This can help diagnose issues with task positions and swimlane assignments
+   */
+  checkTaskPositionIntegrity(): void {
+    // Skip if no tasks or swimlanes
+    if (this.tasks.length === 0 || this.swimlanes.length === 0) {
+      return;
+    }
+    
+    let issuesFound = 0;
+    
+    // Check that all tasks have swimlaneId that matches the swimlane they're in
+    this.swimlanes.forEach(swimlane => {
+      swimlane.tasks.forEach(task => {
+        if (task.swimlaneId !== swimlane.id) {
+          console.warn(`[Integrity] Task ${task.id} (${task.name}) is in swimlane ${swimlane.id} but has swimlaneId ${task.swimlaneId}`);
+          issuesFound++;
+        }
+        
+        // Check that position is within the swimlane's vertical bounds
+        const pos = swimlane.taskPositions.get(task.id);
+        if (pos) {
+          if (pos.y < swimlane.y || pos.y > swimlane.y + swimlane.height) {
+            console.warn(`[Integrity] Task ${task.id} (${task.name}) has y-position ${pos.y} which is outside swimlane bounds: ${swimlane.y} to ${swimlane.y + swimlane.height}`);
+            issuesFound++;
+          }
+        } else {
+          console.warn(`[Integrity] Task ${task.id} (${task.name}) has no position in swimlane ${swimlane.id}`);
+          issuesFound++;
+        }
+      });
+    });
+    
+    // Check that all tasks are in a swimlane
+    this.tasks.forEach(task => {
+      const inSwimlane = this.swimlanes.some(lane => lane.tasks.includes(task));
+      if (!inSwimlane) {
+        console.warn(`[Integrity] Task ${task.id} (${task.name}) is not in any swimlane`);
+        issuesFound++;
+      }
+    });
+    
+    if (issuesFound > 0) {
+      console.warn(`[Integrity] Found ${issuesFound} issues with task positions. Running fix...`);
+      this.validateTaskPositions();
     }
   }
 }
