@@ -1140,7 +1140,7 @@ export class TaskManager {
   }
   
   drawTasks(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera) {
-    // Check integrity before drawing
+    // Run integrity check with limited frequency
     this.checkTaskPositionIntegrity();
     
     // Safety check - if no tasks, nothing to draw
@@ -1154,8 +1154,19 @@ export class TaskManager {
       this.validateTradeFilters();
     }
     
+    // Calculate visible area based on camera
+    const visibleLeft = camera.x - (ctx.canvas.width / (2 * camera.zoom));
+    const visibleRight = camera.x + (ctx.canvas.width / (2 * camera.zoom));
+    const visibleTop = camera.y - (ctx.canvas.height / (2 * camera.zoom));
+    const visibleBottom = camera.y + (ctx.canvas.height / (2 * camera.zoom));
+    
     // Draw swimlanes
     this.swimlanes.forEach(lane => {
+      // Skip rendering swimlanes that are completely outside the visible area
+      if (lane.y > visibleBottom || lane.y + lane.height < visibleTop) {
+        return;
+      }
+      
       // Safety check - ensure swimlane has tasks array
       if (!lane.tasks) {
         console.warn(`[TaskManager] Swimlane ${lane.name} has no tasks array`);
@@ -1194,6 +1205,15 @@ export class TaskManager {
           
           const position = lane.taskPositions.get(task.id) || { x: 0, y: lane.y + 40 };
           
+          // Skip rendering tasks that are completely outside the visible area
+          const startX = timeAxis.dateToWorld(task.startDate);
+          const endX = timeAxis.dateToWorld(task.getEndDate());
+          
+          if (endX < visibleLeft || startX > visibleRight || 
+              position.y + task.getCurrentHeight() < visibleTop || position.y > visibleBottom) {
+            return;
+          }
+          
           // Draw the task
           task.draw(ctx, timeAxis, position.y);
         } catch (error) {
@@ -1226,11 +1246,19 @@ export class TaskManager {
         if (swimlane) {
           const pos = swimlane.taskPositions.get(task.id);
           if (pos) {
-            Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
+            // Calculate task bounds
             const startX = timeAxis.dateToWorld(task.startDate);
             const endX = timeAxis.dateToWorld(task.getEndDate());
             const width = endX - startX;
             const height = task.getCurrentHeight();
+            
+            // Skip rendering highlight if task is completely outside the visible area
+            if (endX < visibleLeft || startX > visibleRight || 
+                pos.y + height < visibleTop || pos.y > visibleBottom) {
+              return;
+            }
+            
+            Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
 
             // Modern subtle outline for selected tasks
             const radius = 10; // Match the task card's radius for a consistent look
@@ -1261,6 +1289,7 @@ export class TaskManager {
               const h = height + 6 / camera.zoom;
               const r = radius;
               
+              ctx.beginPath();
               ctx.moveTo(x + r, y);
               ctx.lineTo(x + w - r, y);
               ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -1276,54 +1305,32 @@ export class TaskManager {
           }
         }
       } catch (error) {
-        console.error(`[TaskManager] Error drawing task highlight for ${task?.id || 'unknown'}:`, error);
+        console.error('Error drawing selection highlight:', error);
       }
     });
     ctx.restore();
-
+    
+    // Remove shadow effect for other drawings
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
     // Draw selection box if active
     if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
-      Logger.log('Drawing selection box', { 
-        start: this.selectionBoxStart, 
-        end: this.selectionBoxEnd,
-        selectedTasks: this.selectedTasks.size
-      });
-      
       ctx.save();
+      ctx.strokeStyle = '#2196F3';
+      ctx.lineWidth = 2 / camera.zoom;
+      ctx.setLineDash([5 / camera.zoom, 5 / camera.zoom]);
+      ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
       
-      const left = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
-      const top = Math.min(this.selectionBoxStart.y, this.selectionBoxEnd.y);
+      const x = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
+      const y = Math.min(this.selectionBoxStart.y, this.selectionBoxEnd.y);
       const width = Math.abs(this.selectionBoxEnd.x - this.selectionBoxStart.x);
       const height = Math.abs(this.selectionBoxEnd.y - this.selectionBoxStart.y);
       
-      // Create a more modern selection box
-      const radius = 4 / camera.zoom; // Smaller radius for the selection box
-      
-      // Fill with transparent blue
-      ctx.fillStyle = 'rgba(33, 150, 243, 0.12)'; // Slightly more visible fill
-      
-      // Draw the filled rectangle with rounded corners
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(left, top, width, height, radius);
-      } else {
-        // Fallback for browsers that don't support roundRect
-        ctx.moveTo(left + radius, top);
-        ctx.arcTo(left + width, top, left + width, top + height, radius);
-        ctx.arcTo(left + width, top + height, left, top + height, radius);
-        ctx.arcTo(left, top + height, left, top, radius);
-        ctx.arcTo(left, top, left + width, top, radius);
-        ctx.closePath();
-      }
-      ctx.fill();
-      
-      // Draw a more refined border
-      ctx.strokeStyle = 'rgba(25, 118, 210, 0.7)'; // Darker blue to match selected tasks
-      ctx.lineWidth = 1.8 / camera.zoom; // Slightly thicker line
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-      
+      ctx.fillRect(x, y, width, height);
+      ctx.strokeRect(x, y, width, height);
       ctx.restore();
     }
   }
@@ -1726,6 +1733,9 @@ export class TaskManager {
     this.validateTaskPositions();
     this.renameSwimlanesIfNeeded();
     
+    // Force a full integrity check once after import
+    this.forceIntegrityCheck();
+    
     // Log success
     console.log(`[TaskManager] Successfully imported ${this.tasks.length} tasks and ${this.swimlanes.length} swimlanes`);
   }
@@ -1880,13 +1890,23 @@ export class TaskManager {
   }
 
   /**
-   * Add this function before the drawTasks method
    * Check task position integrity and log any issues
    * This can help diagnose issues with task positions and swimlane assignments
    */
   checkTaskPositionIntegrity(): void {
     // Skip if no tasks or swimlanes
     if (this.tasks.length === 0 || this.swimlanes.length === 0) {
+      return;
+    }
+    
+    // Use a static counter to limit how often we run full integrity checks
+    // This will dramatically improve performance
+    if (!TaskManager._integrityCheckCounter) {
+      TaskManager._integrityCheckCounter = 0;
+    }
+    
+    // Only run full integrity check every 10 frames or when specifically requested
+    if (TaskManager._integrityCheckCounter++ % 10 !== 0) {
       return;
     }
     
@@ -1927,5 +1947,14 @@ export class TaskManager {
       console.warn(`[Integrity] Found ${issuesFound} issues with task positions. Running fix...`);
       this.validateTaskPositions();
     }
+  }
+  
+  // Add static counter for integrity checks
+  static _integrityCheckCounter: number = 0;
+  
+  // Method to force a full integrity check
+  forceIntegrityCheck(): void {
+    TaskManager._integrityCheckCounter = 0; // Reset counter to force check
+    this.checkTaskPositionIntegrity();
   }
 }
