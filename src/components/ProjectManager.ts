@@ -770,6 +770,25 @@ export class ProjectManager {
       .projects-panel, .backups-panel, #project-list, #backup-list, .sidebar-panel {
         overflow-x: hidden !important;
       }
+      
+      /* Specifically target the project list container */
+      #projects-sidebar hr {
+        margin: 15px 0;
+        width: 100%;
+        max-width: 100%;
+      }
+      
+      /* Fix scrollbar near "Your Projects" heading */
+      #projects-sidebar > div > div {
+        overflow-x: hidden !important;
+        max-width: 100%;
+      }
+      
+      /* Hide all horizontal scrollbars in all divs inside the sidebar */
+      #projects-sidebar div {
+        overflow-x: hidden !important;
+        max-width: 100%;
+      }
     `;
     document.head.appendChild(styleElement);
     
