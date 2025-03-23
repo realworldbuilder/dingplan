@@ -62,12 +62,7 @@ export class ProjectManager {
     if (this.isInitialized) {
       this.refreshProjectsList();
       
-      // Show notification
-      if (state.authenticated) {
-        this.showNotification('Signed in successfully. Your projects have been loaded.');
-      } else {
-        this.showNotification('Signed out. Only public and anonymous projects are visible.');
-      }
+      // Remove sign in/out notifications
     }
   }
 
@@ -157,8 +152,20 @@ export class ProjectManager {
         resize: horizontal;
         min-width: 260px;
         max-width: 450px;
-        overflow-x: hidden;
+        overflow-x: hidden !important;
         background-color: #fcfcfc;
+      }
+      
+      /* Project sidebar content containers */
+      #projects-sidebar > div,
+      #projects-sidebar .sidebar-content,
+      #projects-sidebar .sidebar-panel,
+      #projects-sidebar .projects-panel,
+      #projects-sidebar .backups-panel,
+      #projects-sidebar #project-list,
+      #projects-sidebar #backup-list {
+        overflow-x: hidden !important;
+        max-width: 100%;
       }
       
       .sidebar-resize-handle {

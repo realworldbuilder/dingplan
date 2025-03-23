@@ -148,10 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Initialize auth connector after components are ready
       setTimeout(() => {
         console.log('Initializing auth connector with increased delay');
-        // Ensure the sidebar is visible before initializing
-        if (app && app.sidebar) {
-          app.sidebar.show();
-        }
         authConnector.init();
       }, 3000); // Increased delay to ensure DOM is fully loaded
     }
