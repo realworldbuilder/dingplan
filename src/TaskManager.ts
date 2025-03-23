@@ -1865,10 +1865,18 @@ export class TaskManager {
           // Calculate a valid y-position within this swimlane
           const yPosition = swimlane.y + 50 + (swimlane.tasks.indexOf(task) * 40);
           
-          // Set the fixed position
-          swimlane.taskPositions.set(task.id, { x: pos ? pos.x : 0, y: yPosition });
+          // Ensure position stays within swimlane bounds
+          const maxY = swimlane.y + swimlane.height - task.getCurrentHeight() - 10;
+          const safeY = Math.min(yPosition, maxY);
           
-          console.log(`[TaskManager] Fixed position for task ${task.id} (${task.name}) in swimlane ${swimlane.id}`);
+          // Set the fixed position
+          const newPos = { x: pos ? pos.x : 0, y: safeY };
+          swimlane.taskPositions.set(task.id, newPos);
+          
+          // Ensure the global taskPositions map is updated too
+          this.taskPositions.set(task.id, { ...newPos });
+          
+          console.log(`[TaskManager] Fixed position for task ${task.id} (${task.name}) in swimlane ${swimlane.id}. Position set to y=${safeY}`);
           fixCount++;
         }
       });
@@ -1890,27 +1898,22 @@ export class TaskManager {
   }
 
   /**
-   * Check task position integrity and log any issues
-   * This can help diagnose issues with task positions and swimlane assignments
+   * Checks that all tasks are within their swimlane bounds
+   * @returns Number of integrity issues found
    */
-  checkTaskPositionIntegrity(): void {
-    // Skip if no tasks or swimlanes
-    if (this.tasks.length === 0 || this.swimlanes.length === 0) {
-      return;
+  checkTaskPositionIntegrity(): number {
+    // Only run integrity checks periodically to avoid performance issues
+    if (TaskManager._integrityCheckCounter++ < 10) {
+      return 0; // Skip check to improve performance
     }
-    
-    // Use a static counter to limit how often we run full integrity checks
-    // This will dramatically improve performance
-    if (!TaskManager._integrityCheckCounter) {
-      TaskManager._integrityCheckCounter = 0;
-    }
-    
-    // Only run full integrity check every 10 frames or when specifically requested
-    if (TaskManager._integrityCheckCounter++ % 10 !== 0) {
-      return;
-    }
+    TaskManager._integrityCheckCounter = 0;
     
     let issuesFound = 0;
+    
+    // Skip if no tasks or swimlanes
+    if (this.tasks.length === 0 || this.swimlanes.length === 0) {
+      return issuesFound;
+    }
     
     // Check that all tasks have swimlaneId that matches the swimlane they're in
     this.swimlanes.forEach(swimlane => {
@@ -1923,8 +1926,12 @@ export class TaskManager {
         // Check that position is within the swimlane's vertical bounds
         const pos = swimlane.taskPositions.get(task.id);
         if (pos) {
-          if (pos.y < swimlane.y || pos.y > swimlane.y + swimlane.height) {
-            console.warn(`[Integrity] Task ${task.id} (${task.name}) has y-position ${pos.y} which is outside swimlane bounds: ${swimlane.y} to ${swimlane.y + swimlane.height}`);
+          const taskHeight = task.getCurrentHeight();
+          const minValidY = swimlane.y;
+          const maxValidY = swimlane.y + swimlane.height - taskHeight;
+          
+          if (pos.y < minValidY || pos.y > maxValidY) {
+            console.warn(`[Integrity] Task ${task.id} (${task.name}) has y-position ${pos.y} which is outside swimlane bounds: ${minValidY} to ${maxValidY}`);
             issuesFound++;
           }
         } else {
@@ -1947,6 +1954,8 @@ export class TaskManager {
       console.warn(`[Integrity] Found ${issuesFound} issues with task positions. Running fix...`);
       this.validateTaskPositions();
     }
+    
+    return issuesFound;
   }
   
   // Add static counter for integrity checks
@@ -1954,7 +1963,23 @@ export class TaskManager {
   
   // Method to force a full integrity check
   forceIntegrityCheck(): void {
-    TaskManager._integrityCheckCounter = 0; // Reset counter to force check
-    this.checkTaskPositionIntegrity();
+    console.log("[TaskManager] Performing integrity check");
+    
+    const issues = this.checkTaskPositionIntegrity();
+    if (issues > 0) {
+      console.log(`[TaskManager] Found ${issues} position integrity issues, applying fixes...`);
+      const fixCount = this.validateTaskPositions();
+      console.log(`[TaskManager] Applied ${fixCount} position fixes`);
+      
+      // Perform a second check to verify fixes were applied correctly
+      const remainingIssues = this.checkTaskPositionIntegrity();
+      if (remainingIssues > 0) {
+        console.warn(`[TaskManager] ${remainingIssues} position issues remain after attempted fixes`);
+      } else {
+        console.log(`[TaskManager] All position issues resolved successfully`);
+      }
+    } else {
+      console.log("[TaskManager] No integrity issues found");
+    }
   }
 }
