@@ -1155,22 +1155,60 @@ export class TaskManager {
 
   // Add new method for deleting selected tasks
   deleteSelectedTasks() {
+    // Cannot delete if no tasks are selected
     if (this.selectedTasks.size === 0) return;
-
-    // Remove tasks from swimlanes and clear positions
-    this.selectedTasks.forEach(task => {
-      const swimlane = this.swimlanes.find(s => s.tasks.includes(task));
-      if (swimlane) {
-        swimlane.tasks = swimlane.tasks.filter(t => t !== task);
+    
+    // Get IDs of tasks to be deleted for dependency cleanup
+    const deletedTaskIds = Array.from(this.selectedTasks).map(task => task.id);
+    
+    // Update dependencies: Remove references to deleted tasks from all other tasks
+    this.tasks.forEach(task => {
+      // Skip tasks that are being deleted
+      if (this.selectedTasks.has(task)) return;
+      
+      // Filter out dependencies to deleted tasks
+      if (task.dependencies.some(depId => deletedTaskIds.includes(depId))) {
+        const originalCount = task.dependencies.length;
+        task.dependencies = task.dependencies.filter(depId => !deletedTaskIds.includes(depId));
+        console.log(`[TaskManager] Removed ${originalCount - task.dependencies.length} dependencies from task ${task.id} due to deletion`);
+      }
+    });
+    
+    // Now delete the tasks from each swimlane
+    for (const swimlane of this.swimlanes) {
+      // Remove selected tasks from this swimlane
+      swimlane.tasks = swimlane.tasks.filter(task => !this.selectedTasks.has(task));
+      
+      // Remove the task positions for deleted tasks
+      for (const task of this.selectedTasks) {
         swimlane.taskPositions.delete(task.id);
       }
-      this.tasks = this.tasks.filter(t => t !== task);
-      this.taskPositions.delete(task.id);
-    });
-
-    // Clear selection and hide sidebar
+    }
+    
+    // Remove selected tasks from the global tasks array
+    this.tasks = this.tasks.filter(task => !this.selectedTasks.has(task));
+    
+    // Clear selection
     this.selectedTasks.clear();
     this.selectedTasksInOrder = [];
+    
+    // Clear task details
+    const detailsView = document.getElementById('details-view');
+    if (detailsView) {
+      detailsView.innerHTML = '<div style="color: #666; text-align: center; padding: 40px;">Select a task to view details</div>';
+    }
+    
+    console.log('Deleted selected tasks');
+    
+    // Dispatch a taskUpdated event to trigger autosave
+    const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+      detail: {
+        type: 'deletion',
+        deletedIds: deletedTaskIds,
+        hasDependencies: true
+      }
+    });
+    document.dispatchEvent(taskUpdatedEvent);
   }
 
   // Add missing methods that Canvas.ts is trying to use
@@ -1685,6 +1723,9 @@ export class TaskManager {
    * @returns The serialized state
    */
   exportState(): any {
+    // First build a set of valid task IDs for dependency validation
+    const validTaskIds = new Set(this.tasks.map(task => task.id));
+    
     // Create a serializable copy of swimlanes
     const serializedSwimlanes = this.swimlanes.map(swimlane => {
       // Convert task positions map to a serializable object
@@ -1711,23 +1752,29 @@ export class TaskManager {
       serializedTaskPositions[taskId] = position;
     });
     
+    // Create a clean copy of each task with validated dependencies
+    const serializedTasks = this.tasks.map(task => ({
+      id: task.id,
+      name: task.name,
+      startDate: task.startDate,
+      duration: task.duration,
+      crewSize: task.crewSize,
+      color: task.color,
+      tradeId: task.tradeId,
+      // Only include valid dependencies (that point to existing tasks)
+      dependencies: Array.isArray(task.dependencies) 
+        ? task.dependencies.filter(depId => validTaskIds.has(depId)) 
+        : [],
+      progress: task.progress,
+      status: task.status,
+      workOnSaturday: task.workOnSaturday,
+      workOnSunday: task.workOnSunday,
+      swimlaneId: task.swimlaneId // Ensure swimlaneId is included
+    }));
+    
     // Return the complete state
     return {
-      tasks: this.tasks.map(task => ({
-        id: task.id,
-        name: task.name,
-        startDate: task.startDate,
-        duration: task.duration,
-        crewSize: task.crewSize,
-        color: task.color,
-        tradeId: task.tradeId,
-        dependencies: task.dependencies,
-        progress: task.progress,
-        status: task.status,
-        workOnSaturday: task.workOnSaturday,
-        workOnSunday: task.workOnSunday,
-        swimlaneId: task.swimlaneId // Ensure swimlaneId is included
-      })),
+      tasks: serializedTasks,
       swimlanes: serializedSwimlanes,
       taskPositions: serializedTaskPositions,
       tradeFilters: Array.from(this.tradeFilters.entries())
@@ -1739,6 +1786,13 @@ export class TaskManager {
    * @param state The state object to import
    */
   importState(state: any): void {
+    console.log(`[TaskManager] Starting import with state:`, {
+      hasTasks: Boolean(state.tasks),
+      taskCount: state.tasks?.length || 0,
+      hasSwimlanes: Boolean(state.swimlanes),
+      swimlaneCount: state.swimlanes?.length || 0
+    });
+    
     // Clear current state
     this.tasks = [];
     this.selectedTasks.clear();
@@ -1748,6 +1802,9 @@ export class TaskManager {
     
     // First pass: Create all tasks to ensure they exist for dependency linking
     const taskMap = new Map<string, Task>();
+    
+    // Keep track of dependencies to ensure they are all properly preserved
+    const taskDependencies = new Map<string, string[]>();
     
     // Restore tasks
     if (state.tasks && Array.isArray(state.tasks)) {
@@ -1760,6 +1817,12 @@ export class TaskManager {
           const taskStartDate = taskData.startDate instanceof Date 
             ? taskData.startDate 
             : new Date(taskData.startDate || Date.now());
+          
+          // Store dependencies for later assignment
+          if (Array.isArray(taskData.dependencies) && taskData.dependencies.length > 0) {
+            taskDependencies.set(taskId, [...taskData.dependencies]);
+            console.log(`[TaskManager] Stored ${taskData.dependencies.length} dependencies for task ${taskId} for later assignment`);
+          }
           
           // Create the task initially without dependencies
           const task = new Task({
@@ -1790,17 +1853,14 @@ export class TaskManager {
       });
       
       // Second pass: Now set dependencies after all tasks exist
-      state.tasks.forEach((taskData: any) => {
-        if (!taskData.id) return;
-        
-        const task = taskMap.get(taskData.id);
-        if (!task) return;
-        
-        // Set dependencies if they exist
-        if (Array.isArray(taskData.dependencies) && taskData.dependencies.length > 0) {
+      this.tasks.forEach(task => {
+        // Get stored dependencies for this task
+        const dependencies = taskDependencies.get(task.id);
+        if (dependencies && dependencies.length > 0) {
           // Validate and add each dependency
           const validDependencies: string[] = [];
-          taskData.dependencies.forEach((depId: string) => {
+          
+          dependencies.forEach(depId => {
             // Check if the dependency target exists
             if (taskMap.has(depId)) {
               validDependencies.push(depId);
@@ -1810,9 +1870,8 @@ export class TaskManager {
           });
           
           // Set the validated dependencies
-          task.dependencies = validDependencies;
-          
           if (validDependencies.length > 0) {
+            task.dependencies = validDependencies;
             console.log(`[TaskManager] Set ${validDependencies.length} dependencies for task ${task.id}:`, JSON.stringify(validDependencies));
           }
         }
@@ -1884,11 +1943,14 @@ export class TaskManager {
     // Force a full integrity check once after import
     this.forceIntegrityCheck();
     
-    // Verify dependencies were properly imported
+    // Verify dependencies after import
     this.verifyDependencies();
     
-    // Log success
-    console.log(`[TaskManager] Successfully imported ${this.tasks.length} tasks and ${this.swimlanes.length} swimlanes`);
+    // Verify all dependencies are valid after the full import
+    this.verifyAllDependencies();
+    
+    // Log the final state
+    console.log(`[TaskManager] Import completed with ${this.tasks.length} tasks, ${this.swimlanes.length} swimlanes`);
   }
   
   /**
@@ -1897,29 +1959,46 @@ export class TaskManager {
   private verifyDependencies(): void {
     let tasksWithDeps = 0;
     let totalDeps = 0;
+    let fixedDeps = 0;
     
+    // First create a map of all valid task IDs for quick lookup
+    const validTaskIds = new Set<string>();
     this.tasks.forEach(task => {
-      if (task.dependencies && task.dependencies.length > 0) {
+      validTaskIds.add(task.id);
+    });
+    
+    // Now check and fix each task's dependencies
+    this.tasks.forEach(task => {
+      if (!Array.isArray(task.dependencies)) {
+        task.dependencies = [];
+        console.error(`[TaskManager] Fixed null dependencies for task ${task.id}`);
+        fixedDeps++;
+      }
+      
+      if (task.dependencies.length > 0) {
         tasksWithDeps++;
         totalDeps += task.dependencies.length;
         
         // Check if all dependencies point to valid tasks
-        const invalidDeps = task.dependencies.filter(depId => 
-          !this.tasks.some(t => t.id === depId)
-        );
+        const invalidDeps = task.dependencies.filter(depId => !validTaskIds.has(depId));
         
         if (invalidDeps.length > 0) {
           console.warn(`[TaskManager] Task ${task.id} has ${invalidDeps.length} invalid dependencies:`, invalidDeps);
           
           // Remove invalid dependencies
-          task.dependencies = task.dependencies.filter(depId => 
-            !invalidDeps.includes(depId)
-          );
+          const originalCount = task.dependencies.length;
+          task.dependencies = task.dependencies.filter(depId => validTaskIds.has(depId));
+          fixedDeps += (originalCount - task.dependencies.length);
+          
+          // Log each removed dependency for debugging
+          invalidDeps.forEach(depId => {
+            console.warn(`[TaskManager] Removed invalid dependency ${depId} from task ${task.id}`);
+          });
         }
       }
     });
     
-    console.log(`[TaskManager] Dependency verification: ${tasksWithDeps} tasks have ${totalDeps} total dependencies`);
+    console.log(`[TaskManager] Dependency verification: ${tasksWithDeps} tasks have ${totalDeps} total dependencies, fixed ${fixedDeps} invalid dependencies`);
   }
 
   /**
@@ -2192,5 +2271,45 @@ export class TaskManager {
     directSuccessors.forEach(findIndirectSuccessors);
     
     return Array.from(allSuccessors);
+  }
+
+  /**
+   * Public method to verify and sanitize all task dependencies
+   * @returns Object with counts of valid and fixed dependencies
+   */
+  verifyAllDependencies(): { validCount: number, fixedCount: number } {
+    // Create a set of valid task IDs for quick lookup
+    const validTaskIds = new Set(this.tasks.map(task => task.id));
+    let fixedCount = 0;
+    let validCount = 0;
+    
+    // Check each task's dependencies
+    this.tasks.forEach(task => {
+      if (!Array.isArray(task.dependencies)) {
+        // Fix null or invalid dependencies
+        task.dependencies = [];
+        console.warn(`[TaskManager] Fixed invalid dependencies format for task ${task.id}`);
+      } else if (task.dependencies.length > 0) {
+        // Filter out any dependencies that don't point to valid tasks
+        const originalCount = task.dependencies.length;
+        const validDependencies = task.dependencies.filter(depId => validTaskIds.has(depId));
+        
+        // Update counts
+        validCount += validDependencies.length;
+        fixedCount += originalCount - validDependencies.length;
+        
+        // If any were filtered out, update the task
+        if (validDependencies.length !== originalCount) {
+          task.dependencies = validDependencies;
+          console.warn(`[TaskManager] Fixed ${originalCount - validDependencies.length} invalid dependencies for task ${task.id}`);
+        }
+      }
+    });
+    
+    // Log summary
+    console.log(`[TaskManager] Dependency verification complete: ${this.tasks.length} tasks checked, ${validCount} valid dependencies, ${fixedCount} invalid dependencies fixed`);
+    
+    // Return the results for external use
+    return { validCount, fixedCount };
   }
 }

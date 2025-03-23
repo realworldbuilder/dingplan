@@ -21,7 +21,15 @@ export function saveToLocalStorage(state: any, projectId?: string): void {
       return value;
     });
     
+    // Store the state
     localStorage.setItem(storageKey, serializedState);
+    
+    // Also update state version for backwards compatibility
+    if (projectId) {
+      // Store the current project ID for reference
+      localStorage.setItem('currentProjectId', projectId);
+    }
+    
     console.log(`State saved to localStorage with key: ${storageKey}`);
   } catch (error) {
     console.error('Failed to save state to localStorage:', error);
@@ -35,7 +43,62 @@ export function saveToLocalStorage(state: any, projectId?: string): void {
 export function loadFromLocalStorage(projectId?: string): any | null {
   try {
     const storageKey = projectId ? `${BASE_STORAGE_KEY}_${projectId}` : BASE_STORAGE_KEY;
-    const serializedState = localStorage.getItem(storageKey);
+    let serializedState = localStorage.getItem(storageKey);
+    
+    // Try legacy key formats if no data found with new key format
+    if (!serializedState && projectId) {
+      const legacyKey = `construction-${projectId}-1.2.0`;
+      serializedState = localStorage.getItem(legacyKey);
+      
+      if (serializedState) {
+        console.log(`Found data with legacy key: ${legacyKey}, will migrate to new format`);
+        
+        // Also try to get the legacy dependency map for migration
+        const legacyDependencyMapKey = `construction-${projectId}-dependencies`;
+        const legacyDependencyMap = localStorage.getItem(legacyDependencyMapKey);
+        
+        if (legacyDependencyMap) {
+          console.log(`Found legacy dependency map, will incorporate into state`);
+          
+          // Parse both the state and dependency map
+          const parsedState = JSON.parse(serializedState);
+          const dependencyMap = JSON.parse(legacyDependencyMap);
+          
+          // Ensure dependencies from the map are incorporated into the state
+          if (parsedState.tasks && dependencyMap) {
+            parsedState.tasks.forEach((task: any) => {
+              const deps = dependencyMap[task.id];
+              if (deps && Array.isArray(deps)) {
+                // Ensure task.dependencies is an array
+                if (!Array.isArray(task.dependencies)) {
+                  task.dependencies = [];
+                }
+                
+                // Add dependencies from the map that aren't already in the task
+                const existingDeps = new Set(task.dependencies);
+                deps.forEach((depId: string) => {
+                  if (!existingDeps.has(depId)) {
+                    task.dependencies.push(depId);
+                  }
+                });
+              }
+            });
+          }
+          
+          // Re-serialize the state with incorporated dependencies
+          serializedState = JSON.stringify(parsedState);
+          
+          // Save to the new format key for future use
+          localStorage.setItem(storageKey, serializedState);
+          
+          // Clean up legacy keys
+          localStorage.removeItem(legacyKey);
+          localStorage.removeItem(legacyDependencyMapKey);
+          
+          console.log(`Migrated data from legacy format to new key: ${storageKey}`);
+        }
+      }
+    }
     
     if (!serializedState) {
       console.log(`No saved state found in localStorage for key: ${storageKey}`);

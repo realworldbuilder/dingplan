@@ -152,7 +152,21 @@ export const updateProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Updating project locally: ${projectId}`);
+    console.log(`[projectService] Updating project locally: ${projectId}`, {
+      taskCount: projectData?.tasks?.length || 0,
+      swimlaneCount: projectData?.swimlanes?.length || 0
+    });
+    
+    // Count dependencies for logging
+    let totalDependencyCount = 0;
+    if (projectData && projectData.tasks) {
+      projectData.tasks.forEach((task: any) => {
+        if (task.dependencies && Array.isArray(task.dependencies)) {
+          totalDependencyCount += task.dependencies.length;
+        }
+      });
+    }
+    console.log(`[projectService] Project includes ${totalDependencyCount} task dependencies`);
     
     // Get existing projects
     const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
@@ -171,12 +185,15 @@ export const updateProject = async (
       throw new Error('You do not have permission to edit this project');
     }
     
+    // Ensure projectData is properly sanitized to prevent circular references
+    const sanitizedData = JSON.parse(JSON.stringify(projectData));
+    
     // Update the project
     projects[projectIndex] = {
       ...projects[projectIndex],
       name: metadata.name,
       description: metadata.description,
-      projectData: projectData,
+      projectData: sanitizedData,
       isPublic: metadata.isPublic,
       tags: metadata.tags,
       updatedAt: new Date().toISOString()
@@ -184,6 +201,9 @@ export const updateProject = async (
     
     // Save back to localStorage
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+    
+    // Also make sure we save the currentProjectId for consistency
+    localStorage.setItem('currentProjectId', projectId);
     
     console.log('[projectService] Project updated locally:', projectId);
     
@@ -214,6 +234,9 @@ export const loadProject = async (
     
     console.log(`[projectService] Loading project locally: ${projectId}`);
     
+    // Set currentProjectId in localStorage for consistency
+    localStorage.setItem('currentProjectId', projectId);
+    
     // Get existing projects
     const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
     const projects = JSON.parse(projectsJson);
@@ -233,6 +256,17 @@ export const loadProject = async (
       }
     }
     
+    // Count dependencies for logging
+    let totalDependencyCount = 0;
+    if (project.projectData && project.projectData.tasks) {
+      project.projectData.tasks.forEach((task: any) => {
+        if (task.dependencies && Array.isArray(task.dependencies)) {
+          totalDependencyCount += task.dependencies.length;
+        }
+      });
+    }
+    console.log(`[projectService] Loaded project with ${project.projectData?.tasks?.length || 0} tasks and ${totalDependencyCount} dependencies`);
+    
     // Format the project data
     const formattedProject: ProjectData = {
       metadata: {
@@ -247,8 +281,6 @@ export const loadProject = async (
       },
       projectData: project.projectData
     };
-    
-    console.log('[projectService] Project loaded locally:', projectId);
     
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 300));
