@@ -42,7 +42,7 @@ export class TaskManager {
   private isDrawingSelectionBox = false;
   private selectionBoxStart: { x: number; y: number } | null = null;
   private selectionBoxEnd: { x: number; y: number } | null = null;
-  private showDependencies: boolean = true; // Add this flag
+  areDependenciesVisible: boolean = true; // For dependency visibility
 
   // New property for trade filters
   private tradeFilters: Map<string, boolean> = new Map();
@@ -75,7 +75,7 @@ export class TaskManager {
       
       // Add dependency toggle on 'D' key press
       if (e.key === 'd' || e.key === 'D') {
-        this.showDependencies = !this.showDependencies;
+        this.areDependenciesVisible = !this.areDependenciesVisible;
       }
     });
 
@@ -382,42 +382,70 @@ export class TaskManager {
       const dragStartY = originalPos.y;
       const verticalMovement = worldY - this.dragStartPosition.y - dragStartY;
       
-      // Move all selected tasks
-      if (this.selectedTasks.size > 1 && this.selectedTasks.has(draggedTask)) {
-        // Move all selected tasks by the same time difference and vertical offset
-        this.selectedTasks.forEach(task => {
-          // Skip the dragged task as we'll handle it separately
-          if (task === draggedTask) return;
-          
-          const currentSwimlane = this.swimlanes.find(s => s.tasks.includes(task));
-          if (!currentSwimlane) return;
-          
-          // Apply the same time shift to all selected tasks
-          const taskNewStartDate = new Date(task.startDate.getTime() + timeDifference);
-          task.startDate = taskNewStartDate;
-          
-          // Update vertical position - only if it's in the same swimlane as the original task
-          if (currentSwimlane.taskPositions.has(task.id)) {
-            const currentPos = currentSwimlane.taskPositions.get(task.id)!;
+      // Get all tasks to move: selected tasks and dependent tasks
+      const tasksToMove = new Set<Task>();
+      
+      // First add all selected tasks
+      if (this.selectedTasks.size > 0) {
+        this.selectedTasks.forEach(task => tasksToMove.add(task));
+      } else {
+        // If no tasks are selected, just add the dragged task
+        tasksToMove.add(draggedTask);
+      }
+      
+      // Get tasks that depend on any of the selected tasks (only if showDependencies is enabled)
+      if (this.areDependenciesVisible) {
+        // Find dependents for each selected/dragged task
+        const processedTasks = new Set<string>();
+        
+        tasksToMove.forEach(task => {
+          if (!processedTasks.has(task.id)) {
+            processedTasks.add(task.id);
             
-            // Check if task is in same swimlane as dragged task
-            if (currentSwimlane.id === targetSwimlane.id) {
-              const newY = Math.max(
-                targetSwimlane.y + 40,
-                Math.min(
-                  currentPos.y + verticalMovement,
-                  targetSwimlane.y + targetSwimlane.height - task.getCurrentHeight() - 20
-                )
-              );
-              
-              currentSwimlane.taskPositions.set(task.id, {
-                x: currentPos.x,
-                y: newY
-              });
-            }
+            // Get successor tasks (those that depend on this task)
+            const successors = this.getSuccessorTasks(task.id, true);
+            successors.forEach(successor => {
+              if (!tasksToMove.has(successor)) {
+                tasksToMove.add(successor);
+              }
+            });
           }
         });
       }
+      
+      // Now move all tasks in tasksToMove
+      tasksToMove.forEach(task => {
+        // Skip the dragged task as we'll handle it separately
+        if (task === draggedTask) return;
+        
+        const currentSwimlane = this.swimlanes.find(s => s.tasks.includes(task));
+        if (!currentSwimlane) return;
+        
+        // Apply the same time shift
+        const taskNewStartDate = new Date(task.startDate.getTime() + timeDifference);
+        task.startDate = taskNewStartDate;
+        
+        // Update vertical position - only if it's in the same swimlane as the original task and part of the selection
+        if (currentSwimlane.taskPositions.has(task.id) && this.selectedTasks.has(task)) {
+          const currentPos = currentSwimlane.taskPositions.get(task.id)!;
+          
+          // Check if task is in same swimlane as dragged task
+          if (currentSwimlane.id === targetSwimlane.id) {
+            const newY = Math.max(
+              targetSwimlane.y + 40,
+              Math.min(
+                currentPos.y + verticalMovement,
+                targetSwimlane.y + targetSwimlane.height - task.getCurrentHeight() - 20
+              )
+            );
+            
+            currentSwimlane.taskPositions.set(task.id, {
+              x: currentPos.x,
+              y: newY
+            });
+          }
+        }
+      });
       
       // Now handle the dragged task
       const currentSwimlane = this.swimlanes.find(s => s.tasks.includes(draggedTask));
@@ -588,7 +616,7 @@ export class TaskManager {
   handleKeyDown(e: KeyboardEvent) {
     // Add dependency toggle on 'D' key press
     if (e.key === 'd' || e.key === 'D') {
-      this.showDependencies = !this.showDependencies;
+      this.areDependenciesVisible = !this.areDependenciesVisible;
       return;
     }
     
@@ -1246,7 +1274,7 @@ export class TaskManager {
     });
 
     // Draw dependency arrows if enabled
-    if (this._areDependenciesVisible) {
+    if (this.areDependenciesVisible) {
       this.drawDependencies(ctx, timeAxis, camera);
     }
 
@@ -1356,15 +1384,6 @@ export class TaskManager {
       ctx.strokeRect(x, y, width, height);
       ctx.restore();
     }
-  }
-
-  // Need to have a flag for dependency visibility
-  private _areDependenciesVisible = true;
-  get areDependenciesVisible(): boolean {
-    return this._areDependenciesVisible;
-  }
-  set areDependenciesVisible(value: boolean) {
-    this._areDependenciesVisible = value;
   }
 
   linkSelectedTasksInSequence() {
@@ -2004,5 +2023,34 @@ export class TaskManager {
     } else {
       console.log("[TaskManager] No integrity issues found");
     }
+  }
+
+  // Find all tasks that depend on the given task (successors)
+  // This includes both direct and indirect dependencies
+  private getSuccessorTasks(taskId: string, includeIndirect: boolean = true): Task[] {
+    // Find direct successors - tasks that have this task as a dependency
+    const directSuccessors = this.tasks.filter(t => t.dependencies.includes(taskId));
+    
+    if (!includeIndirect) {
+      return directSuccessors;
+    }
+    
+    // Find indirect successors recursively
+    const allSuccessors = new Set<Task>(directSuccessors);
+    
+    const findIndirectSuccessors = (task: Task) => {
+      const successors = this.tasks.filter(t => t.dependencies.includes(task.id));
+      for (const successor of successors) {
+        if (!allSuccessors.has(successor)) {
+          allSuccessors.add(successor);
+          findIndirectSuccessors(successor);
+        }
+      }
+    };
+    
+    // Start the recursive search with direct successors
+    directSuccessors.forEach(findIndirectSuccessors);
+    
+    return Array.from(allSuccessors);
   }
 }
