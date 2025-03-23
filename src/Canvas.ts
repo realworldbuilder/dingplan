@@ -108,16 +108,8 @@ export class Canvas {
     // Initialize the touch manager for mobile devices
     this.initTouchSupport();
     
-    // Check for project ID in URL before loading from localStorage
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('project');
-    
-    // Only load from localStorage if there's a project ID and saved state
-    if (projectId && hasSavedState(projectId)) {
-      this.loadFromLocalStorage();
-    } else {
-      console.log('No project ID or saved state found, starting with empty canvas');
-    }
+    // Always try to load from localStorage
+    this.loadFromLocalStorage();
     
     // Set up autosave
     this.setupAutosave();
@@ -1851,14 +1843,8 @@ export class Canvas {
    */
   saveToLocalStorage(): void {
     try {
-      // Get the current project ID from the project manager
-      const projectId = this.projectManager?.currentProjectId || null;
-      
-      // Skip saving if no project is loaded
-      if (!projectId) {
-        console.log('No project loaded, skipping localStorage save');
-        return;
-      }
+      // Get the current project ID from the project manager or use 'default'
+      const projectId = this.projectManager?.currentProjectId || 'default';
       
       // Prepare state object
       const state = {
@@ -1887,13 +1873,7 @@ export class Canvas {
   loadFromLocalStorage(): void {
     // Check if there's a project parameter in the URL
     const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('project');
-    
-    // If there's no project ID in the URL, don't load from localStorage
-    if (!projectId) {
-      console.log('No project ID in URL, starting with a clean state');
-      return;
-    }
+    const projectId = urlParams.get('project') || 'default';
     
     // Only attempt to load if there's saved state for this specific project
     if (!hasSavedState(projectId)) {
