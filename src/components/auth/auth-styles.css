@@ -18,8 +18,10 @@
 
 /* Logo image for auth */
 .auth-logo {
-  max-width: 60%;
+  max-width: 140px;
   height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 /* Specific styles for left sidebar */
@@ -70,13 +72,16 @@
 
 .auth-button {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid #ddd;
-  cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 3px 0;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .left-sidebar .auth-button {
@@ -242,10 +247,11 @@
 .auth-container-minimal {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 15px;
+  gap: 12px;
+  padding: 15px;
   border-bottom: 1px solid #eee;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 150px; /* Ensure enough space */
 }
 
 .auth-message {
@@ -260,13 +266,16 @@
 /* Auth buttons */
 .auth-button {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid #ddd;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: background-color 0.2s;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 3px 0;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .sign-in {
@@ -352,11 +361,12 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Ensure auth containers don't have scrollbars */
+/* Ensure auth containers don't have scrollbars but are fully visible */
 .auth-container-minimal, 
 .auth-logo-container,
 .user-info,
 .auth-message {
-  overflow: hidden !important;
+  overflow: visible !important;
   max-width: 100%;
+  display: block !important;
 } 

@@ -793,10 +793,24 @@ export class ProjectManager {
       /* Target menu tabs specifically */
       .sidebar-tabs, 
       .sidebar-tab,
-      .auth-container-minimal,
-      #auth-container,
       .sidebar-header {
         overflow: hidden !important;
+      }
+      
+      /* Auth containers need to be visible */
+      .auth-container-minimal,
+      #auth-container {
+        overflow: visible !important;
+        min-height: 160px;
+        display: block !important;
+      }
+      
+      /* Auth button fixes */
+      .auth-button, .sign-in, .sign-up, .sign-out {
+        display: block !important;
+        visibility: visible !important;
+        margin: 5px 0;
+        min-height: 36px;
       }
       
       /* Only allow vertical scrolling in the projects list */
