@@ -8,6 +8,9 @@ import authConnector from './components/auth/AuthConnector';
 declare global {
   interface Window {
     canvasApp: any;
+    forceSave: () => boolean;
+    setup: any;
+    setupToolbarButtons: any;
   }
 }
 
@@ -330,6 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.canvasApp) {
       // Final save before unloading the page
       window.canvasApp.saveToLocalStorage();
+      
+      // Log a message for debugging
+      console.log('[main] Final save before page unload');
     }
   });
   
@@ -337,6 +343,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.canvasApp && window.canvasApp.saveToLocalStorage) {
     setInterval(() => {
       window.canvasApp.saveToLocalStorage();
+      
+      // Log dependency counts for debugging
+      if (window.canvasApp.taskManager) {
+        const tasks = window.canvasApp.taskManager.getAllTasks();
+        const tasksWithDependencies = tasks.filter(task => task.dependencies && task.dependencies.length > 0);
+        if (tasksWithDependencies.length > 0) {
+          console.log(`[main] Auto-save: ${tasksWithDependencies.length} tasks have dependencies`);
+        }
+      }
     }, 60000); // Auto-save every minute
   }
-}); 
+});
+
+// Add a custom global method to force save
+window.forceSave = function() {
+  if (window.canvasApp && window.canvasApp.saveToLocalStorage) {
+    console.log('[main] Manual force save triggered');
+    window.canvasApp.saveToLocalStorage();
+    return true;
+  }
+  return false;
+}; 

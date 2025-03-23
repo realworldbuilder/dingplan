@@ -478,6 +478,16 @@ export class TaskManager {
       // Update task details in real-time while dragging
       this.updateTaskDetails(draggedTask);
       
+      // Dispatch a taskUpdated event to trigger autosave
+      const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+        detail: {
+          task: draggedTask,
+          tasksUpdated: Array.from(tasksToMove),
+          hasDependencies: true
+        }
+      });
+      document.dispatchEvent(taskUpdatedEvent);
+      
       return;
     }
 
@@ -981,25 +991,34 @@ export class TaskManager {
     // Add event listener for add and remove predecessor buttons
     detailsView.addEventListener('addPredecessor', (e: any) => {
       const taskId = e.detail.taskId;
+      const predecessorId = (document.getElementById('predecessorSelect') as HTMLSelectElement)?.value;
+      
       const task = this.getTask(taskId);
-      if (!task) return;
+      const predecessor = this.getTask(predecessorId);
       
-      const predecessorSelect = detailsView.querySelector('#predecessorSelect') as HTMLSelectElement;
-      if (!predecessorSelect || !predecessorSelect.value) return;
+      if (!task || !predecessor) return;
+      if (task.dependencies.includes(predecessorId)) return;
       
-      const predecessorId = predecessorSelect.value;
-      
-      // Check if this would create a cycle
-      if (this.wouldCreateCycle(predecessorId, taskId)) {
-        alert("Cannot add this dependency as it would create a cycle.");
+      // Check for dependency cycles
+      if (this.wouldCreateCycle(taskId, predecessorId)) {
+        console.error(`Adding dependency would create a cycle: ${predecessorId} -> ${taskId}`);
+        // TODO: Show a user-friendly error message
         return;
       }
       
-      // Add dependency if not already present
-      if (!task.dependencies.includes(predecessorId)) {
-        task.dependencies.push(predecessorId);
-        this.updateTaskDetails(task); // Refresh details view
-      }
+      // Add dependency
+      task.dependencies.push(predecessorId);
+      
+      // Dispatch taskUpdated event for autosave
+      const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+        detail: {
+          task: task,
+          hasDependencies: true
+        }
+      });
+      document.dispatchEvent(taskUpdatedEvent);
+      
+      this.updateTaskDetails(task); // Refresh details view
     });
     
     detailsView.addEventListener('removePredecessor', (e: any) => {
@@ -1011,6 +1030,16 @@ export class TaskManager {
       
       // Remove dependency
       task.dependencies = task.dependencies.filter(id => id !== predecessorId);
+      
+      // Dispatch taskUpdated event for autosave
+      const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+        detail: {
+          task: task,
+          hasDependencies: true
+        }
+      });
+      document.dispatchEvent(taskUpdatedEvent);
+      
       this.updateTaskDetails(task); // Refresh details view
     });
     
@@ -1023,6 +1052,16 @@ export class TaskManager {
       
       // Remove the dependency from the successor task
       successor.dependencies = successor.dependencies.filter(id => id !== taskId);
+      
+      // Dispatch taskUpdated event for autosave
+      const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+        detail: {
+          task: successor,
+          hasDependencies: true
+        }
+      });
+      document.dispatchEvent(taskUpdatedEvent);
+      
       this.updateTaskDetails(task); // Refresh details view
     });
   }
@@ -1404,6 +1443,15 @@ export class TaskManager {
       const selectedTask = Array.from(this.selectedTasks)[0];
       this.updateTaskDetails(selectedTask);
     }
+    
+    // Dispatch taskUpdated event for autosave
+    const taskUpdatedEvent = new CustomEvent('taskUpdated', {
+      detail: {
+        tasks: this.selectedTasksInOrder,
+        hasDependencies: true
+      }
+    });
+    document.dispatchEvent(taskUpdatedEvent);
   }
 
   moveTasksTo(targetDate: Date) {

@@ -1846,10 +1846,23 @@ export class Canvas {
       // Get the current project ID from the project manager or use 'default'
       const projectId = this.projectManager?.currentProjectId || 'default';
       
+      // Get the full state from task manager
+      const taskManagerState = this.taskManager.exportState();
+      
+      // Log dependencies for debugging
+      const dependencyCounts = {};
+      taskManagerState.tasks.forEach(task => {
+        if (task.dependencies && task.dependencies.length > 0) {
+          console.log(`[Canvas] Saving task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, task.dependencies);
+          dependencyCounts[task.id] = task.dependencies.length;
+        }
+      });
+      console.log(`[Canvas] Saving ${Object.keys(dependencyCounts).length} tasks with dependencies`);
+      
       // Prepare state object
       const state = {
-        tasks: this.taskManager.exportState().tasks,
-        swimlanes: this.taskManager.exportState().swimlanes,
+        tasks: taskManagerState.tasks,
+        swimlanes: taskManagerState.swimlanes,
         camera: {
           x: this.camera.x,
           y: this.camera.y,
@@ -1888,11 +1901,34 @@ export class Canvas {
     try {
       console.log(`Loading state for project ${projectId} from localStorage`);
       
+      // Log dependencies from loaded state for debugging
+      const dependencyCounts = {};
+      if (state.tasks && Array.isArray(state.tasks)) {
+        state.tasks.forEach(task => {
+          if (task.dependencies && task.dependencies.length > 0) {
+            console.log(`[Canvas] Loading task ${task.id} (${task.name}) with ${task.dependencies.length} dependencies:`, task.dependencies);
+            dependencyCounts[task.id] = task.dependencies.length;
+          }
+        });
+        console.log(`[Canvas] Loading ${Object.keys(dependencyCounts).length} tasks with dependencies`);
+      }
+      
       // Clear existing tasks first to avoid duplication
       this.taskManager.importState({ tasks: [], swimlanes: [] });
       
       // Import task manager state
       this.taskManager.importState(state);
+      
+      // Check dependencies after import
+      const tasksAfterImport = this.taskManager.getAllTasks();
+      const dependencyCountsAfterImport = {};
+      tasksAfterImport.forEach(task => {
+        if (task.dependencies && task.dependencies.length > 0) {
+          console.log(`[Canvas] After import: task ${task.id} (${task.name}) has ${task.dependencies.length} dependencies:`, task.dependencies);
+          dependencyCountsAfterImport[task.id] = task.dependencies.length;
+        }
+      });
+      console.log(`[Canvas] After import: ${Object.keys(dependencyCountsAfterImport).length} tasks have dependencies`);
       
       // Ensure all task data is valid and visible
       this.taskManager.validateTradeFilters();
@@ -1915,6 +1951,9 @@ export class Canvas {
             ? state.settings.areDependenciesVisible 
             : true;
       }
+      
+      // Ensure TaskManager also has the same dependency visibility setting
+      this.taskManager.areDependenciesVisible = this.areDependenciesVisible;
       
       // Render with the loaded state
       this.render();
