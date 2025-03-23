@@ -281,4 +281,62 @@ export const getPublicProjects = async (req, res) => {
       message: 'Server error'
     });
   }
+};
+
+/**
+ * Import a project from localStorage
+ * @route POST /api/projects/import
+ * @access Public (but requires project data)
+ */
+export const importProject = async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      isPublic,
+      tags,
+      projectData,
+      userId,
+      originalId
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !projectData) {
+      return res.status(400).json({
+        success: false,
+        message: 'Project name and data are required'
+      });
+    }
+
+    // Create a new project
+    const project = new Project({
+      name,
+      description: description || '',
+      isPublic: isPublic || false,
+      tags: tags || [],
+      projectData,
+      userId: userId || 'anonymous',
+      meta: {
+        importedFrom: 'localStorage',
+        originalId,
+        importDate: new Date()
+      }
+    });
+
+    // Save the project
+    const savedProject = await project.save();
+
+    res.status(201).json({
+      success: true,
+      id: savedProject._id,
+      message: 'Project imported successfully'
+    });
+  } catch (error) {
+    console.error('Error importing project:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error importing project',
+      error: error.message
+    });
+  }
 }; 

@@ -3,6 +3,7 @@ import { Composer } from './composer/Composer';
 import { initializeDiagnostics } from './diagnostic';
 import { generateUUID } from './utils';
 import authConnector from './components/auth/AuthConnector';
+import { MigrationDialog } from './components/MigrationDialog';
 
 // Declare the global window object to have our canvasApp property
 declare global {
@@ -119,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
     gridColor: '#e0e0e0',
     startDate,
   });
+  
+  // Initialize the migration dialog
+  const migrationDialog = new MigrationDialog();
   
   // Function to broadcast the current tasks to the parent window
   const broadcastTasksToParent = () => {
