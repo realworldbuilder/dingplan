@@ -106,11 +106,6 @@ export class ProjectManager {
       this.loadProjectFromServer(projectId);
     }
     
-    // Open projects sidebar after a short delay
-    setTimeout(() => {
-      this.toggleProjectSidebar(true);
-    }, 1000);
-    
     // Add to init method, after this.isInitialized = true;
     // Start auto-backup timer
     this.startAutoBackup();
@@ -147,6 +142,7 @@ export class ProjectManager {
     leftSidebar.style.display = 'flex';
     leftSidebar.style.flexDirection = 'column';
     leftSidebar.style.overflow = 'hidden';
+    leftSidebar.style.overflowX = 'hidden';
     
     // Create a resize handle for the sidebar
     const resizeHandle = document.createElement('div');
@@ -725,6 +721,48 @@ export class ProjectManager {
         background: rgba(0, 0, 0, 0.5);
         z-index: 10000;
       }
+
+      .sidebar-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 16px;
+      }
+      
+      /* Add loading indicator styles */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      
+      .sidebar-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 16px;
+      }
+      
+      /* Ensure all content panels don't have horizontal scrollbars */
+      .sidebar-content-panel {
+        overflow-x: hidden !important;
+      }
+      
+      /* Fix any overflow issues in the sidebar */
+      .projects-panel, .backups-panel, #project-list, #backup-list, .sidebar-panel {
+        overflow-x: hidden !important;
+      }
     `;
     document.head.appendChild(styleElement);
     
@@ -767,7 +805,7 @@ export class ProjectManager {
     // Create sidebar content with tabs
     leftSidebar.innerHTML = `
       <div class="sidebar-header">
-        <h2>Project Manager</h2>
+        <h2>dingplanPM</h2>
         <button id="close-projects-sidebar" class="close-sidebar-btn">&times;</button>
       </div>
       
@@ -1246,7 +1284,7 @@ export class ProjectManager {
     if (!this.projectSidebar) return;
     
     const currentTransform = this.projectSidebar.style.transform;
-    let isVisible = currentTransform !== 'translateX(-300px)';
+    let isVisible = currentTransform === 'translateX(0px)' || currentTransform === 'translateX(0)';
     
     // If explicit show/hide is requested, use that instead
     if (show !== undefined) {
@@ -1260,7 +1298,7 @@ export class ProjectManager {
     if (isVisible) {
       this.projectSidebar.style.transform = 'translateX(-' + sidebarWidth + 'px)';
       document.body.style.marginLeft = '0';
-      } else {
+    } else {
       this.projectSidebar.style.transform = 'translateX(0)';
       document.body.style.marginLeft = sidebarWidth + 'px';
       
@@ -1763,6 +1801,13 @@ export class ProjectManager {
         height: 100%;
         background: rgba(0, 0, 0, 0.5);
         z-index: 10000;
+      }
+
+      .sidebar-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0 16px;
       }
     `;
     document.head.appendChild(style);

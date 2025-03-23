@@ -144,8 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (app && app.sidebar) {
       app.sidebar.initializeComposer?.(app);
       console.log('Composer initialized through sidebar.');
-      app.sidebar.show();
-
+      
       // Initialize auth connector after components are ready
       setTimeout(() => {
         console.log('Initializing auth connector with increased delay');
