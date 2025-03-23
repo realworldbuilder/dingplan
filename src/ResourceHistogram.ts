@@ -50,80 +50,40 @@ export class ResourceHistogram {
     // we need to wait for the next calculateResources call
   }
 
-  /**
-   * Calculate resource usage based on tasks
-   * @param tasks Array of tasks to consider
-   * @param startDate Optional date to start calculations from
-   * @param endDate Optional date to end calculations at
-   */
-  calculateResources(tasks: any[], startDate?: Date, endDate?: Date) {
-    // Reset resource data
-    this.dailyResources = new Map();
-    this.weeklyResources = new Map();
-    this.monthlyResources = new Map();
+  calculateResources(tasks: Task[]): void {
+    // Clear previous calculations
+    this.dailyResources.clear();
+    this.weeklyResources.clear();
+    this.monthlyResources.clear();
     this.maxDailyResource = 0;
     this.maxWeeklyResource = 0;
     this.maxMonthlyResource = 0;
-    
-    if (!tasks || tasks.length === 0) {
-      return;
-    }
-    
-    // Group tasks by trade
-    const tasksByTrade: Map<string, any[]> = new Map();
-    
+
+    // Group tasks by date, color, and sum crew sizes
     tasks.forEach(task => {
-      if (!task.tradeId) return;
+      const startDate = new Date(task.startDate);
+      const endDate = task.getEndDate();
+      const color = task.color;
       
-      // Skip if task is outside date range (if provided)
-      if (startDate && endDate) {
-        if (task.endDate < startDate || task.startDate > endDate) {
-          return;
-        }
+      // Skip this task if its color is filtered out
+      // Default to visible if no filter is set for this color
+      if (this.tradeFilters.has(color) && this.tradeFilters.get(color) === false) {
+        return;
       }
       
-      const tradeTasks = tasksByTrade.get(task.tradeId) || [];
-      tradeTasks.push(task);
-      tasksByTrade.set(task.tradeId, tradeTasks);
-    });
-    
-    // Calculate resources by day for each trade
-    tasksByTrade.forEach((tradeTasks, tradeId) => {
-      // Get the overall date range for all tasks in this trade
-      let minDate = startDate || new Date();
-      let maxDate = endDate || new Date();
-      
-      // If no date range provided, calculate it from the tasks
-      if (!startDate || !endDate) {
-        tradeTasks.forEach(task => {
-          if (!minDate || task.startDate < minDate) {
-            minDate = new Date(task.startDate);
-          }
+      // For each day in the task duration
+      let currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        // Skip weekends
+        if (!this.isWeekend(currentDate)) {
+          // Process daily resources
+          this.addResourceToMap(this.dailyResources, this.formatDailyKey(currentDate), color, task.crewSize);
           
-          if (!maxDate || task.endDate > maxDate) {
-            maxDate = new Date(task.endDate);
-          }
-        });
-      }
-      
-      // Ensure we have valid dates
-      minDate = new Date(Math.min(minDate.getTime(), Date.now()));
-      maxDate = new Date(Math.max(maxDate.getTime(), Date.now() + 86400000)); // at least tomorrow
-      
-      // For each day, calculate resource usage
-      const currentDate = new Date(minDate);
-      while (currentDate <= maxDate) {
-        const dateKey = currentDate.toISOString().split('T')[0];
-        const dayResourceCount = this.calculateResourcesForDay(tradeTasks, currentDate);
-        
-        if (dayResourceCount > 0) {
-          // Store resource data by trade and date
-          const tradeData = this.dailyResources.get(dateKey) || new Map();
-          tradeData.set(tradeId, dayResourceCount);
-          this.dailyResources.set(dateKey, tradeData);
+          // Process weekly resources
+          this.addResourceToMap(this.weeklyResources, this.formatWeeklyKey(currentDate), color, task.crewSize);
           
-          // Update max resource count if needed
-          this.maxDailyResource = Math.max(this.maxDailyResource, dayResourceCount);
+          // Process monthly resources
+          this.addResourceToMap(this.monthlyResources, this.formatMonthlyKey(currentDate), color, task.crewSize);
         }
         
         // Move to next day
@@ -136,6 +96,20 @@ export class ResourceHistogram {
     
     // Average out weekly and monthly values
     this.averageWeeklyAndMonthlyResources();
+  }
+
+  private addResourceToMap(resourceMap: Map<string, Map<string, number>>, dateKey: string, color: string, crewSize: number): void {
+    // Initialize map for this date if needed
+    if (!resourceMap.has(dateKey)) {
+      resourceMap.set(dateKey, new Map<string, number>());
+    }
+    
+    // Get the map for this date
+    const dateMap = resourceMap.get(dateKey)!;
+    
+    // Add crew size to the appropriate color
+    const currentValue = dateMap.get(color) || 0;
+    dateMap.set(color, currentValue + crewSize);
   }
 
   private calculateMaxResources(): void {
@@ -649,43 +623,5 @@ export class ResourceHistogram {
       // Move to next month
       currentDate.setMonth(currentDate.getMonth() + 1);
     }
-  }
-
-  /**
-   * Calculate resource usage for a specific day
-   * @param tasks Array of tasks to consider
-   * @param day Date to calculate resources for
-   * @returns Total resource count for the day
-   */
-  private calculateResourcesForDay(tasks: any[], day: Date): number {
-    const dayFormatted = day.toISOString().split('T')[0];
-    let totalResources = 0;
-    
-    tasks.forEach(task => {
-      // Skip if task doesn't overlap with the day
-      const taskStart = new Date(task.startDate);
-      const taskEnd = new Date(task.endDate);
-      
-      // Format dates to compare just the date part
-      const taskStartFormatted = taskStart.toISOString().split('T')[0];
-      const taskEndFormatted = taskEnd.toISOString().split('T')[0];
-      
-      if (dayFormatted < taskStartFormatted || dayFormatted > taskEndFormatted) {
-        return;
-      }
-      
-      // Only count weekdays unless the task is configured to work on weekends
-      const dayOfWeek = day.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      
-      if (isWeekend && !(task.workOnSaturday || task.workOnSunday)) {
-        return;
-      }
-      
-      // Add resources from this task
-      totalResources += task.crewSize || 1;
-    });
-    
-    return totalResources;
   }
 } 
