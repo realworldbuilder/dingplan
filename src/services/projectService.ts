@@ -1,16 +1,16 @@
 /**
  * Service for handling project data persistence with the server
- * TEMPORARY: Using localStorage for persistence instead of server API
+ * Using MongoDB API for persistence
  */
 
 import { getCurrentUserId, isAuthenticated } from './authService';
 
-// Base API URL - should be configurable from environment
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Base API URL - configured from environment
+const API_URL = import.meta.env.VITE_API_URL || 'https://dingplan-server.vercel.app/api';
+console.log('[projectService] Using API URL:', API_URL);
 
-// Storage keys for localStorage
-const PROJECTS_KEY = 'dingplan_projects';
-const CURRENT_PROJECT_INDEX = 'dingplan_current_project_index';
+// Persistent project ID storage
+const CURRENT_PROJECT_ID = 'currentProjectId';
 
 interface ProjectMetadata {
   id?: string;
@@ -29,27 +29,7 @@ interface ProjectData {
 }
 
 /**
- * Initialize localStorage for projects if not already set up
- */
-const initializeLocalStorage = (): void => {
-  if (!localStorage.getItem(PROJECTS_KEY)) {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify([]));
-  }
-  
-  if (!localStorage.getItem(CURRENT_PROJECT_INDEX)) {
-    localStorage.setItem(CURRENT_PROJECT_INDEX, '0');
-  }
-};
-
-/**
- * Generate a unique ID
- */
-const generateId = (): string => {
-  return 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-};
-
-/**
- * Save a project to localStorage (mock server)
+ * Save a project to the server
  */
 export const saveProject = async (
   projectData: any,
@@ -57,12 +37,10 @@ export const saveProject = async (
 ): Promise<{ success: boolean; projectId?: string; error?: string }> => {
   try {
     const userId = getCurrentUserId();
-    const isUserAuthenticated = isAuthenticated();
     
-    console.log('[projectService] Saving project:', { 
+    console.log('[projectService] Saving project to server:', { 
       name: metadata.name,
       userId,
-      isAuthenticated: isUserAuthenticated,
       dataSize: projectData ? JSON.stringify(projectData).length : 0
     });
     
@@ -72,65 +50,61 @@ export const saveProject = async (
       throw new Error('Project data is empty or invalid');
     }
     
-    // Initialize localStorage if needed
-    initializeLocalStorage();
-    
-    // Generate a unique ID for this project
-    const projectId = generateId();
-    console.log(`[projectService] Generated project ID: ${projectId}`);
-    
-    // Create project object
-    const project = {
-      _id: projectId,
-      userId: userId,
+    // Create project payload
+    const payload = {
       name: metadata.name,
       description: metadata.description || '',
-      projectData: projectData,
       isPublic: metadata.isPublic || false,
       tags: metadata.tags || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      projectData: projectData,
+      userId: userId || 'anonymous'
     };
     
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    let projects = [];
+    // Save locally as backup during API call
+    localStorage.setItem(CURRENT_PROJECT_ID, 'pending');
     
-    try {
-      projects = JSON.parse(projectsJson);
-    } catch (parseError) {
-      console.error('[projectService] Error parsing existing projects:', parseError);
-      // If projects JSON is corrupted, start with empty array
-      projects = [];
+    // Call the create project API
+    const response = await fetch(`${API_URL}/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to save project to server');
     }
     
-    if (!Array.isArray(projects)) {
-      console.error('[projectService] Projects is not an array, resetting to empty array');
-      projects = [];
+    const result = await response.json();
+    
+    // Store the current project ID in localStorage for persistence
+    if (result.id) {
+      localStorage.setItem(CURRENT_PROJECT_ID, result.id);
+      console.log(`[projectService] Project saved successfully with ID: ${result.id}`);
     }
-    
-    // Add new project
-    projects.push(project);
-    
-    // Save back to localStorage
-    try {
-      localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-      console.log(`[projectService] Project saved successfully with ID: ${projectId}`);
-    } catch (storageError) {
-      console.error('[projectService] Error saving to localStorage:', storageError);
-      throw new Error('Failed to save project to storage: ' + 
-                     (storageError instanceof Error ? storageError.message : 'Storage error'));
-    }
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
     
     return {
       success: true,
-      projectId: projectId
+      projectId: result.id
     };
   } catch (error: any) {
     console.error('[projectService] Error saving project:', error);
+    
+    // Create a local backup in case of server error
+    try {
+      const backupId = 'backup_' + Date.now();
+      localStorage.setItem(`dingplan_backup_${backupId}`, JSON.stringify({
+        projectData,
+        metadata,
+        timestamp: new Date().toISOString()
+      }));
+      console.log('[projectService] Created local backup due to server error');
+    } catch (backupError) {
+      console.error('[projectService] Failed to create local backup:', backupError);
+    }
+    
     return {
       success: false,
       error: error.message || 'An error occurred while saving the project'
@@ -139,7 +113,7 @@ export const saveProject = async (
 };
 
 /**
- * Update an existing project in localStorage (mock server)
+ * Update an existing project on the server
  */
 export const updateProject = async (
   projectId: string,
@@ -152,10 +126,13 @@ export const updateProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Updating project locally: ${projectId}`, {
+    console.log(`[projectService] Updating project: ${projectId}`, {
       taskCount: projectData?.tasks?.length || 0,
       swimlaneCount: projectData?.swimlanes?.length || 0
     });
+    
+    // Store projectId in localStorage for persistence
+    localStorage.setItem(CURRENT_PROJECT_ID, projectId);
     
     // Count dependencies for logging
     let totalDependencyCount = 0;
@@ -168,51 +145,49 @@ export const updateProject = async (
     }
     console.log(`[projectService] Project includes ${totalDependencyCount} task dependencies`);
     
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
-    
-    // Find the project to update
-    const projectIndex = projects.findIndex((p: any) => p._id === projectId);
-    
-    if (projectIndex === -1) {
-      throw new Error('Project not found');
-    }
-    
-    // Check if user owns the project
-    const userId = getCurrentUserId();
-    if (projects[projectIndex].userId !== userId && projects[projectIndex].userId !== 'anonymous') {
-      throw new Error('You do not have permission to edit this project');
-    }
-    
-    // Ensure projectData is properly sanitized to prevent circular references
-    const sanitizedData = JSON.parse(JSON.stringify(projectData));
-    
-    // Update the project
-    projects[projectIndex] = {
-      ...projects[projectIndex],
+    // Create update payload
+    const payload = {
       name: metadata.name,
-      description: metadata.description,
-      projectData: sanitizedData,
-      isPublic: metadata.isPublic,
-      tags: metadata.tags,
-      updatedAt: new Date().toISOString()
+      description: metadata.description || '',
+      isPublic: metadata.isPublic || false,
+      tags: metadata.tags || [],
+      projectData: projectData
     };
     
-    // Save back to localStorage
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+    // Call the update project API
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
     
-    // Also make sure we save the currentProjectId for consistency
-    localStorage.setItem('currentProjectId', projectId);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update project on server');
+    }
     
-    console.log('[projectService] Project updated locally:', projectId);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('[projectService] Project updated:', projectId);
     
     return { success: true };
   } catch (error: any) {
     console.error('[projectService] Error updating project:', error);
+    
+    // Create a local backup in case of server error
+    try {
+      const backupId = 'backup_' + Date.now();
+      localStorage.setItem(`dingplan_backup_${projectId}_${backupId}`, JSON.stringify({
+        projectId,
+        projectData,
+        metadata,
+        timestamp: new Date().toISOString()
+      }));
+      console.log('[projectService] Created local backup due to server error');
+    } catch (backupError) {
+      console.error('[projectService] Failed to create local backup:', backupError);
+    }
+    
     return {
       success: false,
       error: error.message || 'An error occurred while updating the project'
@@ -221,7 +196,7 @@ export const updateProject = async (
 };
 
 /**
- * Load a project from localStorage (mock server)
+ * Load a project from the server
  */
 export const loadProject = async (
   projectId: string
@@ -232,58 +207,54 @@ export const loadProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Loading project locally: ${projectId}`);
+    console.log(`[projectService] Loading project: ${projectId}`);
     
-    // Set currentProjectId in localStorage for consistency
-    localStorage.setItem('currentProjectId', projectId);
+    // Store the project ID in localStorage for persistence
+    localStorage.setItem(CURRENT_PROJECT_ID, projectId);
     
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
-    
-    // Find the project
-    const project = projects.find((p: any) => p._id === projectId);
-    
-    if (!project) {
-      throw new Error('Project not found');
-    }
-    
-    // If the project is not public, check if the user owns it
-    if (!project.isPublic) {
-      const userId = getCurrentUserId();
-      if (project.userId !== userId && project.userId !== 'anonymous') {
-        throw new Error('You do not have permission to view this project');
+    // Call the get project API
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to load project from server');
     }
     
-    // Count dependencies for logging
-    let totalDependencyCount = 0;
-    if (project.projectData && project.projectData.tasks) {
-      project.projectData.tasks.forEach((task: any) => {
-        if (task.dependencies && Array.isArray(task.dependencies)) {
-          totalDependencyCount += task.dependencies.length;
-        }
-      });
-    }
-    console.log(`[projectService] Loaded project with ${project.projectData?.tasks?.length || 0} tasks and ${totalDependencyCount} dependencies`);
+    const result = await response.json();
     
-    // Format the project data
+    if (!result || !result.projectData) {
+      throw new Error('Project data is missing or invalid');
+    }
+    
+    // Format the project data from API response
     const formattedProject: ProjectData = {
       metadata: {
-        id: project._id,
-        name: project.name,
-        description: project.description,
-        isPublic: project.isPublic,
-        tags: project.tags,
-        userId: project.userId,
-        createdAt: new Date(project.createdAt),
-        updatedAt: new Date(project.updatedAt)
+        id: result._id || result.id,
+        name: result.name,
+        description: result.description || '',
+        isPublic: result.isPublic || false,
+        tags: result.tags || [],
+        userId: result.userId,
+        createdAt: new Date(result.createdAt),
+        updatedAt: new Date(result.updatedAt)
       },
-      projectData: project.projectData
+      projectData: result.projectData
     };
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Create a local backup of the loaded data
+    try {
+      localStorage.setItem(`dingplan_state_${projectId}`, JSON.stringify(result.projectData));
+      console.log(`[projectService] Created local backup of loaded project data`);
+    } catch (backupError) {
+      console.warn('[projectService] Failed to create local backup:', backupError);
+    }
+    
+    console.log(`[projectService] Successfully loaded project with ${result.projectData?.tasks?.length || 0} tasks`);
     
     return {
       success: true,
@@ -291,6 +262,38 @@ export const loadProject = async (
     };
   } catch (error: any) {
     console.error('[projectService] Error loading project:', error);
+    
+    // Try to load from local backup if server fails
+    try {
+      const localBackup = localStorage.getItem(`dingplan_state_${projectId}`);
+      if (localBackup) {
+        console.log('[projectService] Attempting to load from local backup');
+        const projectData = JSON.parse(localBackup);
+        
+        // Create minimal metadata
+        const formattedProject: ProjectData = {
+          metadata: {
+            id: projectId,
+            name: 'Recovered Project',
+            description: 'Project recovered from local backup',
+            isPublic: false,
+            tags: [],
+            userId: getCurrentUserId() || 'anonymous',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          projectData: projectData
+        };
+        
+        return {
+          success: true,
+          project: formattedProject
+        };
+      }
+    } catch (backupError) {
+      console.error('[projectService] Failed to load from local backup:', backupError);
+    }
+    
     return {
       success: false,
       error: error.message || 'An error occurred while loading the project'
@@ -299,7 +302,7 @@ export const loadProject = async (
 };
 
 /**
- * Delete a project from localStorage (mock server)
+ * Delete a project from the server
  */
 export const deleteProject = async (
   projectId: string
@@ -310,34 +313,30 @@ export const deleteProject = async (
       throw new Error('Invalid project ID');
     }
     
-    console.log(`[projectService] Deleting project locally: ${projectId}`);
+    console.log(`[projectService] Deleting project: ${projectId}`);
     
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
+    // Call the delete project API
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
     
-    // Find the project before deleting it
-    const projectToDelete = projects.find((p: any) => p._id === projectId);
-    if (!projectToDelete) {
-      throw new Error('Project not found');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete project from server');
     }
     
-    // Check if user owns the project
-    const userId = getCurrentUserId();
-    if (projectToDelete.userId !== userId && projectToDelete.userId !== 'anonymous') {
-      throw new Error('You do not have permission to delete this project');
+    // Remove from local storage as well
+    localStorage.removeItem(`dingplan_state_${projectId}`);
+    
+    // If this was the current project, clear it
+    if (localStorage.getItem(CURRENT_PROJECT_ID) === projectId) {
+      localStorage.removeItem(CURRENT_PROJECT_ID);
     }
     
-    // Filter out the project to delete
-    const updatedProjects = projects.filter((p: any) => p._id !== projectId);
-    
-    // Save back to localStorage
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
-    
-    console.log('[projectService] Project deleted locally:', projectId);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('[projectService] Project deleted successfully');
     
     return { success: true };
   } catch (error: any) {
@@ -350,7 +349,7 @@ export const deleteProject = async (
 };
 
 /**
- * Get all projects for the current user from localStorage (mock server)
+ * Get all projects for the current user from the server
  */
 export const getUserProjects = async (): Promise<{
   success: boolean;
@@ -358,51 +357,86 @@ export const getUserProjects = async (): Promise<{
   error?: string;
 }> => {
   try {
-    console.log('[projectService] Getting user projects locally');
-    
-    // Get existing projects
-    const projectsJson = localStorage.getItem(PROJECTS_KEY) || '[]';
-    const projects = JSON.parse(projectsJson);
-    
-    // Current user ID
     const userId = getCurrentUserId();
+    console.log(`[projectService] Getting projects for user: ${userId || 'anonymous'}`);
     
-    // Get projects based on authentication status
-    let userProjects = [];
-    
-    if (isAuthenticated()) {
-      // If authenticated, only show this user's projects
-      userProjects = projects.filter((p: any) => p.userId === userId);
+    // Call the get user projects API
+    let url = `${API_URL}/projects`;
+    if (userId) {
+      url += `?userId=${userId}`;
     } else {
-      // If not authenticated, show only anonymous projects and public projects
-      userProjects = projects.filter(
-        (p: any) => p.userId === 'anonymous' || p.isPublic === true
-      );
+      url += `/public`; // Fallback to public projects for anonymous users
     }
     
-    // Format the projects
-    const formattedProjects: ProjectMetadata[] = userProjects.map((p: any) => ({
-      id: p._id,
-      name: p.name,
-      description: p.description,
-      isPublic: p.isPublic,
-      tags: p.tags,
-      userId: p.userId,
-      createdAt: new Date(p.createdAt),
-      updatedAt: new Date(p.updatedAt)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get projects from server');
+    }
+    
+    const result = await response.json();
+    
+    // Format the projects from API response
+    const formattedProjects: ProjectMetadata[] = result.map((project: any) => ({
+      id: project._id || project.id,
+      name: project.name,
+      description: project.description || '',
+      isPublic: project.isPublic || false,
+      tags: project.tags || [],
+      userId: project.userId,
+      createdAt: new Date(project.createdAt),
+      updatedAt: new Date(project.updatedAt)
     }));
     
-    console.log(`[projectService] Found ${formattedProjects.length} projects locally`);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log(`[projectService] Found ${formattedProjects.length} projects`);
     
     return {
       success: true,
       projects: formattedProjects
     };
   } catch (error: any) {
-    console.error('[projectService] Error getting user projects:', error);
+    console.error('[projectService] Error loading user projects:', error);
+    
+    // Try to show at least public projects
+    try {
+      const response = await fetch(`${API_URL}/projects/public`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        const formattedProjects: ProjectMetadata[] = result.map((project: any) => ({
+          id: project._id || project.id,
+          name: project.name,
+          description: project.description || '',
+          isPublic: true,
+          tags: project.tags || [],
+          userId: project.userId,
+          createdAt: new Date(project.createdAt),
+          updatedAt: new Date(project.updatedAt)
+        }));
+        
+        console.log(`[projectService] Fallback: found ${formattedProjects.length} public projects`);
+        
+        return {
+          success: true,
+          projects: formattedProjects
+        };
+      }
+    } catch (fallbackError) {
+      console.error('[projectService] Error loading public projects:', fallbackError);
+    }
+    
     return {
       success: false,
       error: error.message || 'An error occurred while getting projects'
