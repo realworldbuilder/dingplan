@@ -1130,26 +1130,62 @@ export class TaskManager {
   }
   
   drawTasks(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera) {
-    // Do not clear the canvas as Canvas.ts already does this
-    // Just draw the tasks and other elements
+    // Safety check - if no tasks, nothing to draw
+    if (!this.tasks || this.tasks.length === 0) {
+      return;
+    }
+    
+    // Ensure trade filters are valid before drawing
+    if (!this.tradeFilters || !(this.tradeFilters instanceof Map)) {
+      console.warn('[TaskManager] Invalid trade filters detected during draw, resetting...');
+      this.validateTradeFilters();
+    }
     
     // Draw swimlanes
     this.swimlanes.forEach(lane => {
+      // Safety check - ensure swimlane has tasks array
+      if (!lane.tasks) {
+        console.warn(`[TaskManager] Swimlane ${lane.name} has no tasks array`);
+        lane.tasks = [];
+        return;
+      }
+      
       // Draw tasks in this swimlane, respecting trade filters
       lane.tasks.forEach(task => {
-        // Skip tasks that have been filtered out by trade
-        // If no filter exists for this trade color, default to showing it
-        if (task.tradeId && task.color) {
-          const isTradeVisible = this.tradeFilters.has(task.color) ? 
-            this.tradeFilters.get(task.color) : true;
-          
-          if (!isTradeVisible) {
-            return; // Skip drawing this task
+        try {
+          // Safety check - ensure task has basic required properties
+          if (!task || !task.id) {
+            console.warn('[TaskManager] Invalid task in swimlane:', task);
+            return;
           }
+          
+          // Skip tasks that have been filtered out by trade
+          // If no filter exists for this trade color, default to showing it
+          if (task.tradeId && task.color) {
+            const isTradeVisible = this.tradeFilters.has(task.color) ? 
+              this.tradeFilters.get(task.color) : true;
+            
+            if (!isTradeVisible) {
+              return; // Skip drawing this task
+            }
+          }
+          
+          // Get task position - ensure it exists and is valid
+          const pos = lane.taskPositions.get(task.id);
+          if (!pos) {
+            console.warn(`[TaskManager] No position found for task ${task.id} (${task.name})`);
+            // Generate a position
+            const yPosition = lane.y + 50 + (lane.tasks.indexOf(task) * 40);
+            lane.taskPositions.set(task.id, { x: 0, y: yPosition });
+          }
+          
+          const position = lane.taskPositions.get(task.id) || { x: 0, y: lane.y + 40 };
+          
+          // Draw the task
+          task.draw(ctx, timeAxis, position.y);
+        } catch (error) {
+          console.error(`[TaskManager] Error drawing task ${task?.id || 'unknown'}:`, error);
         }
-        
-        const pos = lane.taskPositions.get(task.id) || { x: 0, y: lane.y + 40 };
-        task.draw(ctx, timeAxis, pos.y);
       });
     });
 
@@ -1162,68 +1198,72 @@ export class TaskManager {
     ctx.save();
     Logger.log('Drawing selection highlights for', this.selectedTasks.size, 'tasks');
     this.selectedTasks.forEach(task => {
-      // Skip highlighting filtered tasks
-      if (task.tradeId && task.color) {
-        const isTradeVisible = this.tradeFilters.has(task.color) ? 
-          this.tradeFilters.get(task.color) : true;
-        
-        if (!isTradeVisible) {
-          return; // Skip highlighting this task
-        }
-      }
-      
-      const swimlane = this.swimlanes.find(s => s.tasks.includes(task));
-      if (swimlane) {
-        const pos = swimlane.taskPositions.get(task.id);
-        if (pos) {
-          Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
-          const startX = timeAxis.dateToWorld(task.startDate);
-          const endX = timeAxis.dateToWorld(task.getEndDate());
-          const width = endX - startX;
-          const height = task.getCurrentHeight();
-
-          // Modern subtle outline for selected tasks
-          const radius = 10; // Match the task card's radius for a consistent look
+      try {
+        // Skip highlighting filtered tasks
+        if (task.tradeId && task.color) {
+          const isTradeVisible = this.tradeFilters.has(task.color) ? 
+            this.tradeFilters.get(task.color) : true;
           
-          // Draw a more noticeable glow effect
-          ctx.shadowColor = 'rgba(33, 150, 243, 0.7)'; // Increased opacity for more visible glow
-          ctx.shadowBlur = 10 / camera.zoom; // Increased blur for more visible effect
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-          
-          // Draw a more noticeable outline
-          ctx.strokeStyle = '#1976D2'; // Darker blue for better contrast
-          ctx.lineWidth = 2.5 / camera.zoom; // Slightly thicker line
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.setLineDash([]); // Solid line
-          
-          // Draw the outline with rounded corners
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(startX - 3 / camera.zoom, pos.y - 3 / camera.zoom, 
-              width + 6 / camera.zoom, height + 6 / camera.zoom, radius);
-          } else {
-            // Fallback for browsers that don't support roundRect
-            const x = startX - 3 / camera.zoom;
-            const y = pos.y - 3 / camera.zoom;
-            const w = width + 6 / camera.zoom;
-            const h = height + 6 / camera.zoom;
-            const r = radius;
-            
-            ctx.moveTo(x + r, y);
-            ctx.lineTo(x + w - r, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-            ctx.lineTo(x + w, y + h - r);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-            ctx.lineTo(x + r, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-            ctx.closePath();
+          if (!isTradeVisible) {
+            return; // Skip highlighting this task
           }
-          ctx.stroke();
         }
+        
+        const swimlane = this.swimlanes.find(s => s.tasks.includes(task));
+        if (swimlane) {
+          const pos = swimlane.taskPositions.get(task.id);
+          if (pos) {
+            Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
+            const startX = timeAxis.dateToWorld(task.startDate);
+            const endX = timeAxis.dateToWorld(task.getEndDate());
+            const width = endX - startX;
+            const height = task.getCurrentHeight();
+
+            // Modern subtle outline for selected tasks
+            const radius = 10; // Match the task card's radius for a consistent look
+            
+            // Draw a more noticeable glow effect
+            ctx.shadowColor = 'rgba(33, 150, 243, 0.7)'; // Increased opacity for more visible glow
+            ctx.shadowBlur = 10 / camera.zoom; // Increased blur for more visible effect
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Draw a more noticeable outline
+            ctx.strokeStyle = '#1976D2'; // Darker blue for better contrast
+            ctx.lineWidth = 2.5 / camera.zoom; // Slightly thicker line
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([]); // Solid line
+            
+            // Draw the outline with rounded corners
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(startX - 3 / camera.zoom, pos.y - 3 / camera.zoom, 
+                width + 6 / camera.zoom, height + 6 / camera.zoom, radius);
+            } else {
+              // Fallback for browsers that don't support roundRect
+              const x = startX - 3 / camera.zoom;
+              const y = pos.y - 3 / camera.zoom;
+              const w = width + 6 / camera.zoom;
+              const h = height + 6 / camera.zoom;
+              const r = radius;
+              
+              ctx.moveTo(x + r, y);
+              ctx.lineTo(x + w - r, y);
+              ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+              ctx.lineTo(x + w, y + h - r);
+              ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+              ctx.lineTo(x + r, y + h);
+              ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+              ctx.lineTo(x, y + r);
+              ctx.quadraticCurveTo(x, y, x + r, y);
+              ctx.closePath();
+            }
+            ctx.stroke();
+          }
+        }
+      } catch (error) {
+        console.error(`[TaskManager] Error drawing task highlight for ${task?.id || 'unknown'}:`, error);
       }
     });
     ctx.restore();
@@ -1650,6 +1690,14 @@ export class TaskManager {
     if (state.tradeFilters && Array.isArray(state.tradeFilters)) {
       this.tradeFilters = new Map(state.tradeFilters);
     }
+    
+    // Validate the imported state to fix any issues
+    this.validateTradeFilters();
+    this.validateTaskPositions();
+    this.renameSwimlanesIfNeeded();
+    
+    // Log success
+    console.log(`[TaskManager] Successfully imported ${this.tasks.length} tasks and ${this.swimlanes.length} swimlanes`);
   }
 
   /**
@@ -1669,5 +1717,101 @@ export class TaskManager {
       }
       usedIds.add(swimlane.id);
     });
+  }
+
+  /**
+   * Ensure all trade filters are properly initialized
+   * Called after loading from storage to fix any potential issues with trade visibility
+   */
+  validateTradeFilters(): void {
+    // Make sure tradeFilters is a valid Map
+    if (!this.tradeFilters || !(this.tradeFilters instanceof Map)) {
+      console.log('[TaskManager] Initializing tradeFilters as new Map');
+      this.tradeFilters = new Map();
+    }
+    
+    // Ensure all trades are set to visible by default
+    Trades.getAllTrades().forEach(trade => {
+      if (!this.tradeFilters.has(trade.id)) {
+        this.tradeFilters.set(trade.id, true);
+      }
+      // Also set by color for backward compatibility
+      if (trade.color && !this.tradeFilters.has(trade.color)) {
+        this.tradeFilters.set(trade.color, true);
+      }
+    });
+    
+    // Make sure all task colors are also visible
+    this.tasks.forEach(task => {
+      if (task.color && !this.tradeFilters.has(task.color)) {
+        this.tradeFilters.set(task.color, true);
+      }
+      if (task.tradeId && !this.tradeFilters.has(task.tradeId)) {
+        this.tradeFilters.set(task.tradeId, true);
+      }
+    });
+    
+    console.log(`[TaskManager] Validated trade filters: ${this.tradeFilters.size} entries`);
+  }
+
+  /**
+   * Validate task positions and swimlane assignments
+   * Ensures every task has a valid position and is assigned to a swimlane
+   */
+  validateTaskPositions(): void {
+    // Skip if no tasks or swimlanes
+    if (this.tasks.length === 0 || this.swimlanes.length === 0) {
+      return;
+    }
+    
+    console.log(`[TaskManager] Validating positions for ${this.tasks.length} tasks`);
+    let fixCount = 0;
+    
+    // First make sure all tasks are in a swimlane
+    this.tasks.forEach(task => {
+      // Find if this task exists in any swimlane
+      const existsInSwimlane = this.swimlanes.some(lane => 
+        lane.tasks.some(t => t.id === task.id)
+      );
+      
+      if (!existsInSwimlane) {
+        // Add to the first swimlane
+        const swimlane = this.swimlanes[0];
+        console.log(`[TaskManager] Task ${task.id} (${task.name}) was not in any swimlane. Adding to ${swimlane.name}`);
+        
+        // Add task to swimlane
+        swimlane.tasks.push(task);
+        
+        // Calculate y-position to avoid overlap with existing tasks
+        const yPosition = swimlane.y + 50 + (swimlane.tasks.length * 40);
+        
+        // Set position in taskPositions map
+        swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+        
+        fixCount++;
+      }
+    });
+    
+    // Next fix any invalid positions within swimlanes
+    this.swimlanes.forEach(swimlane => {
+      swimlane.tasks.forEach(task => {
+        const pos = swimlane.taskPositions.get(task.id);
+        
+        // Check if position exists and is valid
+        if (!pos || pos.y < swimlane.y || isNaN(pos.y)) {
+          // Calculate a valid y-position within this swimlane
+          const yPosition = swimlane.y + 50 + (swimlane.tasks.indexOf(task) * 40);
+          
+          // Set the fixed position
+          swimlane.taskPositions.set(task.id, { x: 0, y: yPosition });
+          
+          fixCount++;
+        }
+      });
+    });
+    
+    if (fixCount > 0) {
+      console.log(`[TaskManager] Fixed positions for ${fixCount} tasks`);
+    }
   }
 }

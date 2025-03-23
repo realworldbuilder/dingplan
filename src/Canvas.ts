@@ -1894,6 +1894,10 @@ export class Canvas {
       // Import task manager state
       this.taskManager.importState(state);
       
+      // Ensure all task data is valid and visible
+      this.taskManager.validateTradeFilters();
+      this.taskManager.validateTaskPositions();
+      
       // Ensure all swimlane IDs are consistent
       this.taskManager.renameSwimlanesIfNeeded();
       

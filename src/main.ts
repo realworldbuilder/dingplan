@@ -204,6 +204,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // Start the animation loop
   animate();
   
+  // Set up periodic data integrity checks to ensure tasks remain visible
+  const runDataIntegrityCheck = () => {
+    console.log('Running periodic data integrity check...');
+    
+    // Validate trade filters to ensure tasks are visible
+    if (app.taskManager.validateTradeFilters) {
+      app.taskManager.validateTradeFilters();
+    }
+    
+    // Validate task positions
+    if (app.taskManager.validateTaskPositions) {
+      app.taskManager.validateTaskPositions();
+    }
+    
+    // Force a render to apply any fixes
+    app.render();
+  };
+  
+  // Run integrity check every 30 seconds
+  setInterval(runDataIntegrityCheck, 30000);
+  
+  // Also run a check when the window regains focus
+  window.addEventListener('focus', () => {
+    console.log('Window regained focus, running data integrity check');
+    runDataIntegrityCheck();
+  });
+  
   // Handle window resize
   window.addEventListener('resize', () => {
     canvasElement.width = window.innerWidth;

@@ -216,141 +216,214 @@ export class Task {
   }
 
   draw(ctx: CanvasRenderingContext2D, timeAxis: any, y: number): boolean {
-    const startX = timeAxis.dateToWorld(this.startDate);
-    const endX = timeAxis.dateToWorld(this.getEndDate());
-    
-    // Improved culling with a much wider range to ensure tasks are visible
-    // This fixes the issue where tasks after May 1st disappear
-    const canvasWidth = ctx.canvas.width * 10; // Significantly increased culling range
-    const visibleLeft = -canvasWidth;
-    const visibleRight = canvasWidth * 2;
-    
-    if (startX > visibleRight || endX < visibleLeft) {
+    try {
+      // Basic validation - ensure we have required properties
+      if (!this.startDate || !this.duration) {
+        console.warn(`[Task] Cannot draw task ${this.id} - missing required properties`);
+        return false;
+      }
+      
+      const startX = timeAxis.dateToWorld(this.startDate);
+      const endX = timeAxis.dateToWorld(this.getEndDate());
+      
+      // Improved culling with a much wider range to ensure tasks are visible
+      // This fixes the issue where tasks after May 1st disappear
+      const canvasWidth = ctx.canvas.width * 10; // Significantly increased culling range
+      const visibleLeft = -canvasWidth;
+      const visibleRight = canvasWidth * 2;
+      
+      if (startX > visibleRight || endX < visibleLeft) {
+        return false;
+      }
+      
+      // Ensure minimum width for the card
+      const width = Math.max(endX - startX, 80); // Increased minimum width
+      const radius = 8;
+      
+      // Save current canvas state
+      ctx.save();
+      
+      // Draw shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+      ctx.shadowBlur = this.isHovered ? 16 : 10;
+      ctx.shadowOffsetY = 3;
+      
+      // Create a white background for the card
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y, width, this.height, radius);
+      } else {
+        // Fallback for browsers that don't support roundRect
+        this.drawRoundedRect(ctx, startX, y, width, this.height, radius);
+      }
+      ctx.fill();
+      
+      ctx.restore();
+      
+      // Ensure we have a valid color
+      if (!this.color || this.color === '') {
+        this.color = '#3b82f6'; // Default blue
+      }
+      
+      // Draw colored top border (6px) for trade indication
+      ctx.fillStyle = this.isHovered 
+        ? Task.adjustColor(this.color, 1.1) // Lighten on hover
+        : this.color;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y, width, 6, [radius, radius, 0, 0]);
+      } else {
+        // Fallback for browsers that don't support roundRect with radii array
+        this.drawRoundedRectTopOnly(ctx, startX, y, width, 6, radius);
+      }
+      ctx.fill();
+      
+      // Draw very subtle background tint
+      ctx.fillStyle = `${this.color}10`; // 10% opacity of the trade color
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y + 6, width, this.height - 6, [0, 0, radius, radius]);
+      } else {
+        // Fallback for browsers that don't support roundRect with radii array
+        this.drawRoundedRectBottomOnly(ctx, startX, y + 6, width, this.height - 6, radius);
+      }
+      ctx.fill();
+      
+      // Draw card border
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y, width, this.height, radius);
+      } else {
+        this.drawRoundedRect(ctx, startX, y, width, this.height, radius);
+      }
+      ctx.stroke();
+      
+      // Only proceed with inner content if card is wide enough
+      if (width > 70) {
+        // Set text alignment properties explicitly
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        
+        // Significant horizontal padding from the edge of the card
+        const textPadding = 8;
+        
+        // Calculate text start position with fixed inset from card edge
+        const textX = Math.floor(startX) + textPadding + 8; // Added more padding and ensure whole pixel
+        
+        // Draw name
+        ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#1a1a1a';
+        
+        // Calculate available width for text
+        const availableTextWidth = width - (textPadding * 2) - 16;
+        const taskName = this.truncateText(ctx, this.name, availableTextWidth);
+        
+        // Draw the task name - moved higher for better spacing
+        ctx.fillText(taskName, textX, y + 12);
+        
+        // Draw details
+        ctx.font = '400 10px Inter, system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#666666';
+        
+        const extraInfo = `${this.duration}d, ${this.crewSize} crew`;
+        ctx.fillText(extraInfo, textX, y + this.height - 10); // More space between name and details
+        
+        // Draw status if necessary
+        if (this.status && this.status !== 'not-started') {
+          const statusColors = {
+            'in-progress': '#3b82f6', // Blue
+            'completed': '#10b981',   // Green
+            'blocked': '#ef4444'      // Red
+          };
+          
+          const statusLabels = {
+            'in-progress': 'In Progress',
+            'completed': 'Complete',
+            'blocked': 'Blocked'
+          };
+          
+          const statusColor = statusColors[this.status] || '#666666';
+          const statusLabel = statusLabels[this.status] || this.status;
+          
+          ctx.font = '500 9px Inter, system-ui, -apple-system, sans-serif';
+          ctx.fillStyle = statusColor;
+          ctx.fillText(statusLabel, textX, y + this.height - 2); // Status text at the very bottom
+        }
+        
+        // Draw progress bar if necessary
+        if (this.progress > 0) {
+          const progressBarHeight = 4;
+          const progressBarY = y + this.height - progressBarHeight - 2;
+          const progressBarWidth = width - (textPadding * 2) - 16;
+          
+          // Background track
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+          ctx.beginPath();
+          ctx.roundRect(textX, progressBarY, progressBarWidth, progressBarHeight, 2);
+          ctx.fill();
+          
+          // Progress fill
+          const progressWidth = progressBarWidth * (this.progress / 100);
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.roundRect(textX, progressBarY, progressWidth, progressBarHeight, 2);
+          ctx.fill();
+        }
+      } else if (width > 10) {
+        // For very narrow cards, just draw a colored indicator
+        ctx.fillStyle = this.color;
+        ctx.fillRect(startX + 4, y + 8, width - 8, this.height - 16);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`[Task] Error drawing task ${this.id}:`, error);
       return false;
     }
-    
-    // Ensure minimum width for the card
-    const width = Math.max(endX - startX, 80); // Increased minimum width
-    const radius = 8; 
-    
-    // Save current canvas state
-    ctx.save();
-    
-    // Draw shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-    ctx.shadowBlur = this.isHovered ? 16 : 10;
-    ctx.shadowOffsetY = 3;
-    
-    // Create a white background for the card
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(startX, y, width, this.height, radius);
-    ctx.fill();
-    
-    ctx.restore();
-    
-    // Get trade information - we'll only use this for color
-    const trade = this.getTrade();
-    
-    // Draw colored top border (6px) for trade indication
-    ctx.fillStyle = this.isHovered 
-      ? Task.adjustColor(this.color, 1.1) // Lighten on hover
-      : this.color;
-    ctx.beginPath();
-    ctx.roundRect(startX, y, width, 6, [radius, radius, 0, 0]);
-    ctx.fill();
-    
-    // Draw very subtle background tint
-    ctx.fillStyle = `${this.color}10`; // 10% opacity of the trade color
-    ctx.beginPath();
-    ctx.roundRect(startX, y + 6, width, this.height - 6, [0, 0, radius, radius]);
-    ctx.fill();
-    
-    // Draw card border
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(startX, y, width, this.height, radius);
-    ctx.stroke();
-    
-    // Only proceed with inner content if card is wide enough
-    if (width > 70) {
-      // Set text alignment properties explicitly
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      
-      // Significant horizontal padding from the edge of the card
-      const textPadding = 8;
-      
-      // Calculate text start position with fixed inset from card edge
-      const textX = Math.floor(startX) + textPadding + 8; // Added more padding and ensure whole pixel
-      
-      // Draw name
-      ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = '#1a1a1a';
-      
-      // Calculate available width for text
-      const availableTextWidth = width - (textPadding * 2) - 16;
-      const taskName = this.truncateText(ctx, this.name, availableTextWidth);
-      
-      // Draw the task name - moved higher for better spacing
-      ctx.fillText(taskName, textX, y + 12);
-      
-      // Draw details
-      ctx.font = '400 10px Inter, system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = '#666666';
-      
-      const extraInfo = `${this.duration}d, ${this.crewSize} crew`;
-      ctx.fillText(extraInfo, textX, y + this.height - 10); // More space between name and details
-      
-      // Draw status if necessary
-      if (this.status && this.status !== 'not-started') {
-        const statusColors = {
-          'in-progress': '#3b82f6', // Blue
-          'completed': '#10b981',   // Green
-          'blocked': '#ef4444'      // Red
-        };
-        
-        const statusLabels = {
-          'in-progress': 'In Progress',
-          'completed': 'Complete',
-          'blocked': 'Blocked'
-        };
-        
-        const statusColor = statusColors[this.status] || '#666666';
-        const statusLabel = statusLabels[this.status] || this.status;
-        
-        ctx.font = '500 9px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = statusColor;
-        ctx.fillText(statusLabel, textX, y + this.height - 2); // Status text at the very bottom
-      }
-      
-      // Draw progress bar if necessary
-      if (this.progress > 0) {
-        const progressBarHeight = 4;
-        const progressBarY = y + this.height - progressBarHeight - 2;
-        const progressBarWidth = width - (textPadding * 2) - 16;
-        
-        // Background track
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
-        ctx.beginPath();
-        ctx.roundRect(textX, progressBarY, progressBarWidth, progressBarHeight, 2);
-        ctx.fill();
-        
-        // Progress fill
-        const progressWidth = progressBarWidth * (this.progress / 100);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.roundRect(textX, progressBarY, progressWidth, progressBarHeight, 2);
-        ctx.fill();
-      }
-    } else if (width > 10) {
-      // For very narrow cards, just draw a colored indicator
-      ctx.fillStyle = this.color;
-      ctx.fillRect(startX + 4, y + 8, width - 8, this.height - 16);
-    }
+  }
 
-    return true;
+  // Utility method for drawing rounded rectangles when ctx.roundRect is not available
+  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+  
+  // Utility method for drawing rounded rectangles with rounded corners only at the top
+  private drawRoundedRectTopOnly(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height);
+    ctx.lineTo(x, y + height);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+  
+  // Utility method for drawing rounded rectangles with rounded corners only at the bottom
+  private drawRoundedRectBottomOnly(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y);
+    ctx.closePath();
   }
 
   // New helper method to truncate text if it's too long to fit
