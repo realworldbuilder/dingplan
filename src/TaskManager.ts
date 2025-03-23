@@ -371,9 +371,20 @@ export class TaskManager {
       // Get the dragged task as a non-null value
       const draggedTask: Task = this.draggedTask;
       
+      // Calculate the vertical distance moved from the drag start
+      const originalSwimlane = this.swimlanes.find(s => s.tasks.includes(draggedTask));
+      if (!originalSwimlane) return;
+      
+      const originalPos = originalSwimlane.taskPositions.get(draggedTask.id);
+      if (!originalPos) return;
+      
+      // Calculate vertical movement
+      const dragStartY = originalPos.y;
+      const verticalMovement = worldY - this.dragStartPosition.y - dragStartY;
+      
       // Move all selected tasks
       if (this.selectedTasks.size > 1 && this.selectedTasks.has(draggedTask)) {
-        // Move all selected tasks by the same time difference
+        // Move all selected tasks by the same time difference and vertical offset
         this.selectedTasks.forEach(task => {
           // Skip the dragged task as we'll handle it separately
           if (task === draggedTask) return;
@@ -385,13 +396,25 @@ export class TaskManager {
           const taskNewStartDate = new Date(task.startDate.getTime() + timeDifference);
           task.startDate = taskNewStartDate;
           
-          // Keep tasks in their current swimlanes, but update positions if needed
+          // Update vertical position - only if it's in the same swimlane as the original task
           if (currentSwimlane.taskPositions.has(task.id)) {
             const currentPos = currentSwimlane.taskPositions.get(task.id)!;
-            currentSwimlane.taskPositions.set(task.id, {
-              x: currentPos.x,
-              y: currentPos.y
-            });
+            
+            // Check if task is in same swimlane as dragged task
+            if (currentSwimlane.id === targetSwimlane.id) {
+              const newY = Math.max(
+                targetSwimlane.y + 40,
+                Math.min(
+                  currentPos.y + verticalMovement,
+                  targetSwimlane.y + targetSwimlane.height - task.getCurrentHeight() - 20
+                )
+              );
+              
+              currentSwimlane.taskPositions.set(task.id, {
+                x: currentPos.x,
+                y: newY
+              });
+            }
           }
         });
       }
@@ -1139,237 +1162,346 @@ export class TaskManager {
     return lastSwimlane.y + lastSwimlane.height;
   }
   
-  /**
-   * Draw tasks on the canvas with optional visible range for culling
-   */
-  drawTasks(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera, visibleRange?: {
-    visibleStartX: number,
-    visibleEndX: number,
-    visibleStartY: number,
-    visibleEndY: number
-  }) {
-    const filteredTasks = this.getFilteredTasks();
+  drawTasks(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera) {
+    // Run integrity check with limited frequency
+    this.checkTaskPositionIntegrity();
     
-    // Sort tasks so selected ones are drawn last (on top)
-    const tasksInDrawOrder = [...filteredTasks].sort((a, b) => {
-      const aSelected = this.selectedTasks.has(a) ? 1 : 0;
-      const bSelected = this.selectedTasks.has(b) ? 1 : 0;
-      return aSelected - bSelected;
-    });
-    
-    // First pass: Draw all task bars
-    for (const task of tasksInDrawOrder) {
-      // Skip if task is in a filtered-out trade
-      if (this.tradeFilters.has(task.tradeId) && !this.tradeFilters.get(task.tradeId)) {
-        continue;
-      }
-      
-      // Get task position
-      const taskPos = this.taskPositions.get(task.id);
-      if (!taskPos) continue;
-      
-      // Get swimlane for this task
-      const swimlane = this.swimlanes.find(s => s.id === task.swimlaneId);
-      if (!swimlane) continue;
-      
-      // Skip if the task is outside the visible area
-      if (visibleRange) {
-        const taskStartX = timeAxis.dateToWorld(task.startDate);
-        const taskEndX = timeAxis.dateToWorld(task.endDate);
-        const taskY = taskPos.y;
-        
-        // Skip if task is completely outside visible range
-        if (taskEndX < visibleRange.visibleStartX || 
-            taskStartX > visibleRange.visibleEndX ||
-            taskY < visibleRange.visibleStartY - 50 || // Add margin for task height
-            taskY > visibleRange.visibleEndY) {
-          continue;
-        }
-      }
-      
-      task.draw(ctx, timeAxis, camera, this.selectedTasks.has(task));
-    }
-    
-    // Second pass: draw any selection box
-    if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 2 / camera.zoom;
-      ctx.fillStyle = 'rgba(37, 99, 235, 0.1)';
-      
-      const left = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
-      const top = Math.min(this.selectionBoxStart.y, this.selectionBoxEnd.y);
-      const width = Math.abs(this.selectionBoxEnd.x - this.selectionBoxStart.x);
-      const height = Math.abs(this.selectionBoxEnd.y - this.selectionBoxStart.y);
-      
-      ctx.fillRect(left, top, width, height);
-      ctx.strokeRect(left, top, width, height);
-    }
-
-    // Third pass: Only draw dependencies for visible and selected tasks
-    if (this.areDependenciesVisible) {
-      this.drawDependencies(ctx, timeAxis, camera, visibleRange);
-    }
-    
-    // Draw selection highlights for selected tasks
-    const selectedTaskCount = this.selectedTasks.size;
-    Logger.log(`Drawing selection highlights for ${selectedTaskCount} tasks`);
-    
-    if (selectedTaskCount > 0) {
-      // Highlight selected tasks
-      ctx.save();
-      
-      for (const task of this.selectedTasks) {
-        // Skip if the task is outside the visible area (same culling as above)
-        if (visibleRange) {
-          const taskPos = this.taskPositions.get(task.id);
-          if (!taskPos) continue;
-          
-          const taskStartX = timeAxis.dateToWorld(task.startDate);
-          const taskEndX = timeAxis.dateToWorld(task.endDate);
-          const taskY = taskPos.y;
-          
-          // Skip if task is completely outside visible range
-          if (taskEndX < visibleRange.visibleStartX || 
-              taskStartX > visibleRange.visibleEndX ||
-              taskY < visibleRange.visibleStartY - 50 || // Add margin for task height
-              taskY > visibleRange.visibleEndY) {
-            continue;
-          }
-        }
-        
-        task.drawSelectionHighlight(ctx, timeAxis, camera);
-      }
-      
-      ctx.restore();
-    }
-  }
-  
-  /**
-   * Draw dependencies between tasks
-   */
-  private drawDependencies(
-    ctx: CanvasRenderingContext2D, 
-    timeAxis: any, 
-    camera: Camera,
-    visibleRange?: {
-      visibleStartX: number,
-      visibleEndX: number,
-      visibleStartY: number,
-      visibleEndY: number
-    }
-  ) {
-    if (!this.showDependencies && !this._areDependenciesVisible) {
+    // Safety check - if no tasks, nothing to draw
+    if (!this.tasks || this.tasks.length === 0) {
       return;
     }
     
-    ctx.save();
+    // Ensure trade filters are valid before drawing
+    if (!this.tradeFilters || !(this.tradeFilters instanceof Map)) {
+      console.warn('[TaskManager] Invalid trade filters detected during draw, resetting...');
+      this.validateTradeFilters();
+    }
     
-    // Dependency line style
-    ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-    ctx.lineWidth = 2 / camera.zoom;
-    ctx.setLineDash([5 / camera.zoom, 5 / camera.zoom]);
+    // Calculate visible area based on camera
+    const visibleLeft = camera.x - (ctx.canvas.width / (2 * camera.zoom));
+    const visibleRight = camera.x + (ctx.canvas.width / (2 * camera.zoom));
+    const visibleTop = camera.y - (ctx.canvas.height / (2 * camera.zoom));
+    const visibleBottom = camera.y + (ctx.canvas.height / (2 * camera.zoom));
     
-    // Get all tasks that have dependencies
-    const tasks = this.getFilteredTasks();
-    
-    // Draw each dependency line
-    tasks.forEach(task => {
-      // Skip if task is in a filtered-out trade
-      if (this.tradeFilters.has(task.tradeId) && !this.tradeFilters.get(task.tradeId)) {
+    // Draw swimlanes
+    this.swimlanes.forEach(lane => {
+      // Skip rendering swimlanes that are completely outside the visible area
+      if (lane.y > visibleBottom || lane.y + lane.height < visibleTop) {
         return;
       }
       
-      // Get position for this task
-      const taskPos = this.taskPositions.get(task.id);
-      if (!taskPos) return;
-      
-      // Skip if the task is outside the visible area
-      if (visibleRange) {
-        const taskStartX = timeAxis.dateToWorld(task.startDate);
-        const taskEndX = timeAxis.dateToWorld(task.endDate);
-        const taskY = taskPos.y;
-        
-        // Skip if task is completely outside visible range
-        if (taskEndX < visibleRange.visibleStartX || 
-            taskStartX > visibleRange.visibleEndX ||
-            taskY < visibleRange.visibleStartY - 50 || // Add margin for task height
-            taskY > visibleRange.visibleEndY) {
-          return;
-        }
+      // Safety check - ensure swimlane has tasks array
+      if (!lane.tasks) {
+        console.warn(`[TaskManager] Swimlane ${lane.name} has no tasks array`);
+        lane.tasks = [];
+        return;
       }
       
-      // Process each successor relationship
-      task.successors.forEach(successorId => {
-        const successor = this.getTask(successorId);
-        if (!successor) return;
-        
-        // Get position for successor task
-        const successorPos = this.taskPositions.get(successorId);
-        if (!successorPos) return;
-        
-        // Skip if successor is in a filtered-out trade
-        if (this.tradeFilters.has(successor.tradeId) && !this.tradeFilters.get(successor.tradeId)) {
-          return;
-        }
-        
-        // Skip if the successor is outside the visible area
-        if (visibleRange) {
-          const succStartX = timeAxis.dateToWorld(successor.startDate);
-          const succEndX = timeAxis.dateToWorld(successor.endDate);
-          const succY = successorPos.y;
-          
-          // Skip if successor is completely outside visible range
-          if (succEndX < visibleRange.visibleStartX || 
-              succStartX > visibleRange.visibleEndX ||
-              succY < visibleRange.visibleStartY - 50 || // Add margin for task height
-              succY > visibleRange.visibleEndY) {
+      // Draw tasks in this swimlane, respecting trade filters
+      lane.tasks.forEach(task => {
+        try {
+          // Safety check - ensure task has basic required properties
+          if (!task || !task.id) {
+            console.warn('[TaskManager] Invalid task in swimlane:', task);
             return;
+          }
+          
+          // Skip tasks that have been filtered out by trade
+          // If no filter exists for this trade color, default to showing it
+          if (task.tradeId && task.color) {
+            const isTradeVisible = this.tradeFilters.has(task.color) ? 
+              this.tradeFilters.get(task.color) : true;
+            
+            if (!isTradeVisible) {
+              return; // Skip drawing this task
+            }
+          }
+          
+          // Get task position - ensure it exists and is valid
+          const pos = lane.taskPositions.get(task.id);
+          if (!pos) {
+            console.warn(`[TaskManager] No position found for task ${task.id} (${task.name})`);
+            // Generate a position
+            const yPosition = lane.y + 50 + (lane.tasks.indexOf(task) * 40);
+            lane.taskPositions.set(task.id, { x: 0, y: yPosition });
+          }
+          
+          const position = lane.taskPositions.get(task.id) || { x: 0, y: lane.y + 40 };
+          
+          // Skip rendering tasks that are completely outside the visible area
+          const startX = timeAxis.dateToWorld(task.startDate);
+          const endX = timeAxis.dateToWorld(task.getEndDate());
+          
+          if (endX < visibleLeft || startX > visibleRight || 
+              position.y + task.getCurrentHeight() < visibleTop || position.y > visibleBottom) {
+            return;
+          }
+          
+          // Draw the task
+          task.draw(ctx, timeAxis, position.y);
+        } catch (error) {
+          console.error(`[TaskManager] Error drawing task ${task?.id || 'unknown'}:`, error);
+        }
+      });
+    });
+
+    // Draw dependency arrows if enabled
+    if (this._areDependenciesVisible) {
+      this.drawDependencies(ctx, timeAxis, camera);
+    }
+
+    // Draw selection highlight for selected tasks
+    ctx.save();
+    Logger.log('Drawing selection highlights for', this.selectedTasks.size, 'tasks');
+    this.selectedTasks.forEach(task => {
+      try {
+        // Skip highlighting filtered tasks
+        if (task.tradeId && task.color) {
+          const isTradeVisible = this.tradeFilters.has(task.color) ? 
+            this.tradeFilters.get(task.color) : true;
+          
+          if (!isTradeVisible) {
+            return; // Skip highlighting this task
           }
         }
         
-        // Draw a connection from task to successor
-        // - From right edge of task to left edge of successor
-        const x1 = timeAxis.dateToWorld(task.endDate);
-        const y1 = taskPos.y + 15; // Middle of the task
-        const x2 = timeAxis.dateToWorld(successor.startDate);
-        const y2 = successorPos.y + 15; // Middle of the successor task
+        const swimlane = this.swimlanes.find(s => s.tasks.includes(task));
+        if (swimlane) {
+          const pos = swimlane.taskPositions.get(task.id);
+          if (pos) {
+            // Calculate task bounds
+            const startX = timeAxis.dateToWorld(task.startDate);
+            const endX = timeAxis.dateToWorld(task.getEndDate());
+            const width = endX - startX;
+            const height = task.getCurrentHeight();
+            
+            // Skip rendering highlight if task is completely outside the visible area
+            if (endX < visibleLeft || startX > visibleRight || 
+                pos.y + height < visibleTop || pos.y > visibleBottom) {
+              return;
+            }
+            
+            Logger.log('Drawing highlight for task:', task.id, 'at position:', pos);
+
+            // Modern subtle outline for selected tasks
+            const radius = 10; // Match the task card's radius for a consistent look
+            
+            // Draw a more noticeable glow effect
+            ctx.shadowColor = 'rgba(33, 150, 243, 0.7)'; // Increased opacity for more visible glow
+            ctx.shadowBlur = 10 / camera.zoom; // Increased blur for more visible effect
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Draw a more noticeable outline
+            ctx.strokeStyle = '#1976D2'; // Darker blue for better contrast
+            ctx.lineWidth = 2.5 / camera.zoom; // Slightly thicker line
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([]); // Solid line
+            
+            // Draw the outline with rounded corners
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(startX - 3 / camera.zoom, pos.y - 3 / camera.zoom, 
+                width + 6 / camera.zoom, height + 6 / camera.zoom, radius);
+            } else {
+              // Fallback for browsers that don't support roundRect
+              const x = startX - 3 / camera.zoom;
+              const y = pos.y - 3 / camera.zoom;
+              const w = width + 6 / camera.zoom;
+              const h = height + 6 / camera.zoom;
+              const r = radius;
+              
+              ctx.beginPath();
+              ctx.moveTo(x + r, y);
+              ctx.lineTo(x + w - r, y);
+              ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+              ctx.lineTo(x + w, y + h - r);
+              ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+              ctx.lineTo(x + r, y + h);
+              ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+              ctx.lineTo(x, y + r);
+              ctx.quadraticCurveTo(x, y, x + r, y);
+              ctx.closePath();
+            }
+            ctx.stroke();
+          }
+        }
+      } catch (error) {
+        console.error('Error drawing selection highlight:', error);
+      }
+    });
+    ctx.restore();
+    
+    // Remove shadow effect for other drawings
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // Draw selection box if active
+    if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
+      ctx.save();
+      ctx.strokeStyle = '#2196F3';
+      ctx.lineWidth = 2 / camera.zoom;
+      ctx.setLineDash([5 / camera.zoom, 5 / camera.zoom]);
+      ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+      
+      const x = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
+      const y = Math.min(this.selectionBoxStart.y, this.selectionBoxEnd.y);
+      const width = Math.abs(this.selectionBoxEnd.x - this.selectionBoxStart.x);
+      const height = Math.abs(this.selectionBoxEnd.y - this.selectionBoxStart.y);
+      
+      ctx.fillRect(x, y, width, height);
+      ctx.strokeRect(x, y, width, height);
+      ctx.restore();
+    }
+  }
+
+  // Need to have a flag for dependency visibility
+  private _areDependenciesVisible = true;
+  get areDependenciesVisible(): boolean {
+    return this._areDependenciesVisible;
+  }
+  set areDependenciesVisible(value: boolean) {
+    this._areDependenciesVisible = value;
+  }
+
+  linkSelectedTasksInSequence() {
+    if (this.selectedTasksInOrder.length < 2) return;
+    
+    // Create dependencies in the order they were selected
+    for (let i = 0; i < this.selectedTasksInOrder.length - 1; i++) {
+      const successor = this.selectedTasksInOrder[i + 1];
+      const predecessor = this.selectedTasksInOrder[i];
+      
+      if (!successor.dependencies.includes(predecessor.id)) {
+        successor.dependencies.push(predecessor.id);
+      }
+    }
+    
+    // Update task details after creating dependencies if a single task is selected
+    if (this.selectedTasks.size === 1) {
+      const selectedTask = Array.from(this.selectedTasks)[0];
+      this.updateTaskDetails(selectedTask);
+    }
+  }
+
+  moveTasksTo(targetDate: Date) {
+    if (this.selectedTasks.size === 0) return;
+    
+    // Convert the Set to an Array for easier handling
+    const selectedTasksArray = Array.from(this.selectedTasks);
+    
+    // Ensure the target date isn't a weekend for the first task
+    // unless that task is configured to work on weekends
+    const firstTask = selectedTasksArray[0];
+    let adjustedDate = new Date(targetDate);
+    
+    // Check if target date is a weekend and adjust if needed based on task settings
+    while (Task.isWeekend(adjustedDate, firstTask.workOnSaturday, firstTask.workOnSunday)) {
+      adjustedDate.setDate(adjustedDate.getDate() + 1);
+    }
+    
+    // Calculate the offset from the first selected task
+    const offset = adjustedDate.getTime() - firstTask.startDate.getTime();
+    
+    // Apply the same offset to all selected tasks
+    this.selectedTasks.forEach(task => {
+      const newStartDate = new Date(task.startDate.getTime() + offset);
+      
+      // Adjust start date if it falls on a weekend based on task settings
+      while (Task.isWeekend(newStartDate, task.workOnSaturday, task.workOnSunday)) {
+        newStartDate.setDate(newStartDate.getDate() + 1);
+      }
+      
+      task.startDate = newStartDate;
+    });
+    
+    // Update task details if a single task is selected
+    if (this.selectedTasks.size === 1) {
+      this.updateTaskDetails(selectedTasksArray[0]);
+    }
+  }
+
+  // Add new method to draw dependencies between tasks
+  private drawDependencies(ctx: CanvasRenderingContext2D, timeAxis: any, camera: Camera) {
+    // Save context state
+    ctx.save();
+    
+    // Set arrow style
+    ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
+    ctx.lineWidth = 1.5 / camera.zoom;
+    
+    // Loop through all tasks
+    this.tasks.forEach(task => {
+      // Find this task's position
+      const swimlane = this.swimlanes.find(s => s.tasks.includes(task));
+      if (!swimlane) return;
+      
+      const taskPos = swimlane.taskPositions.get(task.id);
+      if (!taskPos) return;
+      
+      // For each task that has dependencies, draw arrows FROM each dependency TO this task
+      // (predecessor → successor)
+      task.dependencies.forEach(depId => {
+        const depTask = this.getTask(depId);
+        if (!depTask) return;
         
-        // Draw arrow path
+        // Find the dependency's position
+        const depSwimlane = this.swimlanes.find(s => s.tasks.includes(depTask));
+        if (!depSwimlane) return;
+        
+        const depPos = depSwimlane.taskPositions.get(depTask.id);
+        if (!depPos) return;
+        
+        // Calculate position coordinates
+        const taskStartX = timeAxis.dateToWorld(task.startDate); // Successor task start
+        const taskY = taskPos.y + task.getCurrentHeight() / 2;   // Successor task Y center
+        
+        const depEndX = timeAxis.dateToWorld(depTask.getEndDate()); // Predecessor task end
+        const depY = depPos.y + depTask.getCurrentHeight() / 2;     // Predecessor task Y center
+        
+        // Draw the arrow line FROM predecessor TO successor
+        // (opposite of previous implementation)
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
+        ctx.moveTo(depEndX, depY); // Start from predecessor end
         
-        // Control points for curve
-        const midX = (x1 + x2) / 2;
-        
-        // Curved path
-        ctx.bezierCurveTo(
-          midX, y1, // Control point 1
-          midX, y2, // Control point 2
-          x2, y2    // End point
-        );
-        
+        // If tasks are in different swimlanes, draw a curved arrow
+        if (depSwimlane !== swimlane) {
+          const controlPointX = (taskStartX + depEndX) / 2;
+          ctx.bezierCurveTo(
+            controlPointX, depY,
+            controlPointX, taskY,
+            taskStartX, taskY
+          );
+        } else {
+          // Simple line for same swimlane
+          ctx.lineTo(taskStartX, taskY);
+        }
         ctx.stroke();
         
-        // Draw arrow tip
-        const arrowSize = 8 / camera.zoom;
-        const angle = Math.atan2(y2 - y1, x2 - x1);
+        // Draw arrowhead at the successor task (reversed from previous)
+        const arrowSize = 6 / camera.zoom;
+        const angle = Math.atan2(taskY - depY, taskStartX - depEndX);
         
-        ctx.setLineDash([]); // Solid line for arrow
         ctx.beginPath();
-        ctx.moveTo(x2, y2);
+        ctx.moveTo(taskStartX, taskY);
         ctx.lineTo(
-          x2 - arrowSize * Math.cos(angle - Math.PI / 6),
-          y2 - arrowSize * Math.sin(angle - Math.PI / 6)
+          taskStartX - arrowSize * Math.cos(angle - Math.PI/6),
+          taskY - arrowSize * Math.sin(angle - Math.PI/6)
         );
         ctx.lineTo(
-          x2 - arrowSize * Math.cos(angle + Math.PI / 6),
-          y2 - arrowSize * Math.sin(angle + Math.PI / 6)
+          taskStartX - arrowSize * Math.cos(angle + Math.PI/6),
+          taskY - arrowSize * Math.sin(angle + Math.PI/6)
         );
         ctx.closePath();
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.6)';
         ctx.fill();
       });
     });
     
+    // Restore context state
     ctx.restore();
   }
 
@@ -1872,14 +2004,5 @@ export class TaskManager {
     } else {
       console.log("[TaskManager] No integrity issues found");
     }
-  }
-
-  // Add new properties for dependency visibility
-  private _areDependenciesVisible = true;
-  get areDependenciesVisible(): boolean {
-    return this._areDependenciesVisible;
-  }
-  set areDependenciesVisible(value: boolean) {
-    this._areDependenciesVisible = value;
   }
 }
