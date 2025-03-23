@@ -156,6 +156,122 @@ export class ProjectManager {
         background-color: #fcfcfc;
       }
       
+      /* Project Section Headers */
+      #projects-sidebar h3, 
+      #projects-sidebar .section-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        margin: 24px 0 8px 0;
+        padding: 0 20px;
+      }
+      
+      /* Clean up project list */
+      #project-list {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+      }
+      
+      /* Remove old project item styling */
+      .project-item {
+        margin: 0;
+        padding: 12px 20px;
+        background: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        border-bottom: none;
+        transition: background-color 0.2s;
+      }
+      
+      .project-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+      }
+      
+      /* Project name styling */
+      .project-name {
+        font-size: 14px;
+        font-weight: 500;
+        margin: 0;
+        color: #333;
+      }
+      
+      /* Remove excess project details */
+      .project-details {
+        display: none;
+      }
+      
+      /* Clean up current project section */
+      .current-project-section {
+        margin-top: 20px;
+        padding: 0 20px;
+      }
+      
+      .current-project-section h3 {
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        margin: 0 0 8px 0;
+        padding: 0;
+      }
+      
+      /* Simplify buttons */
+      #save-project-btn, #new-project-btn {
+        background-color: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      
+      #save-project-btn {
+        background-color: #2196F3;
+        color: white;
+        border-color: #1976D2;
+      }
+      
+      #save-project-btn:hover {
+        background-color: #1976D2;
+      }
+      
+      #new-project-btn:hover {
+        background-color: #e0e0e0;
+      }
+      
+      /* Better input styling */
+      #project-name, #project-description {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+        background-color: white;
+        margin-bottom: 12px;
+      }
+      
+      /* Your Projects heading */
+      #your-projects-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        margin: 24px 0 8px 0;
+        padding: 0 20px;
+      }
+      
+      /* Empty projects message */
+      #empty-projects-message {
+        font-size: 14px;
+        color: #888;
+        margin: 12px 0;
+        padding: 0 20px;
+        font-style: italic;
+      }
+      
       /* Project sidebar content containers */
       #projects-sidebar > div,
       #projects-sidebar .sidebar-content,
@@ -965,9 +1081,11 @@ export class ProjectManager {
         </div>
         
         <div class="user-projects">
-          <h3>Your Projects</h3>
-          <div id="projects-list" class="projects-list">
-            <div class="loading-projects">Loading your projects...</div>
+          <div id="projects-panel" class="sidebar-panel projects-panel active">
+            <h3 id="your-projects-title">Your Projects</h3>
+            <div id="project-list" class="projects-list">
+              <div id="empty-projects-message">Loading your projects...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1921,88 +2039,119 @@ export class ProjectManager {
    * Load user projects from the server
    */
   async loadUserProjects() {
-    const projectsList = document.getElementById('projects-list');
+    const projectsList = document.getElementById('project-list');
     if (!projectsList) return;
     
-    projectsList.innerHTML = '<div class="loading-projects">Loading your projects...</div>';
+    projectsList.innerHTML = '<div id="empty-projects-message">Loading your projects...</div>';
     
     try {
       const response = await getUserProjects();
       
       if (response.success && response.projects) {
+        projectsList.innerHTML = '';
+        
         if (response.projects.length === 0) {
-          projectsList.innerHTML = '<div class="loading-projects">You don\'t have any saved projects yet.</div>';
+          projectsList.innerHTML = '<div id="empty-projects-message">You don\'t have any saved projects yet.</div>';
           return;
         }
         
-        projectsList.innerHTML = '';
+        // Sort projects by updated date (newest first)
+        const sortedProjects = [...response.projects].sort((a, b) => {
+          return new Date(b.updatedAt as Date).getTime() - new Date(a.updatedAt as Date).getTime();
+        });
         
-        response.projects.forEach(project => {
+        // Get today and this week dates for categorization
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const thisWeekStart = new Date(today);
+        thisWeekStart.setDate(today.getDate() - today.getDay()); // Start of current week (Sunday)
+        
+        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        // Categorize projects
+        const todayProjects = [];
+        const thisWeekProjects = [];
+        const thisMonthProjects = [];
+        const olderProjects = [];
+        
+        for (const project of sortedProjects) {
+          const updatedDate = new Date(project.updatedAt as Date);
+          
+          if (updatedDate >= today) {
+            todayProjects.push(project);
+          } else if (updatedDate >= thisWeekStart) {
+            thisWeekProjects.push(project);
+          } else if (updatedDate >= thisMonthStart) {
+            thisMonthProjects.push(project);
+          } else {
+            olderProjects.push(project);
+          }
+        }
+        
+        // Helper function to create project items
+        const createProjectItem = (project) => {
           const projectItem = document.createElement('div');
           projectItem.className = 'project-item';
+          projectItem.dataset.id = project.id;
+          
           projectItem.innerHTML = `
-            <h4>${project.name}</h4>
-            <div class="project-meta">
-              Last updated: ${new Date(project.updatedAt as Date).toLocaleDateString()}
-              ${project.isPublic ? ' • <span style="color: #2196F3;">Public</span>' : ''}
-            </div>
-            ${project.description ? `<div class="project-description">${project.description}</div>` : ''}
-            <div class="project-actions">
-              <button class="load-project" data-id="${project.id}">Load</button>
-              <button class="share-project" data-id="${project.id}" ${!project.isPublic ? 'style="display:none;"' : ''}>Share</button>
-              <button class="delete-project" data-id="${project.id}">Delete</button>
-            </div>
+            <div class="project-name">${project.name}</div>
           `;
           
-          projectsList.appendChild(projectItem);
+          projectItem.addEventListener('click', () => {
+            this.loadProjectFromServer(project.id);
+          });
           
-          // Add event listeners
-          const loadBtn = projectItem.querySelector('.load-project');
-          if (loadBtn) {
-            loadBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.loadProjectFromServer(projectId);
-              }
-            });
-          }
+          return projectItem;
+        };
+        
+        // Add categories and projects
+        if (todayProjects.length > 0) {
+          const todayHeader = document.createElement('h3');
+          todayHeader.textContent = 'Today';
+          projectsList.appendChild(todayHeader);
           
-          const shareBtn = projectItem.querySelector('.share-project');
-          if (shareBtn) {
-            shareBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.shareProject(projectId);
-              }
-            });
-          }
+          todayProjects.forEach(project => {
+            projectsList.appendChild(createProjectItem(project));
+          });
+        }
+        
+        if (thisWeekProjects.length > 0) {
+          const thisWeekHeader = document.createElement('h3');
+          thisWeekHeader.textContent = 'This week';
+          projectsList.appendChild(thisWeekHeader);
           
-          const deleteBtn = projectItem.querySelector('.delete-project');
-          if (deleteBtn) {
-            deleteBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.deleteProjectFromServer(projectId);
-              }
-            });
-          }
-        });
+          thisWeekProjects.forEach(project => {
+            projectsList.appendChild(createProjectItem(project));
+          });
+        }
+        
+        if (thisMonthProjects.length > 0) {
+          const thisMonthHeader = document.createElement('h3');
+          thisMonthHeader.textContent = 'This month';
+          projectsList.appendChild(thisMonthHeader);
+          
+          thisMonthProjects.forEach(project => {
+            projectsList.appendChild(createProjectItem(project));
+          });
+        }
+        
+        if (olderProjects.length > 0) {
+          const olderHeader = document.createElement('h3');
+          olderHeader.textContent = 'Older';
+          projectsList.appendChild(olderHeader);
+          
+          olderProjects.forEach(project => {
+            projectsList.appendChild(createProjectItem(project));
+          });
+        }
       } else {
-        projectsList.innerHTML = `
-          <div class="loading-projects">
-            Error loading projects: ${response.error || 'Unknown error'}
-          </div>
-        `;
+        projectsList.innerHTML = '<div id="empty-projects-message">Failed to load projects.</div>';
       }
     } catch (error) {
-      projectsList.innerHTML = `
-        <div class="loading-projects">
-          Error loading projects: ${(error as Error).message || 'Unknown error'}
-        </div>
-      `;
+      console.error('[ProjectManager] Error loading projects:', error);
+      projectsList.innerHTML = '<div id="empty-projects-message">Error loading projects.</div>';
     }
   }
 
