@@ -139,6 +139,7 @@
         <button id="toggle-deps-btn" class="toolbar-btn" title="Toggle Dependencies" onclick="console.log('Toggle deps button clicked inline'); if(window.canvasApp) { window.canvasApp.taskManager.areDependenciesVisible = !window.canvasApp.taskManager.areDependenciesVisible; window.canvasApp.render(); } return false;">🔗</button>
         <button id="link-selected-btn" class="toolbar-btn" title="Link Selected" onclick="console.log('Link selected button clicked inline'); if(window.canvasApp) { window.canvasApp.taskManager.linkSelectedTasksInSequence(); window.canvasApp.render(); } return false;">⛓️</button>
         <button id="force-save-btn" class="toolbar-btn" title="Force Save" onclick="console.log('Force save button clicked'); if(window.forceSave) { window.forceSave(); alert('State saved!'); } return false;">💾</button>
+        <button id="hard-refresh-btn" class="toolbar-btn" title="Hard Refresh App" onclick="console.log('Hard refresh button clicked'); localStorage.removeItem('api_error_count'); window.location.reload(true); return false;">🔄</button>
         <button id="composer-btn" class="toolbar-btn" title="Composer" onclick="console.log('Composer button clicked inline'); if(window.canvasApp) window.canvasApp.sidebar.show('composer'); return false;">🤖</button>
       </div>
     </div>
@@ -273,6 +274,13 @@
             window.forceSave();
             alert('State saved!');
           }
+        });
+        
+        document.getElementById('hard-refresh-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('Hard Refresh button clicked');
+          localStorage.removeItem('api_error_count');
+          window.location.reload(true);
         });
         
         document.getElementById('composer-btn')?.addEventListener('click', (e) => {

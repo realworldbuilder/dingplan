@@ -2,6 +2,10 @@
   "version": 2,
   "public": true,
   "outputDirectory": "dist",
+  "builds": [
+    { "src": "server/src/index.js", "use": "@vercel/node" },
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" }}
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/server/src/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
