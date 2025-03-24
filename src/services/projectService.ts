@@ -86,6 +86,16 @@ export const saveProject = async (
       console.log('[projectService] User is authenticated, saving to server API');
       
       try {
+        // Add debug logs for server API call
+        console.log(`[projectService] Making API call to: ${API_URL}/projects`);
+        console.log('[projectService] API request payload:', {
+          userId,
+          name: metadata.name,
+          description: metadata.description ? 'present' : 'empty',
+          dataSize: JSON.stringify(projectData).length,
+          isPublic: metadata.isPublic || false
+        });
+
         const response = await fetch(`${API_URL}/projects`, {
           method: 'POST',
           headers: {
@@ -101,7 +111,10 @@ export const saveProject = async (
           })
         });
         
+        console.log('[projectService] API response status:', response.status);
+        
         const result = await response.json();
+        console.log('[projectService] API response body:', result);
         
         if (!response.ok) {
           console.error('[projectService] API error:', result);
@@ -112,7 +125,7 @@ export const saveProject = async (
         
         return {
           success: true,
-          projectId: result.data._id
+          projectId: result.data._id || result.data.id
         };
       } catch (apiError) {
         console.error('[projectService] Server API error, falling back to localStorage:', apiError);
@@ -226,6 +239,14 @@ export const updateProject = async (
       console.log('[projectService] User is authenticated, updating on server API');
       
       try {
+        console.log(`[projectService] Making PUT request to: ${API_URL}/projects/${projectId}`);
+        console.log(`[projectService] Update payload:`, {
+          userId,
+          name: metadata.name,
+          hasProjectData: !!projectData,
+          dataSize: JSON.stringify(projectData).length,
+        });
+        
         const response = await fetch(`${API_URL}/projects/${projectId}`, {
           method: 'PUT',
           headers: {
@@ -241,7 +262,9 @@ export const updateProject = async (
           })
         });
         
+        console.log(`[projectService] Update response status:`, response.status);
         const result = await response.json();
+        console.log(`[projectService] Update response body:`, result);
         
         if (!response.ok) {
           console.error('[projectService] API error:', result);
@@ -336,7 +359,11 @@ export const loadProject = async (
       console.log('[projectService] User is authenticated, trying to load from server API');
       
       try {
-        const response = await fetch(`${API_URL}/projects/${projectId}?userId=${encodeURIComponent(userId)}`);
+        const url = `${API_URL}/projects/${projectId}?userId=${encodeURIComponent(userId)}`;
+        console.log(`[projectService] Making GET request to: ${url}`);
+        
+        const response = await fetch(url);
+        console.log(`[projectService] Load response status:`, response.status);
         
         // If we get a 404, the project might be in localStorage
         if (response.status === 404) {
@@ -344,6 +371,7 @@ export const loadProject = async (
           // Continue to localStorage fallback
         } else {
           const result = await response.json();
+          console.log(`[projectService] Load response body:`, result);
           
           if (!response.ok) {
             console.error('[projectService] API error:', result);
@@ -352,8 +380,16 @@ export const loadProject = async (
           
           const project = result.data;
           
+          // Ensure we have a proper project ID
+          const projectId = project._id || project.id;
+          
+          if (!projectId) {
+            console.error('[projectService] Project is missing ID field:', project);
+            throw new Error('Project data is invalid - missing ID field');
+          }
+          
           console.log('[projectService] Project loaded from server successfully:', { 
-            id: project._id,
+            id: projectId,
             name: project.name,
             tasks: project.projectData?.tasks?.length || 0
           });
@@ -372,7 +408,7 @@ export const loadProject = async (
           // Format the project data
           const formattedProject: ProjectData = {
             metadata: {
-              id: project._id,
+              id: projectId,
               name: project.name,
               description: project.description,
               isPublic: project.isPublic,

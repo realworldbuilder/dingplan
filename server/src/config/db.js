@@ -16,7 +16,9 @@ const connectDB = async () => {
     mongoose.set('toJSON', {
       virtuals: true,
       transform: (doc, converted) => {
-        delete converted._id;
+        // Keep _id but provide it also as id for compatibility
+        converted.id = converted._id;
+        // Only remove version field
         delete converted.__v;
       }
     });

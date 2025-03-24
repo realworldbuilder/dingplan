@@ -7,13 +7,28 @@ export const createProject = async (req, res) => {
   try {
     const { userId, name, description, projectData, isPublic, tags } = req.body;
     
-    console.log('Creating project:', { userId, name });
+    console.log('Creating project:', { 
+      userId, 
+      name, 
+      descriptionLength: description ? description.length : 0,
+      projectDataSize: JSON.stringify(projectData).length 
+    });
     
     if (!userId || !name || !projectData) {
+      console.error('Missing required fields:', { 
+        hasUserId: !!userId, 
+        hasName: !!name, 
+        hasProjectData: !!projectData 
+      });
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields: userId, name, projectData' 
       });
+    }
+
+    // Check user ID format (likely Clerk ID)
+    if (userId.length > 50) {
+      console.log('Processing Clerk-style user ID:', userId.substring(0, 10) + '...');
     }
 
     // Create a new project with valid fields
@@ -32,7 +47,8 @@ export const createProject = async (req, res) => {
 
     await project.save();
     
-    console.log('Project created successfully with ID:', project._id);
+    console.log('Project created successfully with ID:', project._id, 
+      'for user:', userId.substring(0, 10) + '...');
     
     res.status(201).json({
       success: true,
@@ -226,10 +242,16 @@ export const getUserProjects = async (req, res) => {
       });
     }
     
+    console.log(`Fetching projects for user: ${userId.substring(0, 10)}...`);
+    
+    // Try to find projects with exact user ID
     const projects = await Project.find({ userId })
       .select('_id name description isPublic tags createdAt updatedAt')
       .sort({ updatedAt: -1 });
     
+    console.log(`Found ${projects.length} projects for user ${userId.substring(0, 10)}...`);
+    
+    // Return projects
     res.status(200).json({
       success: true,
       count: projects.length,

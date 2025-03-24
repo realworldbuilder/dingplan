@@ -15,10 +15,29 @@ const PORT = process.env.PORT || 3000;
 // Connect to MongoDB
 connectDB();
 
+// Enhanced CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || '*', // Allow from any origin by default
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+// Log server start info
+console.log('Starting server with:');
+console.log(`- NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`- CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
+
 // Middleware
-app.use(cors());
-app.use(bodyParser.json({ limit: '10mb' })); // Increased limit for larger project files
+app.use(cors(corsOptions));
+app.use(bodyParser.json({ limit: '15mb' })); // Increased limit for larger project files
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
 // Root API route for debugging
 app.get('/api', (req, res) => {
