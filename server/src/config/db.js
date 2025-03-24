@@ -5,10 +5,13 @@ import mongoose from 'mongoose';
  */
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/dingplan', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+    console.log('Attempting to connect to MongoDB...');
+    
+    // Get MongoDB URI from environment
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/dingplan';
+    console.log('Using MongoDB URI starting with:', mongoUri.substring(0, 20) + '...');
+    
+    const conn = await mongoose.connect(mongoUri);
     
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     

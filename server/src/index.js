@@ -60,10 +60,18 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
+  console.error('SERVER ERROR:', err);
   console.error(err.stack);
+  
+  // Detailed error for debugging
+  const errorDetails = process.env.NODE_ENV === 'production' 
+    ? 'Server error' 
+    : err.message || 'Unknown error';
+    
   res.status(500).json({
     success: false,
-    message: 'Something went wrong on the server'
+    message: 'Server error',
+    details: errorDetails
   });
 });
 
