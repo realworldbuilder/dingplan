@@ -108,6 +108,9 @@ export class Canvas {
     // Initialize the touch manager for mobile devices
     this.initTouchSupport();
     
+    // Add ability to show debug panel with URL parameter or localStorage flag
+    this.initDebugMode();
+    
     // Always try to load from localStorage
     this.loadFromLocalStorage();
     
@@ -127,6 +130,34 @@ export class Canvas {
     if (this.touchSupportEnabled && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
       console.log('Touch device detected, enabling mobile touch support');
       this.touchManager = new TouchManager(this.canvas, this);
+    }
+  }
+  
+  /**
+   * Initialize debug mode for persistence troubleshooting
+   */
+  private initDebugMode(): void {
+    // Check if debug panel is requested via URL or localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugRequested = urlParams.has('debug') || localStorage.getItem('dingplan_debug') === 'true';
+    
+    if (debugRequested) {
+      console.log('[Canvas] Debug mode activated');
+      
+      // Import localStorage utils to create debug panel
+      import('./utils/localStorage').then(module => {
+        if (module && typeof module.createDebugPanel === 'function') {
+          module.createDebugPanel();
+        }
+      }).catch(err => {
+        console.error('[Canvas] Error loading debug panel:', err);
+      });
+      
+      // Store debug flag in localStorage for persistence across page refreshes
+      localStorage.setItem('dingplan_debug', 'true');
+      
+      // Enable extensive console logging
+      Logger.enableDebugMode();
     }
   }
 
@@ -179,14 +210,38 @@ export class Canvas {
     try {
       // Reset task manager
       if (this.taskManager) {
-        // Clear all tasks
-        const allTasks = this.taskManager.getAllTasks();
+        // First, make a safe copy of all tasks to avoid modification during iteration
+        const allTasks = [...this.taskManager.getAllTasks()];
+        console.log(`[Canvas] Removing ${allTasks.length} tasks from canvas`);
+        
+        // Clear all tasks one by one
         allTasks.forEach(task => {
-          this.taskManager.removeTask(task.id);
+          try {
+            // First remove all dependencies on this task
+            if (task.dependencies && Array.isArray(task.dependencies)) {
+              task.dependencies = [];
+            }
+            this.taskManager.removeTask(task.id);
+          } catch (e) {
+            console.error(`[Canvas] Error removing task ${task.id}:`, e);
+          }
         });
         
+        // Double-check task removal
+        const remainingTasks = this.taskManager.getAllTasks();
+        if (remainingTasks.length > 0) {
+          console.warn(`[Canvas] Still have ${remainingTasks.length} tasks after clearing. Attempting force clear.`);
+          
+          // Reset internal tasks array directly if accessible
+          if (this.taskManager.tasks && Array.isArray(this.taskManager.tasks)) {
+            this.taskManager.tasks = [];
+          }
+        }
+        
         // Clear task selection
-        this.taskManager.clearSelection();
+        if (typeof this.taskManager.clearSelection === 'function') {
+          this.taskManager.clearSelection();
+        }
         
         // Clear swimlanes if method exists
         if (typeof this.taskManager.clearSwimlanes === 'function') {
@@ -218,6 +273,14 @@ export class Canvas {
       // Reset other state
       this.areDependenciesVisible = true;
       this.selectedTaskId = null;
+      
+      // Reset project state in localStorage if needed
+      // This ensures we don't have orphaned project data
+      const projectId = localStorage.getItem('currentProjectId');
+      if (projectId) {
+        console.log('[Canvas] Resetting current project ID:', projectId);
+        localStorage.removeItem('currentProjectId');
+      }
       
       // Force a re-render
       this.render();

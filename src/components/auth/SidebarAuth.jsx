@@ -85,7 +85,11 @@ const SidebarAuth = () => {
   // Custom sign out handler to clear user ID in auth service
   const handleSignOut = () => {
     console.log('[SidebarAuth] Signing out user');
-    // First clear state from auth service
+    
+    // First clear current project state
+    localStorage.removeItem('currentProjectId');
+    
+    // Next clear state from auth service
     clearCurrentUser();
     
     // Dispatch an event to clear canvas state before sign out
@@ -98,8 +102,24 @@ const SidebarAuth = () => {
     });
     document.dispatchEvent(authChangeEvent);
     
-    // Then sign out with Clerk
-    signOut();
+    // Add a short delay before sign out to allow canvas to clear
+    setTimeout(() => {
+      // Force clearing localStorage items that might be causing issues
+      try {
+        // Find and clear all dingplan project-related items
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('dingplan_') || key.startsWith('currentProjectId')) {
+            console.log(`[SidebarAuth] Clearing localStorage item: ${key}`);
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (e) {
+        console.error('[SidebarAuth] Error clearing localStorage:', e);
+      }
+      
+      // Then sign out with Clerk
+      signOut();
+    }, 100);
   };
 
   return (

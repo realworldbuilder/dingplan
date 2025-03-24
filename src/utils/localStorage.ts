@@ -68,17 +68,29 @@ export function loadFromLocalStorage(projectId?: string): any | null {
     // Load authService to check if we're authenticated
     const authStatus = localStorage.getItem('dingplan_auth_status');
     const userId = localStorage.getItem('dingplan_user_id');
+    const isAuthenticated = authStatus === 'authenticated' && userId && userId !== 'anonymous';
     
-    console.log(`[localStorage] Loading state with auth status: ${authStatus}, userId: ${userId}, projectId: ${projectId}`);
+    console.log(`[localStorage] Loading state with auth status: ${authStatus}, userId: ${userId}, projectId: ${projectId}, isAuthenticated: ${isAuthenticated}`);
     
-    // Only load state if we have a project ID or are in an anonymous session
-    if (!projectId && authStatus === 'authenticated') {
-      console.log('[localStorage] No project ID and user is authenticated, not loading state');
+    // If authenticated but no project ID, don't load anything (wait for proper project loading)
+    if (!projectId && isAuthenticated) {
+      console.log('[localStorage] No project ID and user is authenticated, not loading anonymous state');
       return null;
+    }
+    
+    // Always validate project ID format
+    if (projectId) {
+      if (projectId === 'undefined' || projectId === 'null' || projectId === 'NaN') {
+        console.warn('[localStorage] Invalid project ID format:', projectId);
+        projectId = undefined;
+      }
     }
     
     const storageKey = projectId ? `${BASE_STORAGE_KEY}_${projectId}` : BASE_STORAGE_KEY;
     const dependenciesKey = projectId ? `${DEPENDENCIES_KEY}_${projectId}` : DEPENDENCIES_KEY;
+    
+    // Debug additional information for troubleshooting
+    console.log(`[localStorage] Using storage keys: ${storageKey}, ${dependenciesKey}`);
     
     let serializedState = localStorage.getItem(storageKey);
     const serializedDependencies = localStorage.getItem(dependenciesKey);
@@ -221,21 +233,41 @@ export function hasSavedState(projectId?: string): boolean {
 
 /**
  * Clear all application data from localStorage
+ * @param {boolean} preserveAuth - Whether to preserve authentication data
  */
-export function clearAllAppData(): void {
+export function clearAllAppData(preserveAuth: boolean = false): void {
   try {
     // Get all localStorage keys
     const keysToRemove = [];
+    const preservedValues: Record<string, string> = {};
+    
+    // If preserving auth, save these values first
+    if (preserveAuth) {
+      const authKeys = ['dingplan_user_id', 'dingplan_auth_status'];
+      authKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          preservedValues[key] = value;
+        }
+      });
+    }
     
     // Find all keys related to our app
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (
+        key.startsWith('dingplan_') || 
         key.startsWith(BASE_STORAGE_KEY) || 
         key.startsWith(DEPENDENCIES_KEY) ||
         key.startsWith('backup-') || 
-        key === PROJECTS_KEY
+        key.startsWith('construction-') ||
+        key === PROJECTS_KEY ||
+        key === 'currentProjectId'
       )) {
+        // Skip auth keys if preserving auth
+        if (preserveAuth && (key === 'dingplan_user_id' || key === 'dingplan_auth_status')) {
+          continue;
+        }
         keysToRemove.push(key);
       }
     }
@@ -243,8 +275,80 @@ export function clearAllAppData(): void {
     // Remove each key
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    console.log(`Cleared all application data (${keysToRemove.length} items)`);
+    // Restore preserved values if needed
+    if (preserveAuth) {
+      Object.entries(preservedValues).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+    }
+    
+    console.log(`Cleared all application data (${keysToRemove.length} items)${preserveAuth ? ', preserved auth data' : ''}`);
   } catch (error) {
     console.error('Failed to clear all application data:', error);
+  }
+}
+
+/**
+ * Create a database persistence debug panel
+ * For troubleshooting persistence issues
+ */
+export function createDebugPanel(): void {
+  if (document.getElementById('db-debug-panel')) {
+    return; // Already exists
+  }
+  
+  const debugPanel = document.createElement('div');
+  debugPanel.id = 'db-debug-panel';
+  debugPanel.style.cssText = `
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 10000;
+    max-width: 300px;
+    max-height: 200px;
+    overflow: auto;
+  `;
+  
+  const content = document.createElement('div');
+  content.id = 'db-debug-content';
+  
+  const authStatus = localStorage.getItem('dingplan_auth_status') || 'none';
+  const userId = localStorage.getItem('dingplan_user_id') || 'none';
+  const currentProjectId = localStorage.getItem('currentProjectId') || 'none';
+  
+  content.innerHTML = `
+    <p><strong>Auth Status:</strong> ${authStatus}</p>
+    <p><strong>User ID:</strong> ${userId.substring(0, 10)}...</p>
+    <p><strong>Current Project:</strong> ${currentProjectId === 'none' ? 'none' : currentProjectId.substring(0, 10) + '...'}</p>
+    <button id="db-debug-clear">Clear All Data</button>
+    <button id="db-debug-refresh">Refresh Page</button>
+  `;
+  
+  debugPanel.appendChild(content);
+  document.body.appendChild(debugPanel);
+  
+  // Add event listeners
+  const clearBtn = document.getElementById('db-debug-clear');
+  const refreshBtn = document.getElementById('db-debug-refresh');
+  
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (confirm('This will clear all localStorage data. Continue?')) {
+        clearAllAppData(false);
+        alert('All data cleared. Click refresh to reload the page.');
+      }
+    });
+  }
+  
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
   }
 } 

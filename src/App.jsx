@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 
 /**
@@ -7,40 +7,83 @@ import { useUser } from '@clerk/clerk-react';
  */
 const App = () => {
   const { isSignedIn, user } = useUser();
+  const [initialized, setInitialized] = useState(false);
 
   // Initialize the application when component mounts
   useEffect(() => {
-    // Import and ensure authService is fully utilized
+    // Initialize canvas application if not already done
+    if (!window.canvasApp && !initialized) {
+      console.log('[App] Initializing canvas application...');
+      
+      // Import main.ts to initialize canvas
+      import('./main.ts').then(module => {
+        console.log('[App] Canvas module loaded');
+        setInitialized(true);
+      });
+    }
+  }, [initialized]);
+
+  // Handle authentication state changes
+  useEffect(() => {
+    if (!initialized) return;
+
+    // Import auth service
     import('./services/authService').then(authService => {
-      // When user signs in through Clerk, set their ID in auth service
+      const prevAuthState = localStorage.getItem('dingplan_auth_status');
+      const currentAuthState = isSignedIn ? 'authenticated' : 'anonymous';
+      const authStateChanged = prevAuthState !== currentAuthState;
+      
+      console.log('[App] Auth state check:', { 
+        isSignedIn, 
+        prevState: prevAuthState,
+        currentState: currentAuthState,
+        changed: authStateChanged
+      });
+      
       if (isSignedIn && user) {
-        console.log('Clerk user authenticated:', user.id);
+        // User is signed in
+        console.log('[App] Clerk user authenticated:', user.id);
         authService.setCurrentUser(user.id);
-        // Force refresh window to reset canvas state on auth changes
-        if (localStorage.getItem('dingplan_auth_status') !== 'authenticated') {
-          window.location.reload();
+        
+        // Dispatch an event to notify the canvas
+        const authEvent = new CustomEvent('auth-state-changed', {
+          detail: { 
+            authenticated: true, 
+            userId: user.id,
+            action: authStateChanged ? 'login' : 'update'
+          }
+        });
+        document.dispatchEvent(authEvent);
+        
+        // Try to trigger project list refresh
+        if (authStateChanged && window.canvasApp?.projectManager) {
+          console.log('[App] Triggering project list refresh on login');
+          // Force project list refresh after a short delay
+          setTimeout(() => {
+            if (window.canvasApp?.projectManager?.refreshProjectsList) {
+              window.canvasApp.projectManager.refreshProjectsList();
+            }
+          }, 500);
         }
       } else {
-        // Make sure to clear local state when logged out
-        if (localStorage.getItem('dingplan_auth_status') === 'authenticated') {
+        // User is signed out
+        if (prevAuthState === 'authenticated') {
+          console.log('[App] User signed out, clearing auth state');
           authService.clearCurrentUser();
-          // Force canvas reset on logout
-          window.location.reload();
+          
+          // Dispatch an event to clear canvas
+          const authEvent = new CustomEvent('auth-state-changed', {
+            detail: { 
+              authenticated: false, 
+              userId: 'anonymous',
+              action: 'signout'
+            }
+          });
+          document.dispatchEvent(authEvent);
         }
       }
     });
-    
-    // If there's already an active instance, don't reinitialize
-    if (window.canvasApp) return;
-    
-    // Call main.ts initialization (the canvas is initialized there)
-    console.log('App component initializing canvas...');
-    
-    // Import main.ts to initialize canvas
-    import('./main.ts').then(module => {
-      console.log('Canvas module loaded');
-    });
-  }, [isSignedIn, user]);
+  }, [isSignedIn, user, initialized]);
 
   return (
     <div id="app-container">
