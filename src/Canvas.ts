@@ -162,6 +162,70 @@ export class Canvas {
     document.addEventListener('taskUpdated', () => {
       this.render();
     });
+    
+    // Listen for auth state changes to clear canvas
+    document.addEventListener('auth-state-changed', (e: CustomEvent) => {
+      console.log('Canvas received auth state change:', e.detail);
+      this.clearCanvas();
+    });
+  }
+  
+  /**
+   * Completely clears the canvas state
+   */
+  public clearCanvas() {
+    console.log('[Canvas] Clearing canvas state completely');
+    
+    try {
+      // Reset task manager
+      if (this.taskManager) {
+        // Clear all tasks
+        const allTasks = this.taskManager.getAllTasks();
+        allTasks.forEach(task => {
+          this.taskManager.removeTask(task.id);
+        });
+        
+        // Clear task selection
+        this.taskManager.clearSelection();
+        
+        // Clear swimlanes if method exists
+        if (typeof this.taskManager.clearSwimlanes === 'function') {
+          this.taskManager.clearSwimlanes();
+        }
+        
+        // Reset to default swimlane
+        if (this.taskManager.swimlanes) {
+          this.taskManager.swimlanes = [{
+            id: 'default',
+            name: 'Default',
+            color: '#4285F4',
+            position: 0
+          }];
+        }
+      }
+      
+      // Reset camera position
+      if (this.camera) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayX = this.timeAxis.getTodayPosition();
+        
+        this.camera.x = todayX + (this.canvas.width / (3 * this.camera.zoom));
+        this.camera.y = 200;
+        this.camera.zoom = 1;
+      }
+      
+      // Reset other state
+      this.areDependenciesVisible = true;
+      this.selectedTaskId = null;
+      
+      // Force a re-render
+      this.render();
+      
+      console.log('[Canvas] Canvas state cleared successfully');
+    } catch (error) {
+      console.error('[Canvas] Error during canvas reset:', error);
+    }
   }
 
   private handleMouseDown(e: MouseEvent) {

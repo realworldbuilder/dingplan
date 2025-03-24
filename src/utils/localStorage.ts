@@ -60,6 +60,23 @@ export function saveToLocalStorage(state: any, projectId?: string): void {
  */
 export function loadFromLocalStorage(projectId?: string): any | null {
   try {
+    // Check if we have a currentProjectId when no projectId is specified
+    if (!projectId) {
+      projectId = localStorage.getItem('currentProjectId') || undefined;
+    }
+    
+    // Load authService to check if we're authenticated
+    const authStatus = localStorage.getItem('dingplan_auth_status');
+    const userId = localStorage.getItem('dingplan_user_id');
+    
+    console.log(`[localStorage] Loading state with auth status: ${authStatus}, userId: ${userId}, projectId: ${projectId}`);
+    
+    // Only load state if we have a project ID or are in an anonymous session
+    if (!projectId && authStatus === 'authenticated') {
+      console.log('[localStorage] No project ID and user is authenticated, not loading state');
+      return null;
+    }
+    
     const storageKey = projectId ? `${BASE_STORAGE_KEY}_${projectId}` : BASE_STORAGE_KEY;
     const dependenciesKey = projectId ? `${DEPENDENCIES_KEY}_${projectId}` : DEPENDENCIES_KEY;
     

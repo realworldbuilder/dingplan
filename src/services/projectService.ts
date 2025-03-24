@@ -6,13 +6,13 @@ import { getCurrentUserId, isAuthenticated } from './authService';
 
 // Base API URL - should be configurable from environment
 // Different API URL depending on the environment
-let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // In production environments (including Vercel deployments), use relative path for API
 if (import.meta.env.PROD) {
-  // Always use relative path for API on all domains
-  API_URL = '/api';
-  console.log('[projectService] Production environment detected, using relative API path');
+  // Use the API URL from environment or fallback to relative path
+  API_URL = import.meta.env.VITE_API_URL || '/api';
+  console.log('[projectService] Production environment detected, using API path:', API_URL);
 }
 
 console.log('[projectService] Using API URL:', API_URL);

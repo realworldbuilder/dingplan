@@ -85,7 +85,20 @@ const SidebarAuth = () => {
   // Custom sign out handler to clear user ID in auth service
   const handleSignOut = () => {
     console.log('[SidebarAuth] Signing out user');
+    // First clear state from auth service
     clearCurrentUser();
+    
+    // Dispatch an event to clear canvas state before sign out
+    const authChangeEvent = new CustomEvent('auth-state-changed', {
+      detail: { 
+        authenticated: false,
+        userId: 'anonymous',
+        action: 'signout'
+      }
+    });
+    document.dispatchEvent(authChangeEvent);
+    
+    // Then sign out with Clerk
     signOut();
   };
 

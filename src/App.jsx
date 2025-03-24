@@ -10,23 +10,36 @@ const App = () => {
 
   // Initialize the application when component mounts
   useEffect(() => {
+    // Import and ensure authService is fully utilized
+    import('./services/authService').then(authService => {
+      // When user signs in through Clerk, set their ID in auth service
+      if (isSignedIn && user) {
+        console.log('Clerk user authenticated:', user.id);
+        authService.setCurrentUser(user.id);
+        // Force refresh window to reset canvas state on auth changes
+        if (localStorage.getItem('dingplan_auth_status') !== 'authenticated') {
+          window.location.reload();
+        }
+      } else {
+        // Make sure to clear local state when logged out
+        if (localStorage.getItem('dingplan_auth_status') === 'authenticated') {
+          authService.clearCurrentUser();
+          // Force canvas reset on logout
+          window.location.reload();
+        }
+      }
+    });
+    
     // If there's already an active instance, don't reinitialize
     if (window.canvasApp) return;
     
     // Call main.ts initialization (the canvas is initialized there)
     console.log('App component initializing canvas...');
     
-    // When user signs in, set their ID in local storage for project service
-    if (isSignedIn && user) {
-      localStorage.setItem('userId', user.id);
-      console.log('User authenticated:', user.id);
-    } else {
-      // Use anonymous ID if not signed in
-      const anonymousId = localStorage.getItem('anonymousUserId') || 
-        `anonymous-${Math.random().toString(36).substring(2, 15)}`;
-      localStorage.setItem('anonymousUserId', anonymousId);
-      localStorage.setItem('userId', anonymousId);
-    }
+    // Import main.ts to initialize canvas
+    import('./main.ts').then(module => {
+      console.log('Canvas module loaded');
+    });
   }, [isSignedIn, user]);
 
   return (
