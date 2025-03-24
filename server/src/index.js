@@ -13,7 +13,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
-connectDB();
+try {
+  connectDB().catch(err => {
+    console.error('Failed to connect to MongoDB:', err);
+  });
+} catch (error) {
+  console.error('Error during MongoDB connection setup:', error);
+}
 
 // Enhanced CORS configuration
 const corsOptions = {
@@ -75,7 +81,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+// In a non-serverless environment, start the server normally
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express API for serverless environments like Vercel
+export default app; 
