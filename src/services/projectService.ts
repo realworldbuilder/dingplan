@@ -74,7 +74,7 @@ async function saveProjectToSupabase(project: ProjectData): Promise<string> {
   const id = project.id || crypto.randomUUID();
   const now = new Date().toISOString();
 
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('projects')
     .upsert({
       id,
@@ -100,7 +100,7 @@ async function loadProjectFromSupabase(id: string): Promise<ProjectData | null> 
     return null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase!
     .from('projects')
     .select('project_data')
     .eq('id', id)
@@ -127,7 +127,7 @@ async function listProjectsFromSupabase(): Promise<ProjectMetadata[]> {
     return [];
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase!
     .from('projects')
     .select('id, name, created_at, updated_at')
     .eq('user_id', user.id)
@@ -151,7 +151,7 @@ async function deleteProjectFromSupabase(id: string): Promise<boolean> {
     return false;
   }
 
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('projects')
     .delete()
     .eq('id', id)
