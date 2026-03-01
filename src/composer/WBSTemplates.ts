@@ -239,6 +239,93 @@ export const WBS_TEMPLATES: WBSTemplate[] = [
       "Landscaping",
       "Punch"
     ]
+  },
+  {
+    id: "residential_construction_detailed",
+    name: "Residential Construction (Detailed)",
+    description: "Detailed Work Breakdown Structure for residential construction projects",
+    projectTypes: ["residential detailed", "single family detailed", "custom home", "residential construction"],
+    categories: [
+      "Foundation",
+      "Framing", 
+      "Roofing",
+      "Plumbing Rough",
+      "Electrical Rough", 
+      "HVAC Rough",
+      "Insulation",
+      "Drywall",
+      "Interior Trim",
+      "Paint",
+      "Flooring",
+      "Plumbing Finish",
+      "Electrical Finish",
+      "HVAC Finish", 
+      "Cabinets & Counters",
+      "Landscaping",
+      "Final Clean",
+      "Punch List"
+    ]
+  },
+  {
+    id: "tenant_improvement_detailed", 
+    name: "Tenant Improvement (TI) - Detailed",
+    description: "Detailed Work Breakdown Structure for tenant improvement projects",
+    projectTypes: ["tenant improvement detailed", "ti detailed", "office fit-out", "retail fit-out", "commercial ti"],
+    categories: [
+      "Demo",
+      "Framing",
+      "MEP Rough-in",
+      "Fire Protection", 
+      "Insulation",
+      "Drywall",
+      "Tape/Mud/Paint",
+      "Ceiling Grid",
+      "Flooring", 
+      "Millwork",
+      "MEP Trim",
+      "Low Voltage",
+      "Punch List",
+      "Final Clean"
+    ]
+  },
+  {
+    id: "mep_package",
+    name: "MEP Package",
+    description: "Work Breakdown Structure for comprehensive MEP packages",
+    projectTypes: ["mep package", "mechanical electrical plumbing", "mep systems", "building systems"],
+    categories: [
+      "Underground Utilities",
+      "Plumbing Rough",
+      "HVAC Ductwork", 
+      "Electrical Rough",
+      "Fire Protection",
+      "Insulation",
+      "Plumbing Top-out",
+      "Electrical Trim",
+      "HVAC Startup",
+      "Controls/BAS",
+      "Testing & Commissioning"
+    ]
+  },
+  {
+    id: "sitework_civil",
+    name: "Sitework/Civil",
+    description: "Work Breakdown Structure for comprehensive sitework and civil construction",
+    projectTypes: ["sitework civil", "civil construction", "site development", "infrastructure", "earthwork"],
+    categories: [
+      "Survey & Layout",
+      "Clearing & Grubbing", 
+      "Earthwork & Grading",
+      "Utilities (Storm/Sanitary/Water)",
+      "Base & Subbase",
+      "Paving",
+      "Curb & Gutter",
+      "Sidewalks",
+      "Landscaping",
+      "Striping & Signage",
+      "Erosion Control",
+      "Final Grade"
+    ]
   }
 ];
 

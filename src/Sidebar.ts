@@ -3,6 +3,9 @@ import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
+import { 
+  loadProject 
+} from './services/projectService';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
@@ -524,6 +527,27 @@ export class Sidebar {
             </div>
             
             <div class="option-section">
+              <h3 class="option-section-title">Project Sharing</h3>
+              <div class="option-buttons">
+                <button class="option-button" id="export-json-button">
+                  <span class="option-button-icon">💾</span>
+                  <span class="option-button-text">Export JSON</span>
+                </button>
+                <button class="option-button" id="import-json-button">
+                  <span class="option-button-icon">📂</span>
+                  <span class="option-button-text">Import JSON</span>
+                </button>
+                <button class="option-button" id="copy-share-link-button">
+                  <span class="option-button-icon">🔗</span>
+                  <span class="option-button-text">Copy Share Link</span>
+                </button>
+              </div>
+              <p class="option-description">
+                Export your project as JSON file, import projects from JSON, or create a shareable URL.
+              </p>
+            </div>
+            
+            <div class="option-section">
               <h3 class="option-section-title">Application</h3>
               <div class="option-row">
                 <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
@@ -1023,6 +1047,28 @@ export class Sidebar {
       saveTradesButton.addEventListener('click', () => {
         this.notifyFilterChanged();
         this.switchView('options');
+      });
+    }
+    
+    // JSON sharing buttons
+    const exportJsonButton = this.element.querySelector('#export-json-button');
+    if (exportJsonButton) {
+      exportJsonButton.addEventListener('click', () => {
+        this.handleExportJSON();
+      });
+    }
+    
+    const importJsonButton = this.element.querySelector('#import-json-button');
+    if (importJsonButton) {
+      importJsonButton.addEventListener('click', () => {
+        this.handleImportJSON();
+      });
+    }
+    
+    const copyShareLinkButton = this.element.querySelector('#copy-share-link-button');
+    if (copyShareLinkButton) {
+      copyShareLinkButton.addEventListener('click', () => {
+        this.handleCopyShareLink();
       });
     }
     
@@ -1972,5 +2018,169 @@ export class Sidebar {
   hasTabsContainer(): boolean {
     const tabsContainer = this.element.querySelector('.sidebar-tabs');
     return tabsContainer !== null;
+  }
+  
+  // JSON sharing handlers
+  private async handleExportJSON() {
+    try {
+      // Get current project data from canvas
+      const projectData = this.getCurrentProjectData();
+      if (!projectData) {
+        alert('No project data to export. Please add some tasks first.');
+        return;
+      }
+      
+      // Convert to JSON
+      const jsonString = JSON.stringify(projectData, null, 2);
+      
+      // Create and download file
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${projectData.name || 'dingplan-project'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('Project exported to JSON successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+  
+  private async handleImportJSON() {
+    try {
+      // Create file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        
+        try {
+          const text = await file.text();
+          const projectId = await importProjectFromJSON(text);
+          
+          // Load the imported project into the canvas
+          const project = await loadProject(projectId);
+          if (project && this.canvas) {
+            this.loadProjectIntoCanvas(project);
+            alert(`Project "${project.name}" imported successfully!`);
+          }
+        } catch (error) {
+          console.error('Import failed:', error);
+          alert('Import failed: ' + (error instanceof Error ? error.message : 'Invalid JSON file'));
+        }
+      };
+      
+      input.click();
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('Import failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+  
+  private async handleCopyShareLink() {
+    try {
+      // Get current project data
+      const projectData = this.getCurrentProjectData();
+      if (!projectData) {
+        alert('No project data to share. Please add some tasks first.');
+        return;
+      }
+      
+      // Create share URL
+      const jsonString = JSON.stringify(projectData);
+      const base64Data = btoa(encodeURIComponent(jsonString));
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareUrl = `${baseUrl}#share=${base64Data}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareUrl);
+      alert('Share link copied to clipboard!');
+      
+      console.log('Share link created and copied to clipboard');
+    } catch (error) {
+      console.error('Share link creation failed:', error);
+      alert('Failed to create share link: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+  
+  private getCurrentProjectData() {
+    if (!this.canvas || !this.canvas.taskManager) {
+      return null;
+    }
+    
+    // Get all tasks from the canvas
+    const tasks = this.canvas.taskManager.getAllTasks();
+    
+    // Get swimlanes
+    const swimlanes = this.canvas.taskManager.swimlanes || [];
+    
+    // Create project data structure
+    const projectData = {
+      id: crypto.randomUUID(), // Generate new ID for sharing
+      name: `DingPlan Project ${new Date().toLocaleDateString()}`,
+      tasks: tasks,
+      swimlanes: swimlanes,
+      settings: {
+        areDependenciesVisible: true // Default setting
+      }
+    };
+    
+    return projectData;
+  }
+  
+  private loadProjectIntoCanvas(project: any) {
+    if (!this.canvas || !this.canvas.taskManager) {
+      return;
+    }
+    
+    try {
+      // Clear existing tasks
+      const existingTasks = this.canvas.taskManager.getAllTasks();
+      existingTasks.forEach((task: any) => {
+        this.canvas.taskManager.removeTask(task.id);
+      });
+      
+      // Load swimlanes if they exist
+      if (project.swimlanes && Array.isArray(project.swimlanes)) {
+        this.canvas.taskManager.swimlanes = project.swimlanes;
+      }
+      
+      // Load tasks
+      if (project.tasks && Array.isArray(project.tasks)) {
+        project.tasks.forEach((taskData: any) => {
+          try {
+            this.canvas.taskManager.addTask({
+              id: taskData.id || crypto.randomUUID(),
+              name: taskData.name || 'Untitled Task',
+              startDate: new Date(taskData.startDate),
+              duration: taskData.duration || 1,
+              crewSize: taskData.crewSize || 1,
+              color: taskData.color || '#3B82F6',
+              tradeId: taskData.tradeId || '',
+              dependencies: taskData.dependencies || []
+            });
+          } catch (taskErr) {
+            console.error('Error loading task:', taskErr, taskData);
+          }
+        });
+      }
+      
+      // Re-render the canvas
+      if (this.canvas.render) {
+        this.canvas.render();
+      }
+      
+      console.log(`Loaded project with ${project.tasks?.length || 0} tasks`);
+    } catch (error) {
+      console.error('Error loading project into canvas:', error);
+    }
   }
 } 

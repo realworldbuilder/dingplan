@@ -2,7 +2,6 @@ import { Canvas } from './Canvas';
 import { Composer } from './composer/Composer';
 import { initializeDiagnostics } from './diagnostic';
 import { generateUUID } from './utils';
-import { UserIndicator } from './components/UserIndicator';
 // Auth connector import removed - using localStorage only
 
 // Declare the global window object to have our canvasApp property
@@ -137,8 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('Making Canvas app available globally');
   window.canvasApp = app;
   
-  // Initialize user indicator for auth
-  const userIndicator = new UserIndicator();
+  // Auth initialization removed - using localStorage only
   
   // Initialize performance monitor if enabled
   if (document.getElementById('monitor')) {
@@ -354,6 +352,63 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 60000); // Auto-save every minute
   }
+  
+  // Check for shared project in URL and auto-import
+  setTimeout(async () => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#share=')) {
+      try {
+        const base64Data = hash.slice(7); // Remove '#share='
+        const jsonString = decodeURIComponent(atob(base64Data));
+        const projectData = JSON.parse(jsonString);
+        
+        if (app && app.taskManager) {
+          // Clear existing tasks
+          const existingTasks = app.taskManager.getAllTasks();
+          existingTasks.forEach((task: any) => {
+            app.taskManager.removeTask(task.id);
+          });
+          
+          // Load shared project data
+          if (projectData.swimlanes && Array.isArray(projectData.swimlanes)) {
+            app.taskManager.swimlanes = projectData.swimlanes;
+          }
+          
+          if (projectData.tasks && Array.isArray(projectData.tasks)) {
+            projectData.tasks.forEach((taskData: any) => {
+              try {
+                app.taskManager.addTask({
+                  id: taskData.id || generateUUID(),
+                  name: taskData.name || 'Untitled Task',
+                  startDate: new Date(taskData.startDate),
+                  duration: taskData.duration || 1,
+                  crewSize: taskData.crewSize || 1,
+                  color: taskData.color || '#3B82F6',
+                  tradeId: taskData.tradeId || '',
+                  dependencies: taskData.dependencies || []
+                });
+              } catch (taskErr) {
+                console.error('Error loading shared task:', taskErr, taskData);
+              }
+            });
+          }
+          
+          // Re-render the canvas
+          app.render();
+          
+          // Clear the share hash from URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          console.log(`Loaded shared project: ${projectData.name} with ${projectData.tasks?.length || 0} tasks`);
+          alert(`Loaded shared project: ${projectData.name}`);
+        }
+      } catch (error) {
+        console.error('Failed to load shared project:', error);
+        // Clear invalid hash
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, 1000); // Wait 1 second for app to fully initialize
 });
 
 // Add a custom global method to force save

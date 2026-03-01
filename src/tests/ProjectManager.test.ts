@@ -7,41 +7,25 @@ import { ProjectManager } from '../components/ProjectManager';
 import { jest, describe, expect, test, beforeEach, afterEach } from '@jest/globals';
 
 // Mock dependencies
-jest.mock('../services/supabaseProjectService', () => ({
-  saveProject: jest.fn().mockResolvedValue({ success: true, projectId: 'test-project-id' }),
-  updateProject: jest.fn().mockResolvedValue({ success: true }),
-  loadProject: jest.fn().mockResolvedValue({
-    success: true,
-    project: {
-      metadata: {
-        name: 'Test Project',
-        description: 'Test Description',
-        isPublic: false,
-        tags: ['test']
-      },
-      projectData: {
-        tasks: [],
-        swimlanes: [],
-        camera: { x: 0, y: 0, zoom: 1 },
-        settings: {}
-      }
-    }
+jest.mock('../services/projectService', () => ({
+  saveProject: jest.fn().mockReturnValue('test-project-id'),
+  loadProject: jest.fn().mockReturnValue({
+    id: 'test-project-id',
+    name: 'Test Project',
+    tasks: [],
+    swimlanes: [],
+    settings: {}
   }),
-  deleteProject: jest.fn().mockResolvedValue({ success: true }),
-  getUserProjects: jest.fn().mockResolvedValue({
-    success: true,
-    projects: [
-      {
-        id: 'test-project-id',
-        name: 'Test Project',
-        description: 'Test Description',
-        isPublic: false,
-        tags: ['test'],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ]
-  })
+  deleteProject: jest.fn().mockReturnValue(true),
+  listProjects: jest.fn().mockReturnValue([
+    {
+      id: 'test-project-id',
+      name: 'Test Project',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ]),
+  duplicateProject: jest.fn().mockReturnValue('test-project-copy-id')
 }));
 
 // Mock canvas

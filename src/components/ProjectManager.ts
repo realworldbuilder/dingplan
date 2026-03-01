@@ -3,8 +3,7 @@
  * A component that manages project saving, loading, and syncing with the server
  */
 
-import { listProjects, saveProject, loadProject, deleteProject, migrateLocalProjectsToSupabase } from '../services/projectService';
-import { AuthService, type AuthUser } from '../services/authService';
+import { listProjects, saveProject, loadProject, deleteProject, duplicateProject } from '../services/projectService';
 
 export class ProjectManager {
   private canvas: any; // Main canvas instance
@@ -41,11 +40,6 @@ export class ProjectManager {
       this.sidebarContainer.style.background = 'transparent';
       document.body.appendChild(this.sidebarContainer);
     }
-    
-    // Listen for auth state changes
-    AuthService.onAuthStateChange((user) => {
-      this.handleAuthStateChange(user);
-    });
   }
 
   /**
@@ -105,9 +99,9 @@ export class ProjectManager {
   /**
    * Refresh the projects list in the UI
    */
-  private async refreshProjectsList() {
+  private refreshProjectsList() {
     try {
-      const projects = await listProjects();
+      const projects = listProjects();
       // Update the projects list in the UI if it's visible
       // This will be implemented when we integrate with the sidebar
       console.log('[ProjectManager] Projects refreshed:', projects.length);
