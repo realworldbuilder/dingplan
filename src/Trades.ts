@@ -13,7 +13,7 @@ export interface Trade {
 }
 
 /**
- * Centralized management of trades in the construction planner
+ * Centralized management of trades in DingPlan
  */
 export class Trades {
   /** Standard set of construction trades with predefined colors */

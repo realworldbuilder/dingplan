@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { supabase } from './config/supabase';
 
 /**
  * Main App component that loads the canvas application
  * and handles authentication state
  */
 const App = () => {
-  const { isSignedIn, user } = useUser();
   const [initialized, setInitialized] = useState(false);
+  const [user, setUser] = useState(null);
 
   // Initialize the application when component mounts
   useEffect(() => {
@@ -23,26 +23,41 @@ const App = () => {
     }
   }, [initialized]);
 
+  // Set up auth state listener
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   // Handle authentication state changes
   useEffect(() => {
     if (!initialized) return;
 
     // Import auth service
-    import('./services/authService').then(authService => {
+    import('./services/supabaseAuthService').then(authService => {
       const prevAuthState = localStorage.getItem('dingplan_auth_status');
-      const currentAuthState = isSignedIn ? 'authenticated' : 'anonymous';
+      const currentAuthState = user ? 'authenticated' : 'anonymous';
       const authStateChanged = prevAuthState !== currentAuthState;
       
       console.log('[App] Auth state check:', { 
-        isSignedIn, 
+        isSignedIn: !!user, 
         prevState: prevAuthState,
         currentState: currentAuthState,
         changed: authStateChanged
       });
       
-      if (isSignedIn && user) {
+      if (user) {
         // User is signed in
-        console.log('[App] Clerk user authenticated:', user.id);
+        console.log('[App] Supabase user authenticated:', user.id);
         authService.setCurrentUser(user.id);
         
         // Dispatch an event to notify the canvas
@@ -83,7 +98,7 @@ const App = () => {
         }
       }
     });
-  }, [isSignedIn, user, initialized]);
+  }, [user, initialized]);
 
   return (
     <div id="app-container">

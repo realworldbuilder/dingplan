@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ClerkProvider } from '@clerk/clerk-react';
 import SidebarAuth from './SidebarAuth';
 
 /**
@@ -34,20 +33,11 @@ class AuthConnector {
     }
     
     try {
-      // Get Clerk publishable key
-      const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-      console.log('Clerk key available:', !!clerkPubKey);
-      
       // Create root and render the React component into the container
-      console.log('Creating React root and rendering SidebarAuth component with ClerkProvider');
+      console.log('Creating React root and rendering SidebarAuth component');
       const root = ReactDOM.createRoot(container);
       
-      // Wrap SidebarAuth with ClerkProvider to provide auth context
-      root.render(
-        <ClerkProvider publishableKey={clerkPubKey}>
-          <SidebarAuth />
-        </ClerkProvider>
-      );
+      root.render(<SidebarAuth />);
       
       this.initialized = true;
       console.log('Auth connector initialized in left sidebar successfully');

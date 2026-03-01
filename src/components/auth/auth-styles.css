@@ -364,6 +364,114 @@
   letter-spacing: -0.5px;
 }
 
+/* Auth form styles */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.auth-input:disabled {
+  background-color: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.auth-button.primary {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+  font-weight: 500;
+}
+
+.auth-button.primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.auth-button.primary:disabled {
+  background-color: #94a3b8;
+  border-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.auth-button.google {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+}
+
+.auth-button.google:hover:not(:disabled) {
+  background-color: #f8fafc;
+}
+
+.auth-button.google:disabled {
+  background-color: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  border: 1px solid #fecaca;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 5px;
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+}
+
+.auth-link:hover {
+  color: #2563eb;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* Ensure auth containers don't have scrollbars but are fully visible */
 .auth-container-minimal, 
 .auth-logo-container,

@@ -20,7 +20,7 @@ export class XerExporter {
   
   constructor(
     version: string = '19.12',
-    username: string = 'ConstructionPlanner'
+    username: string = 'DingPlan'
   ) {
     this.version = version;
     this.username = username;

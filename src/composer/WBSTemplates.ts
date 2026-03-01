@@ -167,6 +167,78 @@ export const WBS_TEMPLATES: WBSTemplate[] = [
       "Common Areas & Amenities",
       "Exterior Works & Landscaping"
     ]
+  },
+  {
+    id: "residential_construction",
+    name: "Residential Construction",
+    description: "Work Breakdown Structure for residential construction projects",
+    projectTypes: ["residential", "home", "house", "single family", "townhouse", "residential construction"],
+    categories: [
+      "Foundation",
+      "Framing", 
+      "Roofing",
+      "Windows & Doors",
+      "MEP Rough-In",
+      "Insulation",
+      "Drywall",
+      "Paint",
+      "Flooring",
+      "MEP Trim",
+      "Landscaping"
+    ]
+  },
+  {
+    id: "tenant_improvement",
+    name: "Tenant Improvement / TI",
+    description: "Work Breakdown Structure for tenant improvement projects",
+    projectTypes: ["tenant improvement", "ti", "fit-out", "office buildout", "retail buildout", "tenant build-out"],
+    categories: [
+      "Demo",
+      "Framing",
+      "MEP Rough-In",
+      "Inspections",
+      "Drywall",
+      "Paint",
+      "Flooring",
+      "Ceiling Grid",
+      "MEP Trim",
+      "Punch",
+      "Closeout"
+    ]
+  },
+  {
+    id: "mep_rough_in",
+    name: "MEP Rough-In",
+    description: "Work Breakdown Structure for MEP rough-in phase",
+    projectTypes: ["mep rough", "mechanical rough", "electrical rough", "plumbing rough", "rough-in", "mep systems"],
+    categories: [
+      "Underground Utilities",
+      "Slab Penetrations", 
+      "Vertical Risers",
+      "Horizontal Mains",
+      "Branch Distribution",
+      "Insulation",
+      "Testing",
+      "Inspections"
+    ]
+  },
+  {
+    id: "sitework",
+    name: "Sitework",
+    description: "Work Breakdown Structure for sitework and civil construction",
+    projectTypes: ["sitework", "site work", "civil", "earthwork", "utilities", "site development"],
+    categories: [
+      "Mobilization",
+      "Clearing & Grading",
+      "Excavation",
+      "Utilities",
+      "Foundations",
+      "Backfill",
+      "Paving",
+      "Curb & Gutter",
+      "Landscaping",
+      "Punch"
+    ]
   }
 ];
 

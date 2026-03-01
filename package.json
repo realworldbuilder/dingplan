@@ -1,5 +1,5 @@
 {
-  "name": "construction-planner",
+  "name": "dingplan",
   "version": "1.0.0",
   "description": "A web application for planning and visualizing construction projects.",
   "type": "module",
@@ -8,8 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "vercel-build": "vite build",
-    "preview": "vite preview",
-    "server": "cd server && npm run dev"
+    "preview": "vite preview"
   },
   "keywords": [
     "construction",
@@ -27,11 +26,13 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.24.2",
     "@pixi/math": "^7.3.2",
+    "@supabase/supabase-js": "^2.38.0",
     "dotenv": "^16.3.1",
     "jspdf": "^3.0.0",
     "rbush": "^3.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-router-dom": "^7.3.0"
   }
 }

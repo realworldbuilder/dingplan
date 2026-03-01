@@ -7,7 +7,7 @@ import { ProjectManager } from '../components/ProjectManager';
 import { jest, describe, expect, test, beforeEach, afterEach } from '@jest/globals';
 
 // Mock dependencies
-jest.mock('../services/projectService', () => ({
+jest.mock('../services/supabaseProjectService', () => ({
   saveProject: jest.fn().mockResolvedValue({ success: true, projectId: 'test-project-id' }),
   updateProject: jest.fn().mockResolvedValue({ success: true }),
   loadProject: jest.fn().mockResolvedValue({

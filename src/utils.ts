@@ -1,5 +1,5 @@
 /**
- * Utility functions for the Construction Planner
+ * Utility functions for DingPlan
  */
 
 /**

@@ -8,10 +8,9 @@ import {
   updateProject, 
   loadProject, 
   deleteProject, 
-  getUserProjects,
-  migrateProjectToServer
-} from '../services/projectService';
-import { onAuthStateChanged, isAuthenticated } from '../services/authService';
+  getUserProjects
+} from '../services/supabaseProjectService';
+import { onAuthStateChanged, isAuthenticatedSync } from '../services/supabaseAuthService';
 
 export class ProjectManager {
   private canvas: any; // Main canvas instance
@@ -2198,9 +2197,8 @@ export class ProjectManager {
             migrateBtn.addEventListener('click', (e) => {
               e.stopPropagation();
               const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.migrateProjectToServer(projectId);
-              }
+              // With Supabase, local projects will be shown in the projects list
+              // and can be manually re-saved if needed
             });
           }
           
@@ -2703,47 +2701,7 @@ export class ProjectManager {
     }
   }
   
-  /**
-   * Migrate a project from localStorage to the server
-   */
-  async migrateProjectToServer(projectId: string) {
-    if (!confirm('This will save your local project to the server. Continue?')) {
-      return;
-    }
-    
-    try {
-      // Show loading indicator
-      this.showLoading('Migrating project to server...');
-      
-      // Call the migration function
-      const response = await migrateProjectToServer(projectId);
-      
-      // Hide loading indicator
-      this.hideLoading();
-      
-      if (response.success) {
-        this.showNotification('Project migrated to server successfully');
-        
-        // If this is the current project, update the ID
-        if (this.currentProjectId === projectId) {
-          this.currentProjectId = response.serverProjectId || null;
-          
-          // Update URL with new project ID
-          if (this.currentProjectId) {
-            this.updateUrlWithProjectId(this.currentProjectId);
-          }
-        }
-        
-        // Refresh the projects list
-        this.loadUserProjects();
-      } else {
-        this.showNotification('Error migrating project: ' + response.error, 'error');
-      }
-    } catch (error) {
-      this.hideLoading();
-      this.showNotification('Error migrating project: ' + (error as Error).message, 'error');
-    }
-  }
+  // Migration method removed - Supabase handles sync automatically
 
   /**
    * Share a project by generating a URL

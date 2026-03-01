@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   
                   // Update tracking variables
                   lastKnownTaskCount = app.taskManager.getAllTasks().length;
-                  console.log(`Successfully loaded ${lastKnownTaskCount} tasks into construction planner`);
+                  console.log(`Successfully loaded ${lastKnownTaskCount} tasks into DingPlan`);
                 } else {
                   console.warn('No tasks found in the data or tasks is not an array');
                 }
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Error loading data:', err);
                 window.parent.postMessage({
                   type: 'CP_ERROR',
-                  message: 'Failed to load data into construction planner: ' + (err as Error).message
+                  message: 'Failed to load data into DingPlan: ' + (err as Error).message
                 }, '*');
               }
             }

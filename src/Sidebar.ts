@@ -2,6 +2,7 @@ import { Task } from './Task';
 import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
+import { XerImporter } from './XerImporter';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades' | 'auth';
 
@@ -515,6 +516,10 @@ export class Sidebar {
                   <span class="option-button-icon">🏊</span>
                   <span class="option-button-text">Manage Swimlanes</span>
                 </button>
+                <button class="option-button" id="import-xer-button">
+                  <span class="option-button-icon">📥</span>
+                  <span class="option-button-text">Import XER</span>
+                </button>
               </div>
             </div>
             
@@ -878,13 +883,13 @@ export class Sidebar {
     this.apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
     
     // Check for stored API key
-    const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
+    const storedApiKey = localStorage.getItem('dingPlanApiKey');
     if (storedApiKey && this.apiKeyInput) {
       this.apiKeyInput.value = storedApiKey;
     }
     
     // Check for stored Anthropic API key
-    const storedAnthropicApiKey = localStorage.getItem('constructionPlannerAnthropicApiKey');
+    const storedAnthropicApiKey = localStorage.getItem('dingPlanAnthropicApiKey');
     const anthropicApiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
     if (storedAnthropicApiKey && anthropicApiKeyInput) {
       anthropicApiKeyInput.value = storedAnthropicApiKey;
@@ -929,7 +934,7 @@ export class Sidebar {
           const apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
           const apiKey = apiKeyInput?.value.trim() || '';
           if (apiKey) {
-            localStorage.setItem('constructionPlannerApiKey', apiKey);
+            localStorage.setItem('dingPlanApiKey', apiKey);
             if (this.composer) {
               this.composer.setApiKey(apiKey);
             }
@@ -941,7 +946,7 @@ export class Sidebar {
           const apiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
           const apiKey = apiKeyInput?.value.trim() || '';
           if (apiKey) {
-            localStorage.setItem('constructionPlannerAnthropicApiKey', apiKey);
+            localStorage.setItem('dingPlanAnthropicApiKey', apiKey);
             if (this.composer) {
               // Add a method to set Anthropic API key if needed
               // this.composer.setAnthropicApiKey(apiKey);
@@ -969,6 +974,45 @@ export class Sidebar {
         this.switchView('edit-swimlanes');
         if (this.canvas) {
           this.populateSwimlanesForm(this.canvas);
+        }
+      });
+    }
+    
+    // Import XER button
+    const importXerButton = this.element.querySelector('#import-xer-button');
+    if (importXerButton) {
+      importXerButton.addEventListener('click', async () => {
+        try {
+          const result = await XerImporter.showImportDialog();
+          
+          if (this.canvas && this.canvas.taskManager) {
+            // Clear existing tasks
+            const existingTasks = this.canvas.taskManager.getAllTasks();
+            existingTasks.forEach((task: any) => {
+              this.canvas.taskManager.removeTask(task.id);
+            });
+            
+            // Add imported tasks
+            result.tasks.forEach((taskConfig: any) => {
+              this.canvas.taskManager.addTask(taskConfig);
+            });
+            
+            // Update swimlanes if needed
+            if (result.swimlanes && result.swimlanes.length > 0) {
+              // Update the swimlanes in the task manager
+              // This may require additional implementation depending on TaskManager structure
+            }
+            
+            // Re-render the canvas
+            if (this.canvas.render) {
+              this.canvas.render();
+            }
+            
+            alert(`Successfully imported ${result.tasks.length} tasks from XER file`);
+          }
+        } catch (error) {
+          console.error('XER import failed:', error);
+          alert(`XER import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       });
     }
@@ -1179,7 +1223,7 @@ export class Sidebar {
     }
     
     // Check for API key
-    const apiKey = localStorage.getItem('constructionPlannerApiKey');
+    const apiKey = localStorage.getItem('dingPlanApiKey');
     if (!apiKey) {
       // No API key stored
       input.disabled = true;
@@ -1533,7 +1577,7 @@ export class Sidebar {
     });
     
     // Set API key if available
-    const storedApiKey = localStorage.getItem('constructionPlannerApiKey');
+    const storedApiKey = localStorage.getItem('dingPlanApiKey');
     if (storedApiKey && this.composer) {
       this.composer.setApiKey(storedApiKey);
       this.addComposerMessage('Composer initialized with stored API key.');
