@@ -529,6 +529,149 @@ export const TEMPLATES: Record<string, SequenceTemplate> = {
       { name: "Final Inspection & Energization", duration: 5, tradeId: "management", crewSize: 4, dependsOnPrevious: true }
     ]
   },
+  
+  // Residential Construction Template
+  residential_construction: {
+    name: "Residential Construction",
+    description: "Complete residential construction sequence for single-family homes",
+    aliases: ["residential", "home construction", "house construction", "single family", "residential build"],
+    tasks: [
+      { name: "Foundation Excavation", duration: 2, tradeId: "concrete", crewSize: 4, dependsOnPrevious: false },
+      { name: "Foundation Pour", duration: 3, tradeId: "concrete", crewSize: 6, dependsOnPrevious: true },
+      { name: "Foundation Curing", duration: 7, tradeId: "concrete", crewSize: 1, dependsOnPrevious: true },
+      { name: "Slab Preparation", duration: 2, tradeId: "concrete", crewSize: 4, dependsOnPrevious: true },
+      { name: "Slab Pour", duration: 1, tradeId: "concrete", crewSize: 8, dependsOnPrevious: true },
+      { name: "Floor Framing", duration: 3, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Wall Framing", duration: 5, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Roof Framing", duration: 4, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Roof Sheathing", duration: 2, tradeId: "framing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Roofing Installation", duration: 3, tradeId: "roofing", crewSize: 5, dependsOnPrevious: true },
+      { name: "Exterior Window Installation", duration: 2, tradeId: "carpentry", crewSize: 4, dependsOnPrevious: true },
+      { name: "Exterior Door Installation", duration: 1, tradeId: "carpentry", crewSize: 3, dependsOnPrevious: true },
+      { name: "Plumbing Rough-In", duration: 3, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Electrical Rough-In", duration: 4, tradeId: "electrical", crewSize: 4, dependsOnPrevious: false },
+      { name: "HVAC Rough-In", duration: 3, tradeId: "hvac", crewSize: 4, dependsOnPrevious: false },
+      { name: "Rough Inspections", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true },
+      { name: "Insulation Installation", duration: 2, tradeId: "insulation", crewSize: 4, dependsOnPrevious: true },
+      { name: "Drywall Hanging", duration: 3, tradeId: "drywall", crewSize: 6, dependsOnPrevious: true },
+      { name: "Drywall Finishing", duration: 4, tradeId: "drywall", crewSize: 4, dependsOnPrevious: true },
+      { name: "Interior Paint", duration: 5, tradeId: "painting", crewSize: 4, dependsOnPrevious: true },
+      { name: "Flooring Installation", duration: 4, tradeId: "flooring", crewSize: 4, dependsOnPrevious: true },
+      { name: "Interior Trim", duration: 3, tradeId: "carpentry", crewSize: 3, dependsOnPrevious: true },
+      { name: "Interior Doors", duration: 2, tradeId: "carpentry", crewSize: 3, dependsOnPrevious: true },
+      { name: "Plumbing Fixtures", duration: 2, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Electrical Fixtures", duration: 2, tradeId: "electrical", crewSize: 3, dependsOnPrevious: true },
+      { name: "HVAC Equipment", duration: 2, tradeId: "hvac", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Grading", duration: 1, tradeId: "finishing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Landscaping", duration: 3, tradeId: "finishing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Inspection", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true }
+    ]
+  },
+  
+  // Tenant Improvement Template
+  tenant_improvement: {
+    name: "Tenant Improvement / TI",
+    description: "Tenant improvement sequence for office and retail spaces",
+    aliases: ["tenant improvement", "ti", "fitout", "fit-out", "office buildout", "retail buildout", "tenant build-out"],
+    tasks: [
+      { name: "Demolition & Removal", duration: 3, tradeId: "demolition", crewSize: 4, dependsOnPrevious: false },
+      { name: "Debris Cleanup", duration: 1, tradeId: "demolition", crewSize: 3, dependsOnPrevious: true },
+      { name: "Layout & Survey", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true },
+      { name: "Interior Framing", duration: 4, tradeId: "framing", crewSize: 6, dependsOnPrevious: true },
+      { name: "Plumbing Rough-In", duration: 3, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Electrical Rough-In", duration: 4, tradeId: "electrical", crewSize: 5, dependsOnPrevious: false },
+      { name: "HVAC Rough-In", duration: 3, tradeId: "hvac", crewSize: 4, dependsOnPrevious: false },
+      { name: "Fire Sprinkler Rough-In", duration: 2, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: false },
+      { name: "Rough Inspection", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true },
+      { name: "Drywall Installation", duration: 4, tradeId: "drywall", crewSize: 6, dependsOnPrevious: true },
+      { name: "Drywall Finishing", duration: 3, tradeId: "drywall", crewSize: 4, dependsOnPrevious: true },
+      { name: "Paint Prep & Priming", duration: 2, tradeId: "painting", crewSize: 4, dependsOnPrevious: true },
+      { name: "Paint Finish", duration: 3, tradeId: "painting", crewSize: 4, dependsOnPrevious: true },
+      { name: "Flooring Preparation", duration: 1, tradeId: "flooring", crewSize: 3, dependsOnPrevious: true },
+      { name: "Flooring Installation", duration: 3, tradeId: "flooring", crewSize: 4, dependsOnPrevious: true },
+      { name: "Ceiling Grid Installation", duration: 2, tradeId: "carpentry", crewSize: 4, dependsOnPrevious: true },
+      { name: "Ceiling Tile Installation", duration: 1, tradeId: "carpentry", crewSize: 3, dependsOnPrevious: true },
+      { name: "Electrical Trim-Out", duration: 3, tradeId: "electrical", crewSize: 4, dependsOnPrevious: true },
+      { name: "Plumbing Trim-Out", duration: 2, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: true },
+      { name: "HVAC Trim-Out", duration: 2, tradeId: "hvac", crewSize: 3, dependsOnPrevious: true },
+      { name: "Door & Hardware Installation", duration: 2, tradeId: "carpentry", crewSize: 3, dependsOnPrevious: true },
+      { name: "Millwork Installation", duration: 2, tradeId: "carpentry", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Inspection Prep", duration: 1, tradeId: "management", crewSize: 3, dependsOnPrevious: true },
+      { name: "Punch List Work", duration: 3, tradeId: "finishing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Cleaning", duration: 1, tradeId: "finishing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Project Closeout", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true }
+    ]
+  },
+  
+  // MEP Rough-In Template
+  mep_rough_in: {
+    name: "MEP Rough-In",
+    description: "Mechanical, electrical, and plumbing rough-in sequence",
+    aliases: ["mep rough", "mechanical rough", "electrical rough", "plumbing rough", "rough-in", "mep systems"],
+    tasks: [
+      { name: "Underground Utility Layout", duration: 1, tradeId: "management", crewSize: 3, dependsOnPrevious: false },
+      { name: "Underground Water Lines", duration: 2, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Underground Sewer Lines", duration: 2, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Underground Gas Lines", duration: 1, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Underground Electrical", duration: 2, tradeId: "electrical", crewSize: 4, dependsOnPrevious: false },
+      { name: "Slab Electrical Penetrations", duration: 1, tradeId: "electrical", crewSize: 3, dependsOnPrevious: true },
+      { name: "Slab Plumbing Penetrations", duration: 1, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Underground Inspection", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true },
+      { name: "Electrical Panel Installation", duration: 2, tradeId: "electrical", crewSize: 4, dependsOnPrevious: true },
+      { name: "Main Water Service", duration: 1, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: false },
+      { name: "Electrical Vertical Risers", duration: 3, tradeId: "electrical", crewSize: 5, dependsOnPrevious: true },
+      { name: "Plumbing Vertical Risers", duration: 3, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "HVAC Main Ductwork", duration: 4, tradeId: "hvac", crewSize: 6, dependsOnPrevious: false },
+      { name: "HVAC Equipment Setting", duration: 2, tradeId: "hvac", crewSize: 4, dependsOnPrevious: true },
+      { name: "Electrical Branch Circuits", duration: 4, tradeId: "electrical", crewSize: 6, dependsOnPrevious: true },
+      { name: "Plumbing Branch Lines", duration: 3, tradeId: "plumbing", crewSize: 5, dependsOnPrevious: true },
+      { name: "HVAC Branch Ductwork", duration: 3, tradeId: "hvac", crewSize: 5, dependsOnPrevious: true },
+      { name: "Fire Alarm Rough-In", duration: 2, tradeId: "electrical", crewSize: 3, dependsOnPrevious: false },
+      { name: "Low Voltage Rough-In", duration: 2, tradeId: "electrical", crewSize: 3, dependsOnPrevious: false },
+      { name: "Duct Insulation", duration: 2, tradeId: "insulation", crewSize: 4, dependsOnPrevious: true },
+      { name: "Pipe Insulation", duration: 2, tradeId: "insulation", crewSize: 4, dependsOnPrevious: true },
+      { name: "MEP System Testing", duration: 2, tradeId: "management", crewSize: 4, dependsOnPrevious: true },
+      { name: "Rough MEP Inspection", duration: 1, tradeId: "management", crewSize: 3, dependsOnPrevious: true }
+    ]
+  },
+  
+  // Sitework Template
+  sitework: {
+    name: "Sitework",
+    description: "Site development and civil construction sequence",
+    aliases: ["sitework", "site work", "civil", "earthwork", "utilities", "site development", "site construction"],
+    tasks: [
+      { name: "Project Mobilization", duration: 2, tradeId: "management", crewSize: 4, dependsOnPrevious: false },
+      { name: "Site Survey & Layout", duration: 2, tradeId: "management", crewSize: 3, dependsOnPrevious: true },
+      { name: "Erosion Control Setup", duration: 1, tradeId: "demolition", crewSize: 3, dependsOnPrevious: true },
+      { name: "Tree Removal & Clearing", duration: 3, tradeId: "demolition", crewSize: 5, dependsOnPrevious: true },
+      { name: "Topsoil Stripping", duration: 2, tradeId: "demolition", crewSize: 4, dependsOnPrevious: true },
+      { name: "Rough Grading", duration: 4, tradeId: "demolition", crewSize: 6, dependsOnPrevious: true },
+      { name: "Mass Excavation", duration: 5, tradeId: "demolition", crewSize: 8, dependsOnPrevious: true },
+      { name: "Building Pad Preparation", duration: 2, tradeId: "demolition", crewSize: 6, dependsOnPrevious: true },
+      { name: "Utility Trenching", duration: 3, tradeId: "demolition", crewSize: 5, dependsOnPrevious: false },
+      { name: "Water Line Installation", duration: 3, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Sewer Line Installation", duration: 3, tradeId: "plumbing", crewSize: 4, dependsOnPrevious: false },
+      { name: "Gas Line Installation", duration: 2, tradeId: "plumbing", crewSize: 3, dependsOnPrevious: false },
+      { name: "Electrical Service Installation", duration: 2, tradeId: "electrical", crewSize: 4, dependsOnPrevious: false },
+      { name: "Storm Drainage", duration: 4, tradeId: "plumbing", crewSize: 5, dependsOnPrevious: false },
+      { name: "Utility Testing", duration: 1, tradeId: "management", crewSize: 3, dependsOnPrevious: true },
+      { name: "Foundation Excavation", duration: 2, tradeId: "demolition", crewSize: 6, dependsOnPrevious: true },
+      { name: "Foundation Backfill", duration: 2, tradeId: "demolition", crewSize: 5, dependsOnPrevious: false },
+      { name: "Utility Backfill & Compaction", duration: 3, tradeId: "demolition", crewSize: 6, dependsOnPrevious: true },
+      { name: "Base Course Installation", duration: 2, tradeId: "concrete", crewSize: 5, dependsOnPrevious: true },
+      { name: "Asphalt Paving", duration: 2, tradeId: "concrete", crewSize: 6, dependsOnPrevious: true },
+      { name: "Concrete Paving", duration: 3, tradeId: "concrete", crewSize: 8, dependsOnPrevious: false },
+      { name: "Curb & Gutter Installation", duration: 2, tradeId: "concrete", crewSize: 4, dependsOnPrevious: true },
+      { name: "Sidewalk Installation", duration: 2, tradeId: "concrete", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Grading", duration: 2, tradeId: "demolition", crewSize: 4, dependsOnPrevious: true },
+      { name: "Topsoil Replacement", duration: 2, tradeId: "finishing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Seeding & Hydromulch", duration: 2, tradeId: "finishing", crewSize: 3, dependsOnPrevious: true },
+      { name: "Landscape Planting", duration: 3, tradeId: "finishing", crewSize: 5, dependsOnPrevious: true },
+      { name: "Site Cleanup", duration: 2, tradeId: "finishing", crewSize: 4, dependsOnPrevious: true },
+      { name: "Final Site Inspection", duration: 1, tradeId: "management", crewSize: 2, dependsOnPrevious: true }
+    ]
+  },
 };
 
 /**
