@@ -1737,29 +1737,7 @@ export class Canvas {
     }, 60000);
   }
 
-  /**
-   * Clear the canvas state and all tasks
-   */
-  clearCanvas(): void {
-    console.log('Clearing canvas state completely');
-    
-    // Clear task manager state by importing empty state
-    this.taskManager.importState({ tasks: [], swimlanes: [] });
-    
-    // Reset camera position
-    const todayX = this.timeAxis.getTodayPosition();
-    this.camera.x = todayX + (this.canvas.width / (3 * this.camera.zoom));
-    this.camera.y = 200;
-    this.camera.zoom = 1;
-    
-    // Reset other settings
-    this.areDependenciesVisible = true;
-    
-    // Render empty canvas
-    this.render();
-    
-    console.log('Canvas cleared and reset to default state');
-  }
+  // Duplicate clearCanvas method removed - using the one above
 
   /**
    * Get JSON representation of the canvas state

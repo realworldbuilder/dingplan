@@ -3,7 +3,8 @@
  * A component that manages project saving, loading, and syncing with the server
  */
 
-import { listProjects, saveProject, loadProject, deleteProject } from '../services/projectService';
+import { listProjects, saveProject, loadProject, deleteProject, migrateLocalProjectsToSupabase } from '../services/projectService';
+import { AuthService, type AuthUser } from '../services/authService';
 
 export class ProjectManager {
   private canvas: any; // Main canvas instance
@@ -41,16 +42,79 @@ export class ProjectManager {
       document.body.appendChild(this.sidebarContainer);
     }
     
-    // Auth state changes removed - using local storage only
-    
-    // Also listen for auth-state-changed events from the React auth component
-    document.addEventListener('auth-state-changed', (e: CustomEvent) => {
-      console.log('[ProjectManager] Received auth-state-changed event:', e.detail);
-      this.handleAuthStateChange(e.detail);
+    // Listen for auth state changes
+    AuthService.onAuthStateChange((user) => {
+      this.handleAuthStateChange(user);
     });
   }
 
-  // Authentication state change handling removed - using localStorage only
+  /**
+   * Handle authentication state changes
+   */
+  private async handleAuthStateChange(user: AuthUser | null) {
+    console.log('[ProjectManager] Auth state changed:', user);
+    
+    if (user) {
+      // User signed in - offer to migrate localStorage projects
+      await this.handleUserSignIn(user);
+    } else {
+      // User signed out - nothing special needed, localStorage continues to work
+      console.log('[ProjectManager] User signed out');
+    }
+    
+    // Refresh the project list in the UI
+    await this.refreshProjectsList();
+  }
+
+  /**
+   * Handle user sign in and offer project migration
+   */
+  private async handleUserSignIn(user: AuthUser) {
+    try {
+      // Check if there are localStorage projects to migrate
+      const localProjects = JSON.parse(localStorage.getItem('dingplan_projects') || '[]');
+      
+      if (localProjects.length > 0) {
+        // Show migration dialog
+        const shouldMigrate = confirm(
+          `Welcome back, ${user.email}!\n\n` +
+          `You have ${localProjects.length} local project(s). Would you like to sync them to your cloud account? ` +
+          `This will make them available across all your devices.`
+        );
+        
+        if (shouldMigrate) {
+          try {
+            const result = await migrateLocalProjectsToSupabase();
+            if (result.success > 0) {
+              alert(`Successfully synced ${result.success} project(s) to your cloud account!`);
+            }
+            if (result.failed > 0) {
+              alert(`Warning: ${result.failed} project(s) could not be synced. They remain available locally.`);
+            }
+          } catch (error) {
+            console.error('Migration error:', error);
+            alert('There was an error syncing your projects. They remain available locally.');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error handling user sign in:', error);
+    }
+  }
+
+  /**
+   * Refresh the projects list in the UI
+   */
+  private async refreshProjectsList() {
+    try {
+      const projects = await listProjects();
+      // Update the projects list in the UI if it's visible
+      // This will be implemented when we integrate with the sidebar
+      console.log('[ProjectManager] Projects refreshed:', projects.length);
+    } catch (error) {
+      console.error('Error refreshing projects list:', error);
+    }
+  }
 
   /**
    * Getter for current project ID
@@ -2071,7 +2135,7 @@ export class ProjectManager {
     projectsList.innerHTML = '<div id="empty-projects-message">Loading your projects...</div>';
     
     try {
-      const projects = listProjects();
+      const projects = await listProjects();
       
       if (projects.length === 0) {
         projectsList.innerHTML = '<div id="empty-projects-message">You don\'t have any saved projects yet.</div>';
@@ -2274,8 +2338,8 @@ export class ProjectManager {
         }
       };
       
-      // Save to localStorage using the new service
-      const projectId = saveProject(projectData);
+      // Save to storage using the new service
+      const projectId = await saveProject(projectData);
       this.currentProjectId = projectId;
       
       // Update the URL with the project ID
@@ -2288,7 +2352,7 @@ export class ProjectManager {
       this.showNotification('Project saved successfully!');
       
       // Refresh projects list
-      this.refreshProjectsList();
+      await this.refreshProjectsList();
       
       console.log('[ProjectManager] Project saved successfully');
       return true;
@@ -2405,8 +2469,8 @@ export class ProjectManager {
       // Show loading indicator
       this.showLoading('Loading project...');
       
-      // Load project from localStorage
-      const projectData = loadProject(projectId);
+      // Load project from storage
+      const projectData = await loadProject(projectId);
       
       if (!projectData) {
         this.hideLoading();
@@ -2589,7 +2653,7 @@ export class ProjectManager {
     }
     
     try {
-      const success = deleteProject(projectId);
+      const success = await deleteProject(projectId);
       
       if (success) {
         this.showNotification('Project deleted successfully');
@@ -3419,14 +3483,7 @@ export class ProjectManager {
     }
   }
 
-  /**
-   * Refresh the list of user projects
-   */
-  private refreshProjectsList(): void {
-    if (this.isInitialized) {
-      this.loadUserProjects();
-    }
-  }
+  // Duplicate method removed - using async version above
 
   /**
    * Update the project link in the UI
@@ -3504,7 +3561,7 @@ export class ProjectManager {
           this.updateUrlWithProjectId(result.projectId);
           
           // Refresh project list
-          this.refreshProjectsList();
+          await this.refreshProjectsList();
         } else {
           alert('Failed to save project: ' + (result.error || 'Unknown error'));
         }

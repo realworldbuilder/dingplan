@@ -2,6 +2,7 @@ import { Canvas } from './Canvas';
 import { Composer } from './composer/Composer';
 import { initializeDiagnostics } from './diagnostic';
 import { generateUUID } from './utils';
+import { UserIndicator } from './components/UserIndicator';
 // Auth connector import removed - using localStorage only
 
 // Declare the global window object to have our canvasApp property
@@ -135,6 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Make app available globally
   console.log('Making Canvas app available globally');
   window.canvasApp = app;
+  
+  // Initialize user indicator for auth
+  const userIndicator = new UserIndicator();
   
   // Initialize performance monitor if enabled
   if (document.getElementById('monitor')) {
