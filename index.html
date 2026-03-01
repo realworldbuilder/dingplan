@@ -21,9 +21,13 @@
         display: block;
         position: absolute;
         top: 0;
-        left: 260px;
+        left: 0;
         z-index: 1;
         pointer-events: auto;
+        transition: left 0.3s ease, width 0.3s ease;
+      }
+      canvas.panel-open {
+        left: 260px;
       }
       #left-panel {
         position: fixed;
@@ -33,9 +37,34 @@
         height: 100%;
         z-index: 100;
       }
+      #left-panel-toggle {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 99;
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.2s, left 0.3s ease;
+      }
+      #left-panel-toggle:hover {
+        background: #f3f4f6;
+      }
+      #left-panel-toggle img {
+        height: 24px;
+        object-fit: contain;
+      }
     </style>
   </head>
   <body>
+    <button id="left-panel-toggle" title="Toggle Menu"><img src="/logo.png" alt="Menu"></button>
     <div id="left-panel"></div>
     <canvas id="canvas"></canvas>
     <script type="module" src="./src/index.js"></script>

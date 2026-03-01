@@ -25,9 +25,10 @@ export class Sidebar {
   private composerResponseArea: HTMLElement | null = null;
   private canvas: any = null;
   private activeNavItem: string | null = null;
+  private leftPanelVisible: boolean = false;
 
   constructor() {
-    // Create LEFT panel (always visible nav)
+    // Create LEFT panel (starts hidden, toggled by hamburger)
     this.leftPanel = document.createElement('div');
     this.setupLeftPanel();
     const container = document.getElementById('left-panel');
@@ -57,6 +58,7 @@ export class Sidebar {
       border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-y: auto; user-select: none;
+      transform: translateX(-${LEFT_PANEL_WIDTH}px); transition: transform 0.3s ease;
     `;
 
     lp.innerHTML = `
@@ -451,6 +453,12 @@ export class Sidebar {
     this.leftPanel.querySelectorAll('.left-nav-btn').forEach(b => b.classList.remove('active'));
     const activeBtn = this.leftPanel.querySelector(`[data-action="${action}"]`);
 
+    // Ensure left panel is open when user interacts with it
+    if (!this.leftPanelVisible) {
+      this.showLeftPanel();
+      if ((window as any).__setLeftPanelOpen) (window as any).__setLeftPanelOpen(true);
+    }
+
     // Actions that don't need a right panel
     if (action === 'go-to-today') {
       if (window.canvasApp) {
@@ -608,6 +616,18 @@ export class Sidebar {
       if (!this.isVisible) this.element.style.display = 'none';
     }, 300);
   }
+
+  showLeftPanel() {
+    this.leftPanelVisible = true;
+    this.leftPanel.style.transform = 'translateX(0)';
+  }
+
+  hideLeftPanel() {
+    this.leftPanelVisible = false;
+    this.leftPanel.style.transform = `translateX(-${LEFT_PANEL_WIDTH}px)`;
+  }
+
+  isLeftPanelOpen(): boolean { return this.leftPanelVisible; }
 
   getWidth(): number { return RIGHT_PANEL_WIDTH; }
   isOpen(): boolean { return this.isVisible; }

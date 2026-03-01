@@ -10,6 +10,18 @@ declare global {
 
 const LEFT_PANEL_WIDTH = 260;
 
+function updateCanvasSize(canvasElement: HTMLCanvasElement, app: any, panelOpen: boolean) {
+  const offset = panelOpen ? LEFT_PANEL_WIDTH : 0;
+  canvasElement.width = window.innerWidth - offset;
+  canvasElement.height = window.innerHeight;
+  if (panelOpen) {
+    canvasElement.classList.add('panel-open');
+  } else {
+    canvasElement.classList.remove('panel-open');
+  }
+  if (app) app.resize(canvasElement.width, canvasElement.height);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const canvasElement = document.getElementById('canvas') as HTMLCanvasElement;
   if (!canvasElement) {
@@ -17,7 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
   
-  canvasElement.width = window.innerWidth - LEFT_PANEL_WIDTH;
+  let leftPanelOpen = false;
+  
+  canvasElement.width = window.innerWidth;
   canvasElement.height = window.innerHeight;
   canvasElement.style.cursor = 'grab';
 
@@ -33,6 +47,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   window.canvasApp = app;
+  
+  // Wire up left panel toggle
+  const toggleBtn = document.getElementById('left-panel-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      leftPanelOpen = !leftPanelOpen;
+      if (leftPanelOpen) {
+        app.sidebar.showLeftPanel();
+        toggleBtn.style.left = `${LEFT_PANEL_WIDTH + 12}px`;
+      } else {
+        app.sidebar.hideLeftPanel();
+        toggleBtn.style.left = '12px';
+      }
+      updateCanvasSize(canvasElement, app, leftPanelOpen);
+    });
+  }
+  
+  // Expose panel state for sidebar to use
+  (window as any).__leftPanelOpen = () => leftPanelOpen;
+  (window as any).__setLeftPanelOpen = (open: boolean) => {
+    leftPanelOpen = open;
+    if (toggleBtn) toggleBtn.style.left = open ? `${LEFT_PANEL_WIDTH + 12}px` : '12px';
+    updateCanvasSize(canvasElement, app, leftPanelOpen);
+  };
   
   // Initialize composer
   setTimeout(() => {
@@ -60,9 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Handle window resize
   window.addEventListener('resize', () => {
-    canvasElement.width = window.innerWidth - LEFT_PANEL_WIDTH;
-    canvasElement.height = window.innerHeight;
-    app.resize(window.innerWidth - LEFT_PANEL_WIDTH, window.innerHeight);
+    updateCanvasSize(canvasElement, app, leftPanelOpen);
   });
   
   // Save before unload
