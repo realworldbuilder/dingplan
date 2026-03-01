@@ -9,1257 +9,550 @@ import {
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
+const LEFT_PANEL_WIDTH = 260;
+const RIGHT_PANEL_WIDTH = 380;
+
 export class Sidebar {
-  private width: number = 360;
   private isVisible: boolean = false;
-  public element: HTMLElement;
+  public element: HTMLElement; // right detail panel
+  private leftPanel: HTMLElement;
   private currentView: SidebarView = 'details';
   private task: Task | null = null;
-  private currentSwimlane: { id: string; name: string; color: string } | null = null;
-  private tradeFilters: Map<string, boolean> = new Map(); // Store trade filter states
-  
-  // Use trades from central definition
+  private tradeFilters: Map<string, boolean> = new Map();
   private trades = Trades.getAllTrades();
-  
-  // Callback for when trades are filtered
   private onTradeFilterChange: ((filters: Map<string, boolean>) => void) | null = null;
-  
-  // Composer instance
   private composer: Composer | null = null;
   private composerResponseArea: HTMLElement | null = null;
-  private apiKeyInput: HTMLInputElement | null = null;
-  
-  // Canvas reference
   private canvas: any = null;
+  private activeNavItem: string | null = null;
 
   constructor() {
+    // Create LEFT panel (always visible nav)
+    this.leftPanel = document.createElement('div');
+    this.setupLeftPanel();
+    const container = document.getElementById('left-panel');
+    if (container) {
+      container.appendChild(this.leftPanel);
+    } else {
+      document.body.appendChild(this.leftPanel);
+    }
+
+    // Create RIGHT detail panel (slide-out)
     this.element = document.createElement('div');
-    this.setupStyles();
-    this.createContent();
+    this.setupRightPanel();
+    this.createRightPanelContent();
     document.body.appendChild(this.element);
+
     this.setupEventListeners();
     
-    // Initialize all trades as visible
     this.trades.forEach(trade => {
       this.tradeFilters.set(trade.id, true);
     });
   }
 
-  private setupStyles() {
-    this.element.style.position = 'fixed';
-    this.element.style.top = '0';
-    this.element.style.right = '0';
-    this.element.style.width = `${this.width}px`;
-    this.element.style.height = '100%';
-    this.element.style.backgroundColor = '#ffffff';
-    this.element.style.boxShadow = '-4px 0 25px rgba(0, 0, 0, 0.1)';
-    this.element.style.display = 'none';
-    this.element.style.zIndex = '1000';
-    this.element.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-    this.element.style.borderLeft = '1px solid rgba(0, 0, 0, 0.1)';
-    this.element.style.flexDirection = 'column';
-    this.element.style.overflow = 'hidden';
-    this.element.style.transition = 'transform 0.3s ease';
-    this.element.style.transform = `translateX(${this.width}px)`;
+  private setupLeftPanel() {
+    const lp = this.leftPanel;
+    lp.style.cssText = `
+      width: ${LEFT_PANEL_WIDTH}px; height: 100%; background: #ffffff;
+      border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow-y: auto; user-select: none;
+    `;
 
-    // Add styles for form elements
+    lp.innerHTML = `
+      <div style="padding: 20px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f0f0;">
+        <img src="/logo.png" alt="DingPlan" style="height: 36px; object-fit: contain;">
+        <span style="font-size: 18px; font-weight: 700; color: #1a1a1a;">DingPlan</span>
+      </div>
+      <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
+        <input id="left-project-name" type="text" value="My Project" placeholder="Project Name"
+          style="width: 100%; border: 1px solid transparent; background: transparent; font-size: 15px; font-weight: 600; color: #333; padding: 6px 8px; border-radius: 6px; font-family: inherit; outline: none;"
+          onfocus="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb'"
+          onblur="this.style.borderColor='transparent'; this.style.background='transparent'">
+      </div>
+      <div class="left-nav" style="padding: 8px 0; flex: 1;">
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
+          <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
+          <button class="left-nav-btn" data-action="manage-trades">🛠️ Trades</button>
+          <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
+          <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
+        </div>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="composer">🤖 AI Composer</button>
+        </div>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div style="padding: 4px 20px 4px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Import / Export</div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="import-xer">📥 Import XER</button>
+          <button class="left-nav-btn" data-action="export-pdf">📄 Export PDF</button>
+          <button class="left-nav-btn" data-action="export-json">💾 Export JSON</button>
+          <button class="left-nav-btn" data-action="import-json">📂 Import JSON</button>
+          <button class="left-nav-btn" data-action="share-link">🔗 Share Link</button>
+        </div>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="settings">⚙️ Settings</button>
+        </div>
+      </div>
+    `;
+
+    // Add nav button styles
     const style = document.createElement('style');
     style.textContent = `
-      .sidebar {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
+      .left-nav-btn {
+        display: block; width: 100%; text-align: left; padding: 9px 12px;
+        border: none; background: none; font-size: 14px; color: #374151;
+        cursor: pointer; border-radius: 6px; font-family: inherit;
+        transition: background 0.15s;
       }
-      .sidebar-header {
-        background: #ffffff;
-        padding: 16px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        flex-shrink: 0;
-      }
-      .sidebar-title {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 600;
-        color: #1a1a1a;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .sidebar-close {
-        border: none;
-        background: none;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 8px;
-        margin: -8px;
-        color: #666;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-      }
-      .sidebar-close:hover {
-        background: rgba(0, 0, 0, 0.05);
-        color: #333;
-      }
-      .sidebar-content {
-        padding: 24px 20px;
-        overflow-y: auto;
-        flex-grow: 1;
-      }
-      .sidebar-nav {
-        display: flex;
-        gap: 8px;
-        padding: 0 20px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        background: #f8f9fa;
-      }
-      .sidebar-nav-item {
-        padding: 12px 16px;
-        color: #666;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        border: none;
-        background: none;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease;
-      }
-      .sidebar-nav-item:hover {
-        color: #333;
-      }
-      .sidebar-nav-item.active {
-        color: #2196F3;
-        border-bottom-color: #2196F3;
-      }
-      .view {
-        display: none;
-        height: 100%;
-      }
-      .view.active {
-        display: block;
-      }
-      .ai-composer {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        gap: 16px;
-      }
-      .ai-composer-input {
-        flex-grow: 1;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 8px;
-        padding: 12px;
-        font-family: inherit;
-        font-size: 14px;
-        resize: none;
-        background: #f8f9fa;
-      }
-      .ai-composer-input:focus {
-        outline: none;
-        border-color: #2196F3;
-        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-      }
-      .ai-composer-button {
-        padding: 12px 20px;
-        background: #2196F3;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .ai-composer-button:hover {
-        background: #1976D2;
-        transform: translateY(-1px);
-      }
-      .ai-composer-button:active {
-        transform: translateY(0);
-      }
-      .trade-filter-container {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 16px;
-        margin-top: 12px;
-      }
-      .trade-filter-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 16px;
-      }
-      .trade-filter-actions {
-        display: flex;
-        gap: 8px;
-      }
-      .trade-filter-action {
-        font-size: 12px;
-        color: #2196F3;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 4px;
-      }
-      .trade-filter-action:hover {
-        background: rgba(33, 150, 243, 0.1);
-      }
-      .trade-filter-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .trade-filter-item {
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        background: white;
-        border-radius: 8px;
-        border: 1px solid #eee;
-        transition: all 0.2s;
-      }
-      .trade-filter-item:hover {
-        border-color: #ddd;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      }
-      .trade-filter-item.disabled {
-        opacity: 0.5;
-        background: #f5f5f5;
-      }
-      .trade-filter-color {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        margin-right: 12px;
-        border: 1px solid rgba(0,0,0,0.1);
-      }
-      .trade-filter-name {
-        flex-grow: 1;
-        font-size: 14px;
-        color: #333;
-      }
-      .trade-filter-toggle {
-        width: 36px;
-        height: 20px;
-        background: #e0e0e0;
-        border-radius: 20px;
-        position: relative;
-        transition: background-color 0.2s;
-        cursor: pointer;
-      }
-      .trade-filter-toggle.active {
-        background: #4CAF50;
-      }
-      .trade-filter-toggle:before {
-        content: '';
-        position: absolute;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: white;
-        top: 2px;
-        left: 2px;
-        transition: transform 0.2s;
-      }
-      .trade-filter-toggle.active:before {
-        transform: translateX(16px);
-      }
-      .plan-options-section {
-        margin-bottom: 24px;
-      }
-      .plan-options-title {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 16px;
-        color: #333;
-      }
-      
-      /* New form styles */
-      .sidebar h3 {
-        margin-top: 0;
-        margin-bottom: 20px;
-        font-size: 18px;
-        font-weight: 600;
-        color: #333;
-      }
-      .form-group {
-        margin-bottom: 16px;
-      }
-      .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        color: #444;
-      }
-      .form-group input, .form-group select {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: inherit;
-        background-color: #f8f9fa;
-        transition: all 0.2s ease;
-      }
-      .form-group input:focus, .form-group select:focus {
-        border-color: #4CAF50;
-        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-        background-color: #fff;
-        outline: none;
-      }
-      .checkbox-group {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-      .checkbox-group label {
-        margin-bottom: 0;
-        margin-left: 8px;
-        cursor: pointer;
-      }
-      .checkbox-group input[type="checkbox"] {
-        width: auto;
-        margin-right: 8px;
-        cursor: pointer;
-      }
-      .form-actions {
-        display: flex;
-        gap: 12px;
-        margin-top: 24px;
-        padding-top: 16px;
-        border-top: 1px solid #f0f0f0;
-      }
-      .btn-primary {
-        padding: 10px 16px;
-        border: none;
-        border-radius: 8px;
-        background-color: #4CAF50;
-        color: white;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-      .btn-primary:hover {
-        background-color: #3d9140;
-      }
-      .btn-secondary {
-        padding: 10px 16px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        background-color: white;
-        color: #555;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-      .btn-secondary:hover {
-        background-color: #f5f5f5;
-      }
-      #sidebar-swimlane-list {
-        margin-bottom: 16px;
-      }
-      .swimlane-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-        padding: 12px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #f0f0f0;
-      }
-      .swimlane-color {
-        width: 16px;
-        height: 16px;
-        border-radius: 4px;
-        margin-right: 12px;
-      }
-      .swimlane-name-input {
-        flex-grow: 1;
-        padding: 8px 12px;
-        border: 1px solid #e0e0e0;
-        border-radius: 6px;
-        font-size: 14px;
-        background: white;
-      }
-      .swimlane-actions {
-        display: flex;
-        margin-left: 8px;
-      }
-      .swimlane-actions button {
-        padding: 6px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        opacity: 0.7;
-        transition: opacity 0.2s;
-      }
-      .swimlane-actions button:hover {
-        opacity: 1;
-      }
-      /* Composer View Styles */
-      .ai-composer {
-        padding: 10px 15px;
-      }
-      
-      .composer-section-title {
-        font-size: 18px;
-        margin-bottom: 15px;
-        color: #2a5885;
-      }
-      
-      .composer-guide-link {
-        margin-bottom: 15px;
-        text-align: center;
-      }
-      
-      .guide-link {
-        display: inline-block;
-        padding: 8px 15px;
-        background-color: #f5f9ff;
-        border: 1px solid #c0d7e9;
-        border-radius: 4px;
-        color: #2a5885;
-        text-decoration: none;
-        font-size: 14px;
-        transition: all 0.2s ease;
-      }
-      
-      .guide-link:hover {
-        background-color: #e5f0fa;
-        border-color: #98c1e0;
-      }
-      
-      .guide-icon {
-        margin-right: 5px;
-      }
-      
-      .api-key-section {
+      .left-nav-btn:hover { background: #f3f4f6; }
+      .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
     `;
     document.head.appendChild(style);
   }
 
-  private createContent() {
+  private setupRightPanel() {
+    this.element.style.cssText = `
+      position: fixed; top: 0; right: 0; width: ${RIGHT_PANEL_WIDTH}px; height: 100%;
+      background: #ffffff; box-shadow: -4px 0 25px rgba(0,0,0,0.1);
+      display: none; z-index: 1000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      border-left: 1px solid rgba(0,0,0,0.1); flex-direction: column;
+      overflow: hidden; transition: transform 0.3s ease;
+      transform: translateX(${RIGHT_PANEL_WIDTH}px);
+    `;
+
+    // Add right panel styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .rp-header {
+        padding: 16px 20px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+      }
+      .rp-title { margin: 0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
+      .rp-close {
+        border: none; background: none; font-size: 20px; cursor: pointer;
+        padding: 8px; margin: -8px; color: #666; border-radius: 6px;
+      }
+      .rp-close:hover { background: rgba(0,0,0,0.05); color: #333; }
+      .rp-body { padding: 24px 20px; overflow-y: auto; flex-grow: 1; }
+      .rp-view { display: none; }
+      .rp-view.active { display: block; }
+      .form-group { margin-bottom: 16px; }
+      .form-group label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #444; }
+      .form-group input, .form-group select {
+        width: 100%; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 8px;
+        font-size: 14px; font-family: inherit; background: #f8f9fa;
+      }
+      .form-group input:focus, .form-group select:focus {
+        border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.1);
+        background: #fff; outline: none;
+      }
+      .checkbox-group { display: flex; align-items: center; margin-bottom: 8px; }
+      .checkbox-group label { margin-bottom: 0; margin-left: 8px; cursor: pointer; }
+      .checkbox-group input[type="checkbox"] { width: auto; margin-right: 8px; cursor: pointer; }
+      .form-actions { display: flex; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
+      .btn-primary {
+        padding: 10px 16px; border: none; border-radius: 8px; background: #4CAF50;
+        color: white; font-size: 14px; font-weight: 500; cursor: pointer;
+      }
+      .btn-primary:hover { background: #3d9140; }
+      .btn-secondary {
+        padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px;
+        background: white; color: #555; font-size: 14px; font-weight: 500; cursor: pointer;
+      }
+      .btn-secondary:hover { background: #f5f5f5; }
+      .btn-danger {
+        padding: 10px 16px; border: none; border-radius: 8px; background: #ef4444;
+        color: white; font-size: 14px; font-weight: 500; cursor: pointer;
+      }
+      .btn-danger:hover { background: #dc2626; }
+      .swimlane-item {
+        display: flex; align-items: center; margin-bottom: 8px; padding: 12px;
+        background: #f8f9fa; border-radius: 8px; border: 1px solid #f0f0f0;
+      }
+      .swimlane-color { width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; }
+      .swimlane-name-input {
+        flex-grow: 1; padding: 8px 12px; border: 1px solid #e0e0e0;
+        border-radius: 6px; font-size: 14px; background: white;
+      }
+      .swimlane-actions { display: flex; margin-left: 8px; }
+      .swimlane-actions button { padding: 6px; background: none; border: none; cursor: pointer; opacity: 0.7; }
+      .swimlane-actions button:hover { opacity: 1; }
+      .trade-filter-container { background: #f8f9fa; border-radius: 12px; padding: 16px; margin-top: 12px; }
+      .trade-filter-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
+      .trade-filter-actions { display: flex; gap: 8px; }
+      .trade-filter-action { font-size: 12px; color: #2196F3; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+      .trade-filter-action:hover { background: rgba(33,150,243,0.1); }
+      .trade-filter-list { display: flex; flex-direction: column; gap: 12px; }
+      .trade-filter-item {
+        display: flex; align-items: center; padding: 10px 12px; background: white;
+        border-radius: 8px; border: 1px solid #eee;
+      }
+      .trade-filter-item:hover { border-color: #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+      .trade-filter-item.disabled { opacity: 0.5; background: #f5f5f5; }
+      .trade-filter-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 12px; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; }
+      .trade-filter-name {
+        flex-grow: 1; font-size: 14px; color: #333; border: none; background: transparent;
+        font-family: inherit; padding: 4px; border-radius: 4px;
+      }
+      .trade-filter-name:focus { outline: none; background: #f0f0f0; }
+      .trade-filter-toggle {
+        width: 36px; height: 20px; background: #e0e0e0; border-radius: 20px;
+        position: relative; cursor: pointer; transition: background 0.2s; border: none; padding: 0;
+      }
+      .trade-filter-toggle.active { background: #4CAF50; }
+      .trade-filter-toggle::before {
+        content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+        background: white; top: 2px; left: 2px; transition: transform 0.2s;
+      }
+      .trade-filter-toggle.active::before { transform: translateX(16px); }
+      .trade-filter-delete {
+        background: none; border: none; color: #ccc; font-size: 18px;
+        cursor: pointer; padding: 0 8px; opacity: 0.5;
+      }
+      .trade-filter-delete:hover { opacity: 1; color: #ff4444; }
+      .color-picker-dialog {
+        position: absolute; background: white; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 12px; z-index: 1001;
+      }
+      .color-swatch {
+        width: 24px; height: 24px; border-radius: 4px; margin: 4px; cursor: pointer;
+        display: inline-block; border: 1px solid rgba(0,0,0,0.1);
+      }
+      .color-swatch:hover { transform: scale(1.1); }
+      .composer-response-area {
+        margin-top: 10px; height: 300px; max-height: 50vh; overflow-y: auto;
+        border: 1px solid #ddd; border-radius: 4px; padding: 10px;
+        background: #f9f9f9; font-size: 14px; line-height: 1.5; white-space: pre-wrap;
+      }
+      .composer-message { margin-bottom: 10px; padding: 8px 12px; border-radius: 4px; background: #fff; border-left: 3px solid #ddd; }
+      .composer-message.user-message { background: #e5f0fa; border-left-color: #2a5885; }
+      .ai-composer-input {
+        width: 100%; height: 80px; padding: 8px; margin-bottom: 8px;
+        border: 1px solid #ccc; border-radius: 4px; resize: vertical;
+        font-family: inherit; font-size: 14px;
+      }
+      .ai-composer-button {
+        width: 100%; padding: 10px; background: #3B82F6; color: white;
+        border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;
+      }
+      .ai-composer-button:hover { background: #2563EB; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  private createRightPanelContent() {
     this.element.innerHTML = `
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <h2 class="sidebar-title">
-            <img src="/logo.png" alt="DingPlan" style="height:28px;object-fit:contain;">
-            <span class="view-title">Details</span>
-          </h2>
-          <button class="sidebar-close">×</button>
+      <div style="display:flex;flex-direction:column;height:100%">
+        <div class="rp-header">
+          <h2 class="rp-title">Details</h2>
+          <button class="rp-close">×</button>
         </div>
-        <div class="sidebar-nav">
-          <button class="sidebar-nav-item active" data-view="details">Details</button>
-          <button class="sidebar-nav-item" data-view="composer">Composer</button>
-          <button class="sidebar-nav-item" data-view="options">Options</button>
-        </div>
-        <div class="sidebar-content">
-          <div id="details-view" class="view active">
-            <!-- Task details content will be injected here -->
-          </div>
-          <div id="composer-view" class="view">
+        <div class="rp-body">
+          <div id="details-view" class="rp-view active"></div>
+          <div id="composer-view" class="rp-view">
             <div class="ai-composer">
-              <div class="composer-response-area" style="margin-top: 10px;">
+              <h3 style="margin:0 0 12px; font-size:16px; color:#333;">AI Composer</h3>
+              <div class="composer-response-area">
                 <p class="composer-initial-message">Composer is ready. Enter a prompt below.</p>
               </div>
-              
-              <textarea 
-                class="ai-composer-input" 
-                placeholder="plan, search, build. LFG."
-              ></textarea>
-              <button class="ai-composer-button">
-                Send Request
-              </button>
-              
-              <div class="composer-guide-link" style="text-align: left; margin-top: 10px; font-size: 12px;">
-                <a href="/composer-guide.html" target="_blank" class="guide-link" style="padding: 3px 6px; font-size: 12px;">
-                  <span class="guide-icon">📖</span> Guide
-                </a>
+              <textarea class="ai-composer-input" placeholder="plan, search, build. LFG."></textarea>
+              <button class="ai-composer-button">Send Request</button>
+              <div style="text-align:left; margin-top:10px; font-size:12px;">
+                <a href="/composer-guide.html" target="_blank" style="color:#3B82F6; text-decoration:none;">📖 Guide</a>
               </div>
             </div>
           </div>
-          <div id="options-view" class="view">
-            <div class="option-section">
-              <h3 class="option-section-title">API Settings</h3>
-              <p>Configure your API keys for AI services:</p>
-              
-              <div class="api-settings-container">
-                <div class="api-provider-section">
-                  <h4>OpenAI API Key</h4>
-                  <div class="api-key-input-container">
-                    <input type="password" id="openai-api-key-input" class="api-key-input" placeholder="Enter your OpenAI API key">
-                    <button class="api-key-save-button" data-provider="openai">Save</button>
-                  </div>
-                  <p class="api-key-help">For GPT-3.5 and GPT-4 models</p>
-                </div>
-                
-                <div class="api-provider-section">
-                  <h4>Anthropic API Key</h4>
-                  <div class="api-key-input-container">
-                    <input type="password" id="anthropic-api-key-input" class="api-key-input" placeholder="Enter your Claude API key">
-                    <button class="api-key-save-button" data-provider="anthropic">Save</button>
-                  </div>
-                  <p class="api-key-help">For Claude models</p>
-                </div>
+          <div id="add-task-view" class="rp-view">
+            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Add New Task</h3>
+            <form id="sidebar-add-task-form">
+              <div class="form-group">
+                <label for="sidebar-task-name">Task Name</label>
+                <input type="text" id="sidebar-task-name" name="name" required>
               </div>
-            </div>
-            
-            <div class="option-section">
-              <h3 class="option-section-title">Plan Management</h3>
-              <div class="option-buttons">
-                <button class="option-button" id="manage-trades-button">
-                  <span class="option-button-icon">🧰</span>
-                  <span class="option-button-text">Manage Trades</span>
-                </button>
-                <button class="option-button" id="manage-swimlanes-button">
-                  <span class="option-button-icon">🏊</span>
-                  <span class="option-button-text">Manage Swimlanes</span>
-                </button>
-                <button class="option-button" id="import-xer-button">
-                  <span class="option-button-icon">📥</span>
-                  <span class="option-button-text">Import XER</span>
-                </button>
+              <div class="form-group">
+                <label for="sidebar-task-trade">Trade</label>
+                <select id="sidebar-task-trade" name="trade" required>
+                  <option value="" disabled selected>Select a trade</option>
+                </select>
               </div>
-            </div>
-            
-            <div class="option-section">
-              <h3 class="option-section-title">Project Sharing</h3>
-              <div class="option-buttons">
-                <button class="option-button" id="export-json-button">
-                  <span class="option-button-icon">💾</span>
-                  <span class="option-button-text">Export JSON</span>
-                </button>
-                <button class="option-button" id="import-json-button">
-                  <span class="option-button-icon">📂</span>
-                  <span class="option-button-text">Import JSON</span>
-                </button>
-                <button class="option-button" id="copy-share-link-button">
-                  <span class="option-button-icon">🔗</span>
-                  <span class="option-button-text">Copy Share Link</span>
-                </button>
+              <div class="form-group">
+                <label for="sidebar-task-zone">Swimlane</label>
+                <select id="sidebar-task-zone" name="zone" required>
+                  <option value="" disabled selected>Select a swimlane</option>
+                </select>
               </div>
-              <p class="option-description">
-                Export your project as JSON file, import projects from JSON, or create a shareable URL.
-              </p>
-            </div>
-            
-            <div class="option-section">
-              <h3 class="option-section-title">Application</h3>
-              <div class="option-row">
-                <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
+              <div class="form-group">
+                <label for="sidebar-task-start-date">Start Date</label>
+                <input type="date" id="sidebar-task-start-date" name="startDate" required>
               </div>
-              <p class="option-description">
-                This will clear all saved tasks and settings from your browser's local storage.
-                The page will refresh with default settings. This action cannot be undone.
-              </p>
-            </div>
-          </div>
-          <div id="add-task-view" class="view">
-            <!-- Add Task form will be here -->
-            <div class="add-task-form">
-              <h3>Add New Task</h3>
-              <form id="sidebar-add-task-form">
-                <div class="form-group">
-                  <label for="sidebar-task-name">Task Name</label>
-                  <input type="text" id="sidebar-task-name" name="name" required>
-                </div>
-                <div class="form-group">
-                  <label for="sidebar-task-trade">Trade</label>
-                  <select id="sidebar-task-trade" name="trade" required>
-                    <option value="" disabled selected>Select a trade</option>
-                    <!-- Trade options will be populated dynamically -->
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="sidebar-task-zone">Swimlane</label>
-                  <select id="sidebar-task-zone" name="zone" required>
-                    <option value="" disabled selected>Select a swimlane</option>
-                    <!-- Swimlane options will be populated dynamically -->
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="sidebar-task-start-date">Start Date</label>
-                  <input type="date" id="sidebar-task-start-date" name="startDate" required>
-                </div>
-                <div class="form-group">
-                  <label for="sidebar-task-duration">Duration (days)</label>
-                  <input type="number" id="sidebar-task-duration" name="duration" min="1" value="1" required>
-                </div>
-                <div class="form-group">
-                  <label for="sidebar-task-crew-size">Crew Size</label>
-                  <input type="number" id="sidebar-task-crew-size" name="crewSize" min="1" value="1" required>
-                </div>
-                <div class="form-group">
-                  <label>Work Schedule</label>
-                  <div class="checkbox-group">
-                    <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
-                    <label for="sidebar-work-saturday">Work on Saturdays</label>
-                  </div>
-                  <div class="checkbox-group">
-                    <input type="checkbox" id="sidebar-work-sunday" name="workOnSunday">
-                    <label for="sidebar-work-sunday">Work on Sundays</label>
-                  </div>
-                </div>
-                <div class="form-actions">
-                  <button type="submit" class="btn-primary">Add Task</button>
-                  <button type="button" class="btn-secondary" id="sidebar-add-another">Add & Create Another</button>
-                </div>
-              </form>
-            </div>
-          </div>
-          <div id="edit-swimlanes-view" class="view">
-            <!-- Edit Swimlanes form will be here -->
-            <div class="edit-swimlanes-form">
-              <h3>Edit Swimlanes</h3>
-              <div id="sidebar-swimlane-list">
-                <!-- Swimlanes will be populated dynamically -->
+              <div class="form-group">
+                <label for="sidebar-task-duration">Duration (days)</label>
+                <input type="number" id="sidebar-task-duration" name="duration" min="1" value="1" required>
               </div>
-              <button id="sidebar-add-swimlane" class="btn-secondary">Add Swimlane</button>
-              <div class="form-actions">
-                <button id="sidebar-save-swimlanes" class="btn-primary">Save Changes</button>
+              <div class="form-group">
+                <label for="sidebar-task-crew-size">Crew Size</label>
+                <input type="number" id="sidebar-task-crew-size" name="crewSize" min="1" value="1" required>
               </div>
-            </div>
-          </div>
-          <div id="manage-trades-view" class="view">
-            <!-- Trade Management form will be here -->
-            <div class="manage-trades-form">
-              <h3>Manage Trades</h3>
-              <p>Manage trades and their visibility across the plan:</p>
-              
-              <div class="trade-filter-container">
-                <div class="trade-filter-header">
-                  <span>Trades & Visibility</span>
-                  <div class="trade-filter-actions">
-                    <button class="trade-filter-action" id="select-all-trades">Select All</button>
-                    <button class="trade-filter-action" id="clear-all-trades">Clear All</button>
-                    <button class="trade-filter-action" id="add-new-trade">+ Add</button>
-                  </div>
+              <div class="form-group">
+                <label>Work Schedule</label>
+                <div class="checkbox-group">
+                  <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
+                  <label for="sidebar-work-saturday">Work on Saturdays</label>
                 </div>
-                <div class="trade-filter-list">
-                  ${this.trades.map(trade => `
-                    <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
-                      <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
-                      <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
-                      <div class="trade-filter-toggle active" data-id="${trade.id}"></div>
-                      <button class="trade-filter-delete" data-id="${trade.id}">×</button>
-                    </div>
-                  `).join('')}
+                <div class="checkbox-group">
+                  <input type="checkbox" id="sidebar-work-sunday" name="workOnSunday">
+                  <label for="sidebar-work-sunday">Work on Sundays</label>
                 </div>
               </div>
               <div class="form-actions">
-                <button id="save-trades-button" class="btn-primary">Save Changes</button>
+                <button type="submit" class="btn-primary">Add Task</button>
+                <button type="button" class="btn-secondary" id="sidebar-add-another">Add & Create Another</button>
+              </div>
+            </form>
+          </div>
+          <div id="edit-swimlanes-view" class="rp-view">
+            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Edit Swimlanes</h3>
+            <div id="sidebar-swimlane-list"></div>
+            <button id="sidebar-add-swimlane" class="btn-secondary">Add Swimlane</button>
+            <div class="form-actions">
+              <button id="sidebar-save-swimlanes" class="btn-primary">Save Changes</button>
+            </div>
+          </div>
+          <div id="manage-trades-view" class="rp-view">
+            <h3 style="margin:0 0 12px; font-size:18px; font-weight:600; color:#333;">Manage Trades</h3>
+            <p style="font-size:14px; color:#666; margin-bottom:12px;">Manage trades and their visibility:</p>
+            <div class="trade-filter-container">
+              <div class="trade-filter-header">
+                <span>Trades & Visibility</span>
+                <div class="trade-filter-actions">
+                  <button class="trade-filter-action" id="select-all-trades">Select All</button>
+                  <button class="trade-filter-action" id="clear-all-trades">Clear All</button>
+                  <button class="trade-filter-action" id="add-new-trade">+ Add</button>
+                </div>
+              </div>
+              <div class="trade-filter-list">
+                ${this.renderTradeList()}
               </div>
             </div>
+            <div class="form-actions">
+              <button id="save-trades-button" class="btn-primary">Save Changes</button>
+            </div>
+          </div>
+          <div id="settings-view" class="rp-view">
+            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Settings</h3>
+            <div style="margin-bottom:16px;">
+              <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
+            </div>
+            <p style="font-size:13px; color:#666;">
+              This will clear all saved tasks and settings. The page will refresh with defaults. This cannot be undone.
+            </p>
           </div>
         </div>
       </div>
     `;
 
-    // Add additional styles for the sidebar components
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      .trade-filter-name {
-        flex-grow: 1;
-        font-size: 14px;
-        color: #333;
-        border: none;
-        background: transparent;
-        font-family: inherit;
-        padding: 4px;
-        border-radius: 4px;
-      }
-      .trade-filter-name:focus {
-        outline: none;
-        background: #f0f0f0;
-      }
-      .trade-filter-delete {
-        background: none;
-        border: none;
-        color: #ccc;
-        font-size: 18px;
-        cursor: pointer;
-        padding: 0 8px;
-        opacity: 0.5;
-        transition: all 0.2s ease;
-      }
-      .trade-filter-delete:hover {
-        opacity: 1;
-        color: #ff4444;
-      }
-      .color-picker-dialog {
-        position: absolute;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        padding: 12px;
-        z-index: 1001;
-      }
-      .color-swatch {
-        width: 24px;
-        height: 24px;
-        border-radius: 4px;
-        margin: 4px;
-        cursor: pointer;
-        display: inline-block;
-        border: 1px solid rgba(0,0,0,0.1);
-        transition: transform 0.1s ease;
-      }
-      .color-swatch:hover {
-        transform: scale(1.1);
-      }
-      
-      /* Composer styles */
-      .composer-section-title {
-        font-size: 16px;
-        margin: 0 0 12px 0;
-        color: #333;
-      }
-      
-      .api-key-section {
-        margin-bottom: 16px;
-      }
-      
-      .api-key-input-container {
-        display: flex;
-        gap: 8px;
-        margin: 6px 0;
-      }
-      
-      .api-key-input {
-        flex-grow: 1;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-      }
-      
-      .api-key-save-button {
-        padding: 8px 12px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 13px;
-      }
-      
-      .api-key-help {
-        font-size: 12px;
-        color: #666;
-        margin: 4px 0 0 0;
-      }
-      
-      .composer-response-area {
-        margin-top: 10px;
-        height: 300px;
-        max-height: 50vh;
-        overflow-y: auto;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 10px;
-        background: #f9f9f9;
-        font-size: 14px;
-        line-height: 1.5;
-        white-space: pre-wrap;
-      }
-      
-      .composer-message {
-        margin-bottom: 10px;
-        padding: 8px 12px;
-        border-radius: 4px;
-        background: #fff;
-        border-left: 3px solid #ddd;
-      }
-      
-      .composer-message.user-message {
-        background: #e5f0fa;
-        border-left-color: #2a5885;
-      }
-      
-      .ai-composer-input {
-        width: 100%;
-        height: 80px;
-        padding: 8px;
-        margin-bottom: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        resize: vertical;
-        font-family: inherit;
-        font-size: 14px;
-      }
-      
-      .ai-composer-button {
-        width: 100%;
-        padding: 10px;
-        background-color: #3B82F6;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      }
-      
-      .ai-composer-button:hover {
-        background-color: #2563EB;
-      }
-      
-      .command-examples {
-        margin-top: 16px;
-      }
-      
-      .command-examples h4 {
-        font-size: 14px;
-        margin: 0 0 8px 0;
-        color: #333;
-      }
-      
-      .command-examples ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-      }
-      
-      .command-examples li {
-        margin-bottom: 6px;
-      }
-      
-      .example-command {
-        color: #3B82F6;
-        text-decoration: none;
-        font-size: 13px;
-      }
-      
-      .example-command:hover {
-        text-decoration: underline;
-      }
-      
-      .api-settings-container {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        margin-bottom: 20px;
-      }
-      
-      .api-provider-section {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        border: 1px solid #e0e0e0;
-      }
-      
-      .api-provider-section h4 {
-        font-size: 14px;
-        font-weight: 600;
-        margin: 0 0 10px 0;
-        color: #333;
-      }
-      
-      .option-section-title {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 12px;
-        color: #333;
-      }
-      
-      .option-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 15px;
-      }
-      
-      .option-button {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 16px;
-        background-color: #f5f5f5;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 14px;
-        font-weight: 500;
-      }
-      
-      .option-button:hover {
-        background-color: #e5e5e5;
-        transform: translateY(-1px);
-      }
-      
-      .option-button-icon {
-        font-size: 18px;
-      }
-      
-      .manage-trades-form {
-        padding: 10px 0;
-      }
-    `;
-    document.head.appendChild(styleElement);
-    
-    // Store references to composer elements
     this.composerResponseArea = this.element.querySelector('.composer-response-area');
-    this.apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
-    
-    // Check for stored API key
-    const storedApiKey = localStorage.getItem('dingPlanApiKey');
-    if (storedApiKey && this.apiKeyInput) {
-      this.apiKeyInput.value = storedApiKey;
-    }
-    
-    // Check for stored Anthropic API key
-    const storedAnthropicApiKey = localStorage.getItem('dingPlanAnthropicApiKey');
-    const anthropicApiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
-    if (storedAnthropicApiKey && anthropicApiKeyInput) {
-      anthropicApiKeyInput.value = storedAnthropicApiKey;
-    }
+  }
+
+  private renderTradeList(): string {
+    return this.trades.map(trade => `
+      <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
+        <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
+        <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
+        <div class="trade-filter-toggle active" data-id="${trade.id}"></div>
+        <button class="trade-filter-delete" data-id="${trade.id}">×</button>
+      </div>
+    `).join('');
   }
 
   private setupEventListeners() {
-    // Close button
-    const closeButton = this.element.querySelector('.sidebar-close');
-    if (closeButton) {
-      closeButton.addEventListener('click', () => this.hide());
-    }
-
-    // Navigation
-    const navItems = this.element.querySelectorAll('.sidebar-nav-item');
-    navItems.forEach(item => {
-      item.addEventListener('click', (e) => {
-        const view = (e.target as HTMLElement).dataset.view as SidebarView;
-        this.switchView(view);
+    // LEFT panel nav buttons
+    this.leftPanel.querySelectorAll('.left-nav-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = (e.currentTarget as HTMLElement).dataset.action;
+        if (!action) return;
+        this.handleNavAction(action);
       });
     });
 
-    // AI Composer button
+    // Project name auto-save
+    const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+    if (nameInput) {
+      nameInput.addEventListener('change', () => {
+        localStorage.setItem('dingplan-project-name', nameInput.value);
+      });
+      const saved = localStorage.getItem('dingplan-project-name');
+      if (saved) nameInput.value = saved;
+    }
+
+    // RIGHT panel close
+    const closeBtn = this.element.querySelector('.rp-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
+
+    // Composer button
     const aiButton = this.element.querySelector('.ai-composer-button');
     if (aiButton) {
       aiButton.addEventListener('click', () => {
         const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-        if (input.value.trim()) {
-          this.handleAIComposerSubmit(input.value);
-        }
-      });
-    }
-    
-    // API key save buttons
-    const saveKeyButtons = this.element.querySelectorAll('.api-key-save-button');
-    saveKeyButtons.forEach((button) => {
-      button.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const provider = target.getAttribute('data-provider');
-        
-        if (provider === 'openai') {
-          const apiKeyInput = this.element.querySelector('#openai-api-key-input') as HTMLInputElement;
-          const apiKey = apiKeyInput?.value.trim() || '';
-          if (apiKey) {
-            localStorage.setItem('dingPlanApiKey', apiKey);
-            if (this.composer) {
-              this.composer.setApiKey(apiKey);
-            }
-            this.addComposerMessage('OpenAI API key saved successfully!');
-          } else {
-            this.addComposerMessage('Please enter a valid OpenAI API key.');
-          }
-        } else if (provider === 'anthropic') {
-          const apiKeyInput = this.element.querySelector('#anthropic-api-key-input') as HTMLInputElement;
-          const apiKey = apiKeyInput?.value.trim() || '';
-          if (apiKey) {
-            localStorage.setItem('dingPlanAnthropicApiKey', apiKey);
-            if (this.composer) {
-              // Add a method to set Anthropic API key if needed
-              // this.composer.setAnthropicApiKey(apiKey);
-            }
-            this.addComposerMessage('Anthropic API key saved successfully!');
-          } else {
-            this.addComposerMessage('Please enter a valid Anthropic API key.');
-          }
-        }
-      });
-    });
-    
-    // Manage Trades button
-    const manageTradesButton = this.element.querySelector('#manage-trades-button');
-    if (manageTradesButton) {
-      manageTradesButton.addEventListener('click', () => {
-        this.switchView('manage-trades');
-      });
-    }
-    
-    // Manage Swimlanes button
-    const manageSwimlanesButton = this.element.querySelector('#manage-swimlanes-button');
-    if (manageSwimlanesButton) {
-      manageSwimlanesButton.addEventListener('click', () => {
-        this.switchView('edit-swimlanes');
-        if (this.canvas) {
-          this.populateSwimlanesForm(this.canvas);
-        }
-      });
-    }
-    
-    // Import XER button
-    const importXerButton = this.element.querySelector('#import-xer-button');
-    if (importXerButton) {
-      importXerButton.addEventListener('click', async () => {
-        try {
-          const result = await XerImporter.showImportDialog();
-          
-          if (this.canvas && this.canvas.taskManager) {
-            // Clear existing tasks
-            const existingTasks = this.canvas.taskManager.getAllTasks();
-            existingTasks.forEach((task: any) => {
-              this.canvas.taskManager.removeTask(task.id);
-            });
-            
-            // Add imported tasks
-            result.tasks.forEach((taskConfig: any) => {
-              this.canvas.taskManager.addTask(taskConfig);
-            });
-            
-            // Update swimlanes if needed
-            if (result.swimlanes && result.swimlanes.length > 0) {
-              // Update the swimlanes in the task manager
-              // This may require additional implementation depending on TaskManager structure
-            }
-            
-            // Re-render the canvas
-            if (this.canvas.render) {
-              this.canvas.render();
-            }
-            
-            alert(`Successfully imported ${result.tasks.length} tasks from XER file`);
-          }
-        } catch (error) {
-          console.error('XER import failed:', error);
-          alert(`XER import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      });
-    }
-    
-    // Save Trades button
-    const saveTradesButton = this.element.querySelector('#save-trades-button');
-    if (saveTradesButton) {
-      saveTradesButton.addEventListener('click', () => {
-        this.notifyFilterChanged();
-        this.switchView('options');
-      });
-    }
-    
-    // JSON sharing buttons
-    const exportJsonButton = this.element.querySelector('#export-json-button');
-    if (exportJsonButton) {
-      exportJsonButton.addEventListener('click', () => {
-        this.handleExportJSON();
-      });
-    }
-    
-    const importJsonButton = this.element.querySelector('#import-json-button');
-    if (importJsonButton) {
-      importJsonButton.addEventListener('click', () => {
-        this.handleImportJSON();
-      });
-    }
-    
-    const copyShareLinkButton = this.element.querySelector('#copy-share-link-button');
-    if (copyShareLinkButton) {
-      copyShareLinkButton.addEventListener('click', () => {
-        this.handleCopyShareLink();
-      });
-    }
-    
-    // Add trade filter toggle event listeners
-    const tradeToggles = this.element.querySelectorAll('.trade-filter-toggle');
-    tradeToggles.forEach(toggle => {
-      toggle.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent bubbling
-        
-        const toggleElement = e.currentTarget as HTMLElement;
-        const tradeId = toggleElement.dataset.id;
-        const isActive = toggleElement.classList.contains('active');
-        
-        // Toggle active state
-        toggleElement.classList.toggle('active');
-        
-        // Update parent item style
-        const parentItem = toggleElement.closest('.trade-filter-item');
-        if (parentItem) {
-          parentItem.classList.toggle('disabled', isActive);
-        }
-        
-        if (tradeId) {
-          // Update filter state
-          this.tradeFilters.set(tradeId, !isActive);
-          
-          // Ensure filter changes are propagated
-          this.notifyFilterChanged();
-        }
-      });
-    });
-    
-    // Make color square clickable to change color
-    const colorSquares = this.element.querySelectorAll('.trade-filter-color');
-    colorSquares.forEach(square => {
-      square.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.showColorPicker(e.currentTarget as HTMLElement);
-      });
-    });
-    
-    // Handle editable trade names
-    const tradeNameInputs = this.element.querySelectorAll('.trade-filter-name');
-    tradeNameInputs.forEach(input => {
-      // Save original value to detect changes
-      (input as HTMLInputElement).dataset.originalValue = (input as HTMLInputElement).value;
-      
-      input.addEventListener('change', (e) => {
-        const inputElement = e.currentTarget as HTMLInputElement;
-        const tradeItem = inputElement.closest('.trade-filter-item');
-        const tradeId = tradeItem?.getAttribute('data-id');
-        
-        if (tradeId) {
-          // Update trade name in the trades array
-          const trade = this.trades.find(t => t.id === tradeId);
-          if (trade) {
-            trade.name = inputElement.value;
-          }
-        }
-      });
-    });
-    
-    // Delete trade buttons
-    const deleteButtons = this.element.querySelectorAll('.trade-filter-delete');
-    deleteButtons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const tradeId = (e.currentTarget as HTMLElement).dataset.id;
-        this.deleteTrade(tradeId);
-      });
-    });
-    
-    // Add new trade button handler
-    const addTradeButton = this.element.querySelector('#add-new-trade');
-    if (addTradeButton) {
-      addTradeButton.addEventListener('click', () => {
-        this.addNewTrade();
-      });
-    }
-    
-    // "Select All" button - Ensure we create a new map when sending event
-    const selectAllButton = this.element.querySelector('#select-all-trades');
-    if (selectAllButton) {
-      selectAllButton.addEventListener('click', () => {
-        const toggles = this.element.querySelectorAll('.trade-filter-toggle');
-        toggles.forEach(toggle => {
-          const tradeId = (toggle as HTMLElement).dataset.id;
-          if (tradeId) {
-            // Update toggle UI
-            toggle.classList.add('active');
-            
-            // Update item style
-            const parentItem = toggle.closest('.trade-filter-item');
-            if (parentItem) {
-              parentItem.classList.remove('disabled');
-            }
-            
-            // Update filter state
-            this.tradeFilters.set(tradeId, true);
-          }
-        });
-        
-        // Notify about filter change with new map instance
-        this.notifyFilterChanged();
-      });
-    }
-    
-    // "Clear All" button - Ensure we create a new map when sending event
-    const clearAllButton = this.element.querySelector('#clear-all-trades');
-    if (clearAllButton) {
-      clearAllButton.addEventListener('click', () => {
-        const toggles = this.element.querySelectorAll('.trade-filter-toggle');
-        toggles.forEach(toggle => {
-          const tradeId = (toggle as HTMLElement).dataset.id;
-          if (tradeId) {
-            // Update toggle UI
-            toggle.classList.remove('active');
-            
-            // Update item style
-            const parentItem = toggle.closest('.trade-filter-item');
-            if (parentItem) {
-              parentItem.classList.add('disabled');
-            }
-            
-            // Update filter state
-            this.tradeFilters.set(tradeId, false);
-          }
-        });
-        
-        // Notify about filter change with new map instance
-        this.notifyFilterChanged();
+        if (input.value.trim()) this.handleAIComposerSubmit(input.value);
       });
     }
 
-    // Add event listener for the clear local storage button
-    const clearLocalStorageButton = this.element.querySelector('#clear-local-storage');
-    if (clearLocalStorageButton) {
-      clearLocalStorageButton.addEventListener('click', () => {
-        const confirmClear = confirm('Are you sure you want to reset the application state? This will remove all tasks and settings. This action cannot be undone.');
-        if (confirmClear) {
-          // Clear localStorage
-          clearLocalStorage();
-          
-          // Reload the page to start fresh
-          window.location.reload();
-        }
+    // Trade toggles, color pickers, delete, select/clear all, add new
+    this.setupTradeListEventListeners();
+
+    const selectAll = this.element.querySelector('#select-all-trades');
+    if (selectAll) selectAll.addEventListener('click', () => {
+      this.element.querySelectorAll('.trade-filter-toggle').forEach(t => {
+        t.classList.add('active');
+        t.closest('.trade-filter-item')?.classList.remove('disabled');
+        const id = (t as HTMLElement).dataset.id;
+        if (id) this.tradeFilters.set(id, true);
       });
+      this.notifyFilterChanged();
+    });
+
+    const clearAll = this.element.querySelector('#clear-all-trades');
+    if (clearAll) clearAll.addEventListener('click', () => {
+      this.element.querySelectorAll('.trade-filter-toggle').forEach(t => {
+        t.classList.remove('active');
+        t.closest('.trade-filter-item')?.classList.add('disabled');
+        const id = (t as HTMLElement).dataset.id;
+        if (id) this.tradeFilters.set(id, false);
+      });
+      this.notifyFilterChanged();
+    });
+
+    const addTrade = this.element.querySelector('#add-new-trade');
+    if (addTrade) addTrade.addEventListener('click', () => this.addNewTrade());
+
+    const saveTrades = this.element.querySelector('#save-trades-button');
+    if (saveTrades) saveTrades.addEventListener('click', () => {
+      this.notifyFilterChanged();
+      this.hide();
+    });
+
+    // Settings: reset
+    const clearBtn = this.element.querySelector('#clear-local-storage');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to reset the application state? This will remove all tasks and settings. This action cannot be undone.')) {
+        clearLocalStorage();
+        window.location.reload();
+      }
+    });
+  }
+
+  private handleNavAction(action: string) {
+    // Update active state on left nav
+    this.leftPanel.querySelectorAll('.left-nav-btn').forEach(b => b.classList.remove('active'));
+    const activeBtn = this.leftPanel.querySelector(`[data-action="${action}"]`);
+
+    // Actions that don't need a right panel
+    if (action === 'go-to-today') {
+      if (window.canvasApp) {
+        const x = window.canvasApp.timeAxis.getTodayPosition();
+        window.canvasApp.camera.x = x;
+        window.canvasApp.render();
+      }
+      return;
+    }
+    if (action === 'toggle-deps') {
+      if (window.canvasApp) {
+        window.canvasApp.taskManager.areDependenciesVisible = !window.canvasApp.taskManager.areDependenciesVisible;
+        window.canvasApp.render();
+      }
+      return;
+    }
+    if (action === 'export-pdf') {
+      if (window.canvasApp) window.canvasApp.exportToPDF();
+      return;
+    }
+    if (action === 'export-json') {
+      this.handleExportJSON();
+      return;
+    }
+    if (action === 'import-json') {
+      this.handleImportJSON();
+      return;
+    }
+    if (action === 'share-link') {
+      this.handleCopyShareLink();
+      return;
+    }
+    if (action === 'import-xer') {
+      this.handleImportXER();
+      return;
+    }
+
+    // Actions that open the right panel
+    activeBtn?.classList.add('active');
+    const viewMap: Record<string, SidebarView> = {
+      'add-task': 'add-task',
+      'edit-swimlanes': 'edit-swimlanes',
+      'manage-trades': 'manage-trades',
+      'composer': 'composer',
+      'settings': 'options',
+    };
+    const view = viewMap[action];
+    if (view) this.show(view, window.canvasApp);
+  }
+
+  private async handleImportXER() {
+    try {
+      const result = await XerImporter.showImportDialog();
+      if (this.canvas && this.canvas.taskManager) {
+        const existingTasks = this.canvas.taskManager.getAllTasks();
+        existingTasks.forEach((task: any) => this.canvas.taskManager.removeTask(task.id));
+        result.tasks.forEach((taskConfig: any) => this.canvas.taskManager.addTask(taskConfig));
+        if (this.canvas.render) this.canvas.render();
+        alert(`Successfully imported ${result.tasks.length} tasks from XER file`);
+      }
+    } catch (error) {
+      console.error('XER import failed:', error);
+      alert(`XER import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   private switchView(view: SidebarView) {
     this.currentView = view;
-    
-    // Update navigation
-    const navItems = this.element.querySelectorAll('.sidebar-nav-item');
-    navItems.forEach(item => {
-      item.classList.toggle('active', item.getAttribute('data-view') === view);
-    });
+    // Map view to element id
+    const viewIdMap: Record<string, string> = {
+      'details': 'details-view',
+      'composer': 'composer-view',
+      'add-task': 'add-task-view',
+      'edit-swimlanes': 'edit-swimlanes-view',
+      'manage-trades': 'manage-trades-view',
+      'options': 'settings-view',
+    };
 
-    // Update views
-    const views = this.element.querySelectorAll('.view');
-    views.forEach(v => {
-      v.classList.toggle('active', v.id === `${view}-view`);
-    });
+    this.element.querySelectorAll('.rp-view').forEach(v => v.classList.remove('active'));
+    const targetId = viewIdMap[view];
+    if (targetId) {
+      const el = this.element.querySelector(`#${targetId}`);
+      if (el) el.classList.add('active');
+    }
 
-    // Update header
-    const viewTitle = this.element.querySelector('.view-title');
-    const viewIcon = this.element.querySelector('.view-icon');
-    if (viewTitle && viewIcon) {
-      switch (view) {
-        case 'details':
-          viewTitle.textContent = 'Details';
-          viewIcon.textContent = '📋';
-          break;
-        case 'composer':
-          viewTitle.textContent = 'Composer';
-          viewIcon.textContent = '🤖';
-          break;
-        case 'options':
-          viewTitle.textContent = 'Plan Options';
-          viewIcon.textContent = '⚙️';
-          break;
-      }
+    // Update header title
+    const titleEl = this.element.querySelector('.rp-title');
+    if (titleEl) {
+      const titles: Record<string, string> = {
+        'details': 'Details',
+        'composer': 'AI Composer',
+        'add-task': 'Add Task',
+        'edit-swimlanes': 'Swimlanes',
+        'manage-trades': 'Trades',
+        'options': 'Settings',
+      };
+      titleEl.textContent = titles[view] || 'Details';
     }
   }
 
   private async handleAIComposerSubmit(prompt: string) {
-    // Display user input
     this.addComposerMessage(prompt, true);
-    
-    // Get reference to input and button
     const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
     const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
     
@@ -1268,37 +561,24 @@ export class Sidebar {
       return;
     }
     
-    // Check for API key
     const apiKey = localStorage.getItem('dingPlanApiKey');
     if (!apiKey) {
-      // No API key stored
-      input.disabled = true;
-      button.disabled = true;
-      this.addComposerMessage('Please add your OpenAI API key before sending prompts.');
+      this.addComposerMessage('Please set your OpenAI API key in localStorage (key: dingPlanApiKey).');
       return;
     }
     
     try {
-      // Disable input and button while processing
       input.disabled = true;
       button.disabled = true;
       button.textContent = 'Processing...';
-      
-      // Try to process the prompt
       const response = await this.composer.processPrompt(prompt);
-      
-      // Show the response
       this.addComposerMessage(response);
     } catch (error: unknown) {
-      // Display error
       this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
-      // Re-enable input and button
       input.disabled = false;
       button.disabled = false;
       button.textContent = 'Send Request';
-      
-      // Clear input field
       input.value = '';
       input.focus();
     }
@@ -1307,10 +587,11 @@ export class Sidebar {
   show(view: SidebarView = 'details', canvasInstance?: any) {
     this.isVisible = true;
     this.element.style.display = 'flex';
+    // Force reflow before transition
+    this.element.offsetHeight;
     this.element.style.transform = 'translateX(0)';
     this.switchView(view);
     
-    // Populate the forms when showing related views
     if (view === 'add-task' && canvasInstance) {
       this.populateAddTaskForm(canvasInstance);
     } else if (view === 'edit-swimlanes' && canvasInstance) {
@@ -1320,204 +601,131 @@ export class Sidebar {
 
   hide() {
     this.isVisible = false;
-    this.element.style.transform = `translateX(${this.width}px)`;
+    this.element.style.transform = `translateX(${RIGHT_PANEL_WIDTH}px)`;
+    // Clear active nav
+    this.leftPanel.querySelectorAll('.left-nav-btn').forEach(b => b.classList.remove('active'));
     setTimeout(() => {
-      if (!this.isVisible) {
-        this.element.style.display = 'none';
-      }
+      if (!this.isVisible) this.element.style.display = 'none';
     }, 300);
   }
 
-  getWidth(): number {
-    return this.width;
-  }
+  getWidth(): number { return RIGHT_PANEL_WIDTH; }
+  isOpen(): boolean { return this.isVisible; }
+  getCurrentView(): SidebarView { return this.currentView; }
 
-  isOpen(): boolean {
-    return this.isVisible;
-  }
-
-  getCurrentView(): SidebarView {
-    return this.currentView;
-  }
-
-  // Register a callback for trade filter changes
   onTradeFiltersChanged(callback: (filters: Map<string, boolean>) => void) {
     this.onTradeFilterChange = callback;
   }
   
-  // Get the current trade filters
-  getTradeFilters(): Map<string, boolean> {
-    return new Map(this.tradeFilters);
+  getTradeFilters(): Map<string, boolean> { return new Map(this.tradeFilters); }
+
+  private notifyFilterChanged() {
+    if (this.onTradeFilterChange) {
+      this.onTradeFilterChange(new Map(this.tradeFilters));
+    }
   }
 
+  initializeComposer(canvasInstance: any) {
+    this.canvas = canvasInstance;
+    this.composer = new Composer({ canvas: canvasInstance });
+    const storedApiKey = localStorage.getItem('dingPlanApiKey');
+    if (storedApiKey && this.composer) {
+      this.composer.setApiKey(storedApiKey);
+      this.addComposerMessage('Composer initialized with stored API key.');
+    } else {
+      this.addComposerMessage('Set localStorage key "dingPlanApiKey" to use the Composer.');
+    }
+  }
+  
+  private addComposerMessage(message: string, isUserInput = false) {
+    if (!this.composerResponseArea) return;
+    const el = document.createElement('div');
+    el.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
+    el.textContent = isUserInput ? `You: ${message}` : message;
+    this.composerResponseArea.appendChild(el);
+    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
+  }
+
+  // ---- Trade management ----
+
   private showColorPicker(colorElement: HTMLElement) {
-    // Get the current color
-    const oldColor = colorElement.style.backgroundColor;
-    
-    // Create the color picker dialog
     const colorPicker = document.createElement('div');
     colorPicker.className = 'color-picker-dialog';
     colorPicker.style.left = `${colorElement.getBoundingClientRect().left}px`;
     colorPicker.style.top = `${colorElement.getBoundingClientRect().bottom + window.scrollY + 5}px`;
     
-    // Add common color swatches
     const colors = [
       '#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', 
       '#03A9F4', '#00BCD4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
       '#FFEB3B', '#FFC107', '#FF9800', '#FF5722', '#795548', '#9E9E9E'
     ];
     
-    colors.forEach(colorHex => {
+    colors.forEach(hex => {
       const swatch = document.createElement('div');
       swatch.className = 'color-swatch';
-      swatch.style.backgroundColor = colorHex;
-      
-      // When a color is clicked
+      swatch.style.backgroundColor = hex;
       swatch.addEventListener('click', () => {
-        // Update color in UI
-        colorElement.style.backgroundColor = colorHex;
-        
-        // Get the trade item containing this color element
+        colorElement.style.backgroundColor = hex;
         const tradeItem = colorElement.closest('.trade-filter-item');
-        if (!tradeItem) return;
-        
-        // Get original color from the data attribute
-        const tradeId = tradeItem.getAttribute('data-id');
-        if (!tradeId) return;
-        
-        // Update the data-color attribute
-        tradeItem.setAttribute('data-color', tradeId);
-        
-        // Also update the toggle data-color
-        const toggle = tradeItem.querySelector('.trade-filter-toggle');
-        if (toggle) {
-          toggle.setAttribute('data-color', tradeId);
-        }
-        
-        // Update in the delete button
-        const deleteBtn = tradeItem.querySelector('.trade-filter-delete');
-        if (deleteBtn) {
-          deleteBtn.setAttribute('data-color', tradeId);
-        }
-        
-        // Update the trade in the trades array
-        const tradeName = (tradeItem.querySelector('.trade-filter-name') as HTMLInputElement).value;
-        const index = this.trades.findIndex(t => t.id === tradeId);
-        
-        if (index !== -1) {
-          // Update in our filters map
-          const isVisible = this.tradeFilters.get(tradeId) || false;
-          this.tradeFilters.delete(tradeId);
-          this.tradeFilters.set(tradeId, isVisible);
-          
-          // Update in the trades array - keep the existing ID or generate a new one
-          const existingId = this.trades[index].id || this.generateTradeId(tradeName, tradeId);
-          this.trades[index] = { 
-            id: existingId,
-            name: tradeName, 
-            color: tradeId 
-          };
-          
-          // Notify about filter change
+        const tradeId = tradeItem?.getAttribute('data-id');
+        if (tradeId) {
+          const trade = this.trades.find(t => t.id === tradeId);
+          if (trade) trade.color = hex;
           this.notifyFilterChanged();
         }
-        
-        // Remove the color picker
         colorPicker.remove();
       });
-      
       colorPicker.appendChild(swatch);
     });
     
-    // Add to DOM
     document.body.appendChild(colorPicker);
-    
-    // Add click outside handler to close
-    const closePickerHandler = (e: MouseEvent) => {
-      if (!colorPicker.contains(e.target as Node) && e.target !== colorElement) {
-        colorPicker.remove();
-        document.removeEventListener('click', closePickerHandler);
-      }
-    };
-    
-    // Use setTimeout to avoid immediate trigger
     setTimeout(() => {
-      document.addEventListener('click', closePickerHandler);
+      const handler = (e: MouseEvent) => {
+        if (!colorPicker.contains(e.target as Node) && e.target !== colorElement) {
+          colorPicker.remove();
+          document.removeEventListener('click', handler);
+        }
+      };
+      document.addEventListener('click', handler);
     }, 10);
   }
-  
+
   private deleteTrade(tradeId: string | undefined) {
     if (!tradeId) return;
-    
-    // Confirm deletion
-    const confirmDelete = confirm('Are you sure you want to remove this trade?');
-    if (!confirmDelete) return;
-    
-    // Find the trade
-    const index = this.trades.findIndex(t => t.id === tradeId);
-    if (index === -1) return;
-    
-    // Remove from trades array
-    this.trades.splice(index, 1);
-    
-    // Remove from filters map
+    if (!confirm('Remove this trade?')) return;
+    const idx = this.trades.findIndex(t => t.id === tradeId);
+    if (idx === -1) return;
+    this.trades.splice(idx, 1);
     this.tradeFilters.delete(tradeId);
-    
-    // Notify about filter change
     this.notifyFilterChanged();
-    
-    // Update UI
     this.updateTradeList();
   }
-  
+
   private addNewTrade() {
-    // Generate random color
-    const randomColor = this.getRandomColor();
-    const tradeName = "New Trade";
-    
-    // Generate an ID for the new trade
-    const tradeId = this.generateTradeId(tradeName, randomColor);
-    
-    // Add new trade to array with the required id property
-    this.trades.push({ 
-      id: tradeId,
-      name: tradeName, 
-      color: randomColor 
-    });
-    
-    // Add to filters map (default to visible)
-    this.tradeFilters.set(tradeId, true);
-    
-    // Update UI
+    const color = this.getRandomColor();
+    const name = "New Trade";
+    const id = this.generateTradeId(name, color);
+    this.trades.push({ id, name, color });
+    this.tradeFilters.set(id, true);
     this.updateTradeList();
-    
-    // Notify about filter change
     this.notifyFilterChanged();
   }
-  
+
   private getRandomColor(): string {
     const letters = '0123456789ABCDEF';
-    let color = '#';
-    
-    // Get existing trade colors to avoid duplication
-    const existingColors = new Set(this.trades.map(t => t.color.toUpperCase()));
-    
-    // Generate a new color that doesn't exist yet
+    const existing = new Set(this.trades.map(t => t.color.toUpperCase()));
+    let color: string;
     do {
       color = '#';
-      for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-      }
-    } while (existingColors.has(color));
-    
+      for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+    } while (existing.has(color));
     return color;
   }
-  
+
   private updateTradeList() {
-    const tradeList = this.element.querySelector('.trade-filter-list');
-    if (!tradeList) return;
-    
-    tradeList.innerHTML = this.trades.map(trade => `
+    const list = this.element.querySelector('.trade-filter-list');
+    if (!list) return;
+    list.innerHTML = this.trades.map(trade => `
       <div class="trade-filter-item" data-color="${trade.color}" data-id="${trade.id}">
         <div class="trade-filter-color" style="background-color: ${trade.color}"></div>
         <input type="text" class="trade-filter-name" value="${trade.name}" data-original="${trade.name}">
@@ -1525,183 +733,75 @@ export class Sidebar {
         <button class="trade-filter-delete" data-id="${trade.id}">×</button>
       </div>
     `).join('');
-    
-    // Re-attach event listeners
     this.setupTradeListEventListeners();
   }
-  
+
   private setupTradeListEventListeners() {
-    // Color square click listener
-    const colorSquares = this.element.querySelectorAll('.trade-filter-color');
-    colorSquares.forEach(square => {
-      square.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.showColorPicker(e.currentTarget as HTMLElement);
-      });
+    this.element.querySelectorAll('.trade-filter-color').forEach(sq => {
+      sq.addEventListener('click', (e) => { e.stopPropagation(); this.showColorPicker(e.currentTarget as HTMLElement); });
     });
-    
-    // Trade filter toggles
-    const tradeToggles = this.element.querySelectorAll('.trade-filter-toggle');
-    tradeToggles.forEach(toggle => {
+    this.element.querySelectorAll('.trade-filter-toggle').forEach(toggle => {
       toggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        
-        const toggleElement = e.currentTarget as HTMLElement;
-        const tradeId = toggleElement.dataset.id;
-        const isActive = toggleElement.classList.contains('active');
-        
-        // Toggle active state
-        toggleElement.classList.toggle('active');
-        
-        // Update parent item style
-        const parentItem = toggleElement.closest('.trade-filter-item');
-        if (parentItem) {
-          parentItem.classList.toggle('disabled', isActive);
-        }
-        
-        if (tradeId) {
-          // Update filter state
-          this.tradeFilters.set(tradeId, !isActive);
-          
-          // Ensure filter changes are propagated
-          this.notifyFilterChanged();
-        }
+        const el = e.currentTarget as HTMLElement;
+        const id = el.dataset.id;
+        const wasActive = el.classList.contains('active');
+        el.classList.toggle('active');
+        el.closest('.trade-filter-item')?.classList.toggle('disabled', wasActive);
+        if (id) { this.tradeFilters.set(id, !wasActive); this.notifyFilterChanged(); }
       });
     });
-    
-    // Handle editable trade names
-    const tradeNameInputs = this.element.querySelectorAll('.trade-filter-name');
-    tradeNameInputs.forEach(input => {
-      // Save original value to detect changes
-      (input as HTMLInputElement).dataset.originalValue = (input as HTMLInputElement).value;
-      
+    this.element.querySelectorAll('.trade-filter-name').forEach(input => {
       input.addEventListener('change', (e) => {
-        const inputElement = e.currentTarget as HTMLInputElement;
-        const tradeItem = inputElement.closest('.trade-filter-item');
-        const tradeId = tradeItem?.getAttribute('data-id');
-        
-        if (tradeId) {
-          // Update trade name in the trades array
-          const trade = this.trades.find(t => t.id === tradeId);
-          if (trade) {
-            trade.name = inputElement.value;
-          }
-        }
+        const el = e.currentTarget as HTMLInputElement;
+        const id = el.closest('.trade-filter-item')?.getAttribute('data-id');
+        if (id) { const t = this.trades.find(t => t.id === id); if (t) t.name = el.value; }
       });
     });
-    
-    // Delete trade buttons
-    const deleteButtons = this.element.querySelectorAll('.trade-filter-delete');
-    deleteButtons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const tradeId = (e.currentTarget as HTMLElement).dataset.id;
-        this.deleteTrade(tradeId);
-      });
+    this.element.querySelectorAll('.trade-filter-delete').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); this.deleteTrade((e.currentTarget as HTMLElement).dataset.id); });
     });
   }
-  
-  // Helper method to notify about filter changes
-  private notifyFilterChanged() {
-    if (this.onTradeFilterChange) {
-      // Always create a new Map instance to ensure change detection
-      const filtersCopy = new Map(this.tradeFilters);
-      
-      console.log("Notifying filter change:", Array.from(filtersCopy.entries())
-        .map(([color, visible]) => `${color}: ${visible}`)
-        .join(', '));
-      
-      this.onTradeFilterChange(filtersCopy);
-    }
-  }
 
-  // Initialize the Composer with the Canvas instance
-  initializeComposer(canvasInstance: any) {
-    this.canvas = canvasInstance; // Store canvas reference
-    this.composer = new Composer({
-      canvas: canvasInstance
-    });
-    
-    // Set API key if available
-    const storedApiKey = localStorage.getItem('dingPlanApiKey');
-    if (storedApiKey && this.composer) {
-      this.composer.setApiKey(storedApiKey);
-      this.addComposerMessage('Composer initialized with stored API key.');
-    } else {
-      this.addComposerMessage('Please add your OpenAI API key to use the Composer.');
-    }
-  }
-  
-  private addComposerMessage(message: string, isUserInput = false) {
-    if (!this.composerResponseArea) return;
-    
-    const messageElement = document.createElement('div');
-    messageElement.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
-    messageElement.textContent = isUserInput ? `You: ${message}` : message;
-    
-    this.composerResponseArea.appendChild(messageElement);
-    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
-  }
-
-  // Function to generate a simple ID for trades based on their name and color
   private generateTradeId(name: string, color: string): string {
-    // Convert name to lowercase, remove spaces and special characters
     const nameId = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    // Take first 6 characters of color hex (without #)
     const colorId = color.replace('#', '').substring(0, 6);
-    // Create a unique ID combining name and color
     return `${nameId}-${colorId}`;
   }
 
-  // Add task-related methods
-  populateAddTaskForm(canvasInstance: any) {
-    // This method is called when the add-task view is shown
-    // Populate the form with trades and swimlanes
+  // ---- Add Task ----
 
+  populateAddTaskForm(canvasInstance: any) {
     const tradeSelect = document.getElementById('sidebar-task-trade') as HTMLSelectElement;
     const zoneSelect = document.getElementById('sidebar-task-zone') as HTMLSelectElement;
     const startDateInput = document.getElementById('sidebar-task-start-date') as HTMLInputElement;
 
-    // Clear existing options
     tradeSelect.innerHTML = '<option value="" disabled selected>Select a trade</option>';
     zoneSelect.innerHTML = '<option value="" disabled selected>Select a swimlane</option>';
 
-    // Add trade options
     this.trades.forEach(trade => {
-      const option = document.createElement('option');
-      option.value = trade.id;
-      option.textContent = trade.name;
-      option.dataset.color = trade.color;
-      tradeSelect.appendChild(option);
+      const opt = document.createElement('option');
+      opt.value = trade.id;
+      opt.textContent = trade.name;
+      opt.dataset.color = trade.color;
+      tradeSelect.appendChild(opt);
     });
 
-    // Add swimlane options
     if (canvasInstance && canvasInstance.taskManager) {
-      canvasInstance.taskManager.swimlanes.forEach((swimlane: any) => {
-        const option = document.createElement('option');
-        option.value = swimlane.id;
-        option.textContent = swimlane.name;
-        zoneSelect.appendChild(option);
+      canvasInstance.taskManager.swimlanes.forEach((sl: any) => {
+        const opt = document.createElement('option');
+        opt.value = sl.id;
+        opt.textContent = sl.name;
+        zoneSelect.appendChild(opt);
       });
     }
 
-    // Set default date to today
-    const today = new Date();
-    const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-    startDateInput.value = formattedDate;
+    startDateInput.value = new Date().toISOString().split('T')[0];
 
-    // Add form submit event handler
     const form = document.getElementById('sidebar-add-task-form') as HTMLFormElement;
-    const addAnotherButton = document.getElementById('sidebar-add-another') as HTMLButtonElement;
-
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      this.handleAddTaskSubmit(canvasInstance, false);
-    };
-
-    addAnotherButton.onclick = () => {
-      this.handleAddTaskSubmit(canvasInstance, true);
-    };
+    const addAnother = document.getElementById('sidebar-add-another') as HTMLButtonElement;
+    form.onsubmit = (e) => { e.preventDefault(); this.handleAddTaskSubmit(canvasInstance, false); };
+    addAnother.onclick = () => this.handleAddTaskSubmit(canvasInstance, true);
   }
 
   handleAddTaskSubmit(canvasInstance: any, createAnother: boolean) {
@@ -1712,20 +812,14 @@ export class Sidebar {
     const startDateInput = document.getElementById('sidebar-task-start-date') as HTMLInputElement;
     const durationInput = document.getElementById('sidebar-task-duration') as HTMLInputElement;
     const crewSizeInput = document.getElementById('sidebar-task-crew-size') as HTMLInputElement;
-    const workSaturdayInput = document.getElementById('sidebar-work-saturday') as HTMLInputElement;
-    const workSundayInput = document.getElementById('sidebar-work-sunday') as HTMLInputElement;
+    const workSat = document.getElementById('sidebar-work-saturday') as HTMLInputElement;
+    const workSun = document.getElementById('sidebar-work-sunday') as HTMLInputElement;
 
-    // Validate form
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      return;
-    }
+    if (!form.checkValidity()) { form.reportValidity(); return; }
 
-    // Get selected trade color
-    const selectedOption = tradeSelect.options[tradeSelect.selectedIndex];
-    const tradeColor = selectedOption ? selectedOption.dataset.color || '#cccccc' : '#cccccc';
+    const selectedOpt = tradeSelect.options[tradeSelect.selectedIndex];
+    const tradeColor = selectedOpt?.dataset.color || '#cccccc';
 
-    // Create task config
     const taskConfig = {
       id: this.generateUUID(),
       name: nameInput.value,
@@ -1735,452 +829,261 @@ export class Sidebar {
       startDate: new Date(startDateInput.value),
       duration: parseInt(durationInput.value),
       crewSize: parseInt(crewSizeInput.value),
-      workOnSaturday: workSaturdayInput.checked,
-      workOnSunday: workSundayInput.checked
+      workOnSaturday: workSat.checked,
+      workOnSunday: workSun.checked
     };
 
-    // Add task through canvas
-    if (canvasInstance && canvasInstance.addTask) {
-      canvasInstance.addTask(taskConfig);
-    }
-
-    // Reset form or close sidebar
-    if (createAnother) {
-      nameInput.value = '';
-      nameInput.focus();
-    } else {
-      this.hide();
-    }
+    if (canvasInstance && canvasInstance.addTask) canvasInstance.addTask(taskConfig);
+    if (createAnother) { nameInput.value = ''; nameInput.focus(); }
+    else this.hide();
   }
 
-  // Swimlane-related methods
+  // ---- Swimlanes ----
+
   populateSwimlanesForm(canvasInstance: any) {
-    // This method is called when the edit-swimlanes view is shown
-    const swimlaneListContainer = document.getElementById('sidebar-swimlane-list');
-    if (!swimlaneListContainer) return;
+    const container = document.getElementById('sidebar-swimlane-list');
+    if (!container) return;
+    container.innerHTML = '';
 
-    // Clear existing swimlanes
-    swimlaneListContainer.innerHTML = '';
-
-    // Populate swimlanes
     if (canvasInstance && canvasInstance.taskManager) {
-      canvasInstance.taskManager.swimlanes.forEach((swimlane: any, index: number) => {
-        const swimlaneItem = document.createElement('div');
-        swimlaneItem.className = 'swimlane-item';
-        swimlaneItem.innerHTML = `
-          <div class="swimlane-color" style="background-color: ${swimlane.color}"></div>
-          <input type="text" class="swimlane-name-input" value="${swimlane.name}" data-lane-id="${swimlane.id}">
+      canvasInstance.taskManager.swimlanes.forEach((sl: any, i: number) => {
+        const item = document.createElement('div');
+        item.className = 'swimlane-item';
+        item.innerHTML = `
+          <div class="swimlane-color" style="background-color: ${sl.color}"></div>
+          <input type="text" class="swimlane-name-input" value="${sl.name}" data-lane-id="${sl.id}">
           <div class="swimlane-actions">
-            ${index > 0 ? `<button class="move-up-btn" data-lane-id="${swimlane.id}">⬆️</button>` : '<div style="width: 28px;"></div>'}
-            ${index < canvasInstance.taskManager.swimlanes.length - 1 ? `<button class="move-down-btn" data-lane-id="${swimlane.id}">⬇️</button>` : '<div style="width: 28px;"></div>'}
-            <button class="delete-lane-btn" data-lane-id="${swimlane.id}">🗑️</button>
+            ${i > 0 ? `<button class="move-up-btn" data-lane-id="${sl.id}">⬆️</button>` : '<div style="width:28px"></div>'}
+            ${i < canvasInstance.taskManager.swimlanes.length - 1 ? `<button class="move-down-btn" data-lane-id="${sl.id}">⬇️</button>` : '<div style="width:28px"></div>'}
+            <button class="delete-lane-btn" data-lane-id="${sl.id}">🗑️</button>
           </div>
         `;
-        swimlaneListContainer.appendChild(swimlaneItem);
+        container.appendChild(item);
       });
     }
-
-    // Add event listeners
     this.setupSwimlanesEventListeners(canvasInstance);
   }
 
   setupSwimlanesEventListeners(canvasInstance: any) {
-    const swimlaneListContainer = document.getElementById('sidebar-swimlane-list');
-    const addSwimlanesButton = document.getElementById('sidebar-add-swimlane');
-    const saveButton = document.getElementById('sidebar-save-swimlanes');
+    const container = document.getElementById('sidebar-swimlane-list');
+    const addBtn = document.getElementById('sidebar-add-swimlane');
+    const saveBtn = document.getElementById('sidebar-save-swimlanes');
+    if (!container || !addBtn || !saveBtn) return;
 
-    if (!swimlaneListContainer || !addSwimlanesButton || !saveButton) return;
-
-    // Add swimlane
-    addSwimlanesButton.onclick = () => {
-      const newItem = document.createElement('div');
-      newItem.className = 'swimlane-item';
-      const laneId = this.generateUUID();
-      const randomColor = this.getRandomHexColor();
-      
-      newItem.innerHTML = `
-        <div class="swimlane-color" style="background-color: ${randomColor}"></div>
-        <input type="text" class="swimlane-name-input" value="New Swimlane" data-lane-id="${laneId}">
+    addBtn.onclick = () => {
+      const item = document.createElement('div');
+      item.className = 'swimlane-item';
+      const id = this.generateUUID();
+      const color = this.getRandomHexColor();
+      item.innerHTML = `
+        <div class="swimlane-color" style="background-color: ${color}"></div>
+        <input type="text" class="swimlane-name-input" value="New Swimlane" data-lane-id="${id}">
         <div class="swimlane-actions">
-          <button class="move-up-btn" data-lane-id="${laneId}">⬆️</button>
-          <button class="move-down-btn" data-lane-id="${laneId}">⬇️</button>
-          <button class="delete-lane-btn" data-lane-id="${laneId}">🗑️</button>
+          <button class="move-up-btn" data-lane-id="${id}">⬆️</button>
+          <button class="move-down-btn" data-lane-id="${id}">⬇️</button>
+          <button class="delete-lane-btn" data-lane-id="${id}">🗑️</button>
         </div>
       `;
-      
-      swimlaneListContainer.appendChild(newItem);
-      
-      // Focus the new swimlane's input
-      const input = newItem.querySelector('input');
-      if (input) input.focus();
-      
-      // Re-bind event handlers for new buttons
+      container.appendChild(item);
+      item.querySelector('input')?.focus();
       this.bindSwimlaneMoveButtons(canvasInstance);
     };
-    
-    // Save swimlanes
-    saveButton.onclick = () => {
-      this.saveSwimlanesChanges(canvasInstance);
-    };
-    
-    // Delete, move up, move down buttons
+
+    saveBtn.onclick = () => this.saveSwimlanesChanges(canvasInstance);
     this.bindSwimlaneMoveButtons(canvasInstance);
   }
-  
-  bindSwimlaneMoveButtons(canvasInstance: any) {
-    const deleteButtons = document.querySelectorAll('.delete-lane-btn');
-    const moveUpButtons = document.querySelectorAll('.move-up-btn');
-    const moveDownButtons = document.querySelectorAll('.move-down-btn');
-    
-    // Delete handlers
-    deleteButtons.forEach(btn => {
-      (btn as HTMLButtonElement).addEventListener('click', (e: MouseEvent) => {
-        const button = e.target as HTMLElement;
-        const item = button.closest('.swimlane-item');
-        if (item && item.parentNode) {
-          item.parentNode.removeChild(item);
-        }
+
+  bindSwimlaneMoveButtons(_canvasInstance: any) {
+    document.querySelectorAll('.delete-lane-btn').forEach(btn => {
+      (btn as HTMLElement).addEventListener('click', (e) => {
+        const item = (e.target as HTMLElement).closest('.swimlane-item');
+        item?.parentNode?.removeChild(item);
       });
     });
-    
-    // Move up handlers
-    moveUpButtons.forEach(btn => {
-      (btn as HTMLButtonElement).addEventListener('click', (e: MouseEvent) => {
-        const button = e.target as HTMLElement;
-        const item = button.closest('.swimlane-item');
-        if (item && item.previousElementSibling) {
-          item.parentNode?.insertBefore(item, item.previousElementSibling);
-        }
+    document.querySelectorAll('.move-up-btn').forEach(btn => {
+      (btn as HTMLElement).addEventListener('click', (e) => {
+        const item = (e.target as HTMLElement).closest('.swimlane-item');
+        if (item?.previousElementSibling) item.parentNode?.insertBefore(item, item.previousElementSibling);
       });
     });
-    
-    // Move down handlers
-    moveDownButtons.forEach(btn => {
-      (btn as HTMLButtonElement).addEventListener('click', (e: MouseEvent) => {
-        const button = e.target as HTMLElement;
-        const item = button.closest('.swimlane-item');
-        if (item && item.nextElementSibling) {
-          item.parentNode?.insertBefore(item.nextElementSibling, item);
-        }
+    document.querySelectorAll('.move-down-btn').forEach(btn => {
+      (btn as HTMLElement).addEventListener('click', (e) => {
+        const item = (e.target as HTMLElement).closest('.swimlane-item');
+        if (item?.nextElementSibling) item.parentNode?.insertBefore(item.nextElementSibling, item);
       });
     });
   }
-  
+
   saveSwimlanesChanges(canvasInstance: any) {
-    const swimlaneInputs = document.querySelectorAll('.swimlane-name-input');
-    
-    // Get existing swimlanes and tasks from the task manager
-    if (!canvasInstance || !canvasInstance.taskManager) return;
-    
-    const existingSwimlanesMap = new Map();
-    canvasInstance.taskManager.swimlanes.forEach((swimlane: any) => {
-      existingSwimlanesMap.set(swimlane.id, swimlane);
-    });
-    
-    // Create updated swimlanes array
-    const updatedSwimlanes: any[] = [];
-    
-    swimlaneInputs.forEach(input => {
-      const inputEl = input as HTMLInputElement;
-      const laneId = inputEl.dataset.laneId || '';
-      const name = inputEl.value;
-      
-      // If swimlane exists, preserve its tasks, positions, and original hex color
-      if (existingSwimlanesMap.has(laneId)) {
-        const existingSwimlane = existingSwimlanesMap.get(laneId);
-        updatedSwimlanes.push({
-          id: laneId,
-          name: name,
-          // Preserve original color instead of getting from DOM
-          color: existingSwimlane.color,
-          // We'll recalculate y position after all swimlanes are collected
-          y: 0, // Temporary value, will be updated below
-          height: existingSwimlane.height || canvasInstance.taskManager.SWIMLANE_HEIGHT,
-          tasks: existingSwimlane.tasks || [],
-          taskPositions: existingSwimlane.taskPositions || new Map(),
-          wbsId: existingSwimlane.wbsId
-        });
+    const inputs = document.querySelectorAll('.swimlane-name-input');
+    if (!canvasInstance?.taskManager) return;
+
+    const existingMap = new Map<string, any>();
+    canvasInstance.taskManager.swimlanes.forEach((s: any) => existingMap.set(s.id, s));
+
+    const updated: any[] = [];
+    const laneSpacing = 20;
+
+    inputs.forEach(input => {
+      const el = input as HTMLInputElement;
+      const id = el.dataset.laneId || '';
+      const name = el.value;
+      const existing = existingMap.get(id);
+
+      if (existing) {
+        updated.push({ ...existing, name, y: 0 });
       } else {
-        // New swimlane - get color from DOM
-        const colorDiv = inputEl.closest('.swimlane-item')?.querySelector('.swimlane-color') as HTMLElement;
+        const colorDiv = el.closest('.swimlane-item')?.querySelector('.swimlane-color') as HTMLElement;
         let color = colorDiv?.style.backgroundColor || '#cccccc';
-        
-        // Convert RGB to hex if needed
         if (color.startsWith('rgb')) {
-          // Parse RGB values
-          const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (rgbMatch) {
-            const r = parseInt(rgbMatch[1]);
-            const g = parseInt(rgbMatch[2]);
-            const b = parseInt(rgbMatch[3]);
-            // Convert to hex
-            color = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-          }
+          const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (m) color = `#${parseInt(m[1]).toString(16).padStart(2,'0')}${parseInt(m[2]).toString(16).padStart(2,'0')}${parseInt(m[3]).toString(16).padStart(2,'0')}`;
         }
-        
-        updatedSwimlanes.push({
-          id: laneId,
-          name: name,
-          color: color,
-          // We'll recalculate y position after all swimlanes are collected
-          y: 0, // Temporary value, will be updated below
-          height: canvasInstance.taskManager.SWIMLANE_HEIGHT,
-          tasks: [],
-          taskPositions: new Map()
-        });
+        updated.push({ id, name, color, y: 0, height: canvasInstance.taskManager.SWIMLANE_HEIGHT, tasks: [], taskPositions: new Map() });
       }
     });
-    
-    // Now recalculate y positions based on the new order
-    const laneSpacing = 20; // Space between swimlanes
-    updatedSwimlanes.forEach((swimlane, index) => {
-      swimlane.y = index * (canvasInstance.taskManager.SWIMLANE_HEIGHT + laneSpacing);
-    });
-    
-    // Update swimlanes in task manager
-    if (canvasInstance && canvasInstance.taskManager) {
-      canvasInstance.taskManager.swimlanes.length = 0; // Clear the array without losing reference
-      updatedSwimlanes.forEach(swimlane => canvasInstance.taskManager.swimlanes.push(swimlane));
-      canvasInstance.render(); // Redraw the canvas
-    }
-    
-    // Close the sidebar
+
+    updated.forEach((s, i) => { s.y = i * (canvasInstance.taskManager.SWIMLANE_HEIGHT + laneSpacing); });
+
+    canvasInstance.taskManager.swimlanes.length = 0;
+    updated.forEach(s => canvasInstance.taskManager.swimlanes.push(s));
+    canvasInstance.render();
     this.hide();
   }
-  
+
+  // ---- JSON / Share ----
+
+  private async handleExportJSON() {
+    try {
+      const data = this.getCurrentProjectData();
+      if (!data) { alert('No project data to export.'); return; }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.name || 'dingplan-project'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Export failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  private async handleImportJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const project = JSON.parse(text);
+        if (this.canvas) {
+          this.loadProjectIntoCanvas(project);
+          alert(`Project "${project.name}" imported successfully!`);
+        }
+      } catch (error) {
+        alert('Import failed: ' + (error instanceof Error ? error.message : 'Invalid JSON file'));
+      }
+    };
+    input.click();
+  }
+
+  private async handleCopyShareLink() {
+    try {
+      const data = this.getCurrentProjectData();
+      if (!data) { alert('No project data to share.'); return; }
+      const base64 = btoa(encodeURIComponent(JSON.stringify(data)));
+      const url = `${window.location.origin}${window.location.pathname}#share=${base64}`;
+      await navigator.clipboard.writeText(url);
+      alert('Share link copied to clipboard!');
+    } catch (error) {
+      alert('Failed to create share link: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  }
+
+  private getCurrentProjectData() {
+    if (!this.canvas?.taskManager) return null;
+    const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+    return {
+      id: crypto.randomUUID(),
+      name: nameInput?.value || `DingPlan Project ${new Date().toLocaleDateString()}`,
+      tasks: this.canvas.taskManager.getAllTasks(),
+      swimlanes: this.canvas.taskManager.swimlanes || [],
+      settings: { areDependenciesVisible: true }
+    };
+  }
+
+  private loadProjectIntoCanvas(project: any) {
+    if (!this.canvas?.taskManager) return;
+    try {
+      const existing = this.canvas.taskManager.getAllTasks();
+      existing.forEach((t: any) => this.canvas.taskManager.removeTask(t.id));
+      if (project.swimlanes && Array.isArray(project.swimlanes)) {
+        this.canvas.taskManager.swimlanes = project.swimlanes;
+      }
+      if (project.tasks && Array.isArray(project.tasks)) {
+        project.tasks.forEach((td: any) => {
+          try {
+            this.canvas.taskManager.addTask({
+              id: td.id || crypto.randomUUID(),
+              name: td.name || 'Untitled Task',
+              startDate: new Date(td.startDate),
+              duration: td.duration || 1,
+              crewSize: td.crewSize || 1,
+              color: td.color || '#3B82F6',
+              tradeId: td.tradeId || '',
+              dependencies: td.dependencies || []
+            });
+          } catch (err) { console.error('Error loading task:', err); }
+        });
+      }
+      if (this.canvas.render) this.canvas.render();
+    } catch (error) { console.error('Error loading project:', error); }
+  }
+
+  // ---- Utilities ----
+
   private getRandomHexColor(): string {
     const letters = '0123456789ABCDEF';
     let color = '#';
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
+    for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
     return color;
   }
 
-  // Helper function for generating UUIDs
   private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
       const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
     });
   }
 
-  /**
-   * Get the sidebar element for other components to access
-   */
-  getElement(): HTMLElement {
-    return this.element;
-  }
-  
-  /**
-   * Add a tab to the sidebar if it doesn't already exist
-   * @param id Tab ID/identifier
-   * @param title Tab title for hover text
-   * @param iconSvg SVG content for the tab icon
-   */
+  getElement(): HTMLElement { return this.element; }
+
   public addSidebarTab(id: SidebarView, title: string, iconSvg: string): HTMLElement | null {
-    // Find the tabs container, or create it if it doesn't exist
-    let tabsContainer = this.element.querySelector('.sidebar-tabs');
-    if (!tabsContainer) {
-      tabsContainer = document.createElement('div');
-      tabsContainer.className = 'sidebar-tabs';
-      this.element.appendChild(tabsContainer);
+    let container = this.element.querySelector('.sidebar-tabs');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'sidebar-tabs';
+      this.element.appendChild(container);
     }
-    
-    // Check if the tab already exists
     let tab = this.element.querySelector(`.sidebar-tab[data-tab="${id}"]`) as HTMLElement;
     if (!tab) {
-      // Create the tab
       tab = document.createElement('div');
       tab.className = 'sidebar-tab';
       tab.dataset.tab = id;
       tab.title = title;
       tab.innerHTML = iconSvg;
-      
-      // Add it to the container
-      tabsContainer.appendChild(tab);
-      
-      // Add event listener
-      tab.addEventListener('click', () => {
-        this.show(id);
-      });
-      
-      console.log(`[Sidebar] Added tab: ${id}`);
+      container.appendChild(tab);
+      tab.addEventListener('click', () => this.show(id));
     }
-    
     return tab;
   }
-  
-  /**
-   * Check if the sidebar is initialized with tabs
-   */
+
   hasTabsContainer(): boolean {
-    const tabsContainer = this.element.querySelector('.sidebar-tabs');
-    return tabsContainer !== null;
+    return this.element.querySelector('.sidebar-tabs') !== null;
   }
-  
-  // JSON sharing handlers
-  private async handleExportJSON() {
-    try {
-      // Get current project data from canvas
-      const projectData = this.getCurrentProjectData();
-      if (!projectData) {
-        alert('No project data to export. Please add some tasks first.');
-        return;
-      }
-      
-      // Convert to JSON
-      const jsonString = JSON.stringify(projectData, null, 2);
-      
-      // Create and download file
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${projectData.name || 'dingplan-project'}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log('Project exported to JSON successfully');
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
-  
-  private async handleImportJSON() {
-    try {
-      // Create file input
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-        
-        try {
-          const text = await file.text();
-          const projectId = await importProjectFromJSON(text);
-          
-          // Load the imported project into the canvas
-          const project = await loadProject(projectId);
-          if (project && this.canvas) {
-            this.loadProjectIntoCanvas(project);
-            alert(`Project "${project.name}" imported successfully!`);
-          }
-        } catch (error) {
-          console.error('Import failed:', error);
-          alert('Import failed: ' + (error instanceof Error ? error.message : 'Invalid JSON file'));
-        }
-      };
-      
-      input.click();
-    } catch (error) {
-      console.error('Import failed:', error);
-      alert('Import failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
-  
-  private async handleCopyShareLink() {
-    try {
-      // Get current project data
-      const projectData = this.getCurrentProjectData();
-      if (!projectData) {
-        alert('No project data to share. Please add some tasks first.');
-        return;
-      }
-      
-      // Create share URL
-      const jsonString = JSON.stringify(projectData);
-      const base64Data = btoa(encodeURIComponent(jsonString));
-      const baseUrl = window.location.origin + window.location.pathname;
-      const shareUrl = `${baseUrl}#share=${base64Data}`;
-      
-      // Copy to clipboard
-      await navigator.clipboard.writeText(shareUrl);
-      alert('Share link copied to clipboard!');
-      
-      console.log('Share link created and copied to clipboard');
-    } catch (error) {
-      console.error('Share link creation failed:', error);
-      alert('Failed to create share link: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
-  
-  private getCurrentProjectData() {
-    if (!this.canvas || !this.canvas.taskManager) {
-      return null;
-    }
-    
-    // Get all tasks from the canvas
-    const tasks = this.canvas.taskManager.getAllTasks();
-    
-    // Get swimlanes
-    const swimlanes = this.canvas.taskManager.swimlanes || [];
-    
-    // Create project data structure
-    const projectData = {
-      id: crypto.randomUUID(), // Generate new ID for sharing
-      name: `DingPlan Project ${new Date().toLocaleDateString()}`,
-      tasks: tasks,
-      swimlanes: swimlanes,
-      settings: {
-        areDependenciesVisible: true // Default setting
-      }
-    };
-    
-    return projectData;
-  }
-  
-  private loadProjectIntoCanvas(project: any) {
-    if (!this.canvas || !this.canvas.taskManager) {
-      return;
-    }
-    
-    try {
-      // Clear existing tasks
-      const existingTasks = this.canvas.taskManager.getAllTasks();
-      existingTasks.forEach((task: any) => {
-        this.canvas.taskManager.removeTask(task.id);
-      });
-      
-      // Load swimlanes if they exist
-      if (project.swimlanes && Array.isArray(project.swimlanes)) {
-        this.canvas.taskManager.swimlanes = project.swimlanes;
-      }
-      
-      // Load tasks
-      if (project.tasks && Array.isArray(project.tasks)) {
-        project.tasks.forEach((taskData: any) => {
-          try {
-            this.canvas.taskManager.addTask({
-              id: taskData.id || crypto.randomUUID(),
-              name: taskData.name || 'Untitled Task',
-              startDate: new Date(taskData.startDate),
-              duration: taskData.duration || 1,
-              crewSize: taskData.crewSize || 1,
-              color: taskData.color || '#3B82F6',
-              tradeId: taskData.tradeId || '',
-              dependencies: taskData.dependencies || []
-            });
-          } catch (taskErr) {
-            console.error('Error loading task:', taskErr, taskData);
-          }
-        });
-      }
-      
-      // Re-render the canvas
-      if (this.canvas.render) {
-        this.canvas.render();
-      }
-      
-      console.log(`Loaded project with ${project.tasks?.length || 0} tasks`);
-    } catch (error) {
-      console.error('Error loading project into canvas:', error);
-    }
-  }
-} 
+}
