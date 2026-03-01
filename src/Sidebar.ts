@@ -447,7 +447,7 @@ export class Sidebar {
       <div class="sidebar">
         <div class="sidebar-header">
           <h2 class="sidebar-title">
-            <span class="view-icon">📋</span>
+            <img src="/logo.png" alt="DingPlan" style="height:28px;object-fit:contain;">
             <span class="view-title">Details</span>
           </h2>
           <button class="sidebar-close">×</button>
