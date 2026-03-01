@@ -86,3 +86,49 @@ export function duplicateProject(id: string, newName?: string): string | null {
   const newId = crypto.randomUUID();
   return saveProject({ ...project, id: newId, name: newName || `${project.name} (copy)` });
 }
+
+// === JSON Sharing ===
+
+export function exportProjectAsJSON(projectId: string): string | null {
+  const project = loadProject(projectId);
+  if (!project) return null;
+  return JSON.stringify(project, null, 2);
+}
+
+export function importProjectFromJSON(json: string): string {
+  const data = JSON.parse(json) as ProjectData;
+  data.id = crypto.randomUUID(); // new ID to avoid conflicts
+  return saveProject(data);
+}
+
+export function exportProjectAsURL(projectId: string): string | null {
+  const project = loadProject(projectId);
+  if (!project) return null;
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(project))));
+  return `${window.location.origin}${window.location.pathname}#share=${encoded}`;
+}
+
+export function importProjectFromURL(): string | null {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#share=')) return null;
+  try {
+    const encoded = hash.slice(7);
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const id = importProjectFromJSON(json);
+    window.location.hash = '';
+    return id;
+  } catch { return null; }
+}
+
+export function downloadProjectJSON(projectId: string): void {
+  const json = exportProjectAsJSON(projectId);
+  if (!json) return;
+  const project = loadProject(projectId);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${project?.name || 'project'}.dingplan.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
