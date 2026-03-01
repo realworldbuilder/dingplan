@@ -4,7 +4,7 @@ import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
 
-export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades' | 'auth';
+export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
 export class Sidebar {
   private width: number = 360;

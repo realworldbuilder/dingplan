@@ -3,14 +3,7 @@
  * A component that manages project saving, loading, and syncing with the server
  */
 
-import { 
-  saveProject, 
-  updateProject, 
-  loadProject, 
-  deleteProject, 
-  getUserProjects
-} from '../services/supabaseProjectService';
-import { onAuthStateChanged, isAuthenticatedSync } from '../services/supabaseAuthService';
+import { listProjects, saveProject, loadProject, deleteProject } from '../services/projectService';
 
 export class ProjectManager {
   private canvas: any; // Main canvas instance
@@ -48,8 +41,7 @@ export class ProjectManager {
       document.body.appendChild(this.sidebarContainer);
     }
     
-    // Subscribe to auth state changes
-    onAuthStateChanged(this.handleAuthStateChange.bind(this));
+    // Auth state changes removed - using local storage only
     
     // Also listen for auth-state-changed events from the React auth component
     document.addEventListener('auth-state-changed', (e: CustomEvent) => {
@@ -58,19 +50,7 @@ export class ProjectManager {
     });
   }
 
-  /**
-   * Handle authentication state changes
-   */
-  private handleAuthStateChange(state: { userId: string; authenticated: boolean }) {
-    console.log('[ProjectManager] Auth state changed:', state);
-    
-    // Refresh the projects list when auth state changes
-    if (this.isInitialized) {
-      this.refreshProjectsList();
-      
-      // Remove sign in/out notifications
-    }
-  }
+  // Authentication state change handling removed - using localStorage only
 
   /**
    * Getter for current project ID
@@ -1193,17 +1173,7 @@ export class ProjectManager {
     this.projectSidebar = leftSidebar;
     this.sidebarContainer = leftSidebar;
     
-    // Initialize the auth connector to render Clerk auth UI in the sidebar
-    if (typeof window !== 'undefined') {
-      // Import and initialize auth connector
-      import('../components/auth/AuthConnector').then(module => {
-        const authConnector = module.default;
-        console.log('[ProjectManager] Initializing auth connector');
-        authConnector.init();
-      }).catch(error => {
-        console.error('[ProjectManager] Error loading auth connector:', error);
-      });
-    }
+    // Auth connector removed - using localStorage only
     
     // Set up event listeners for the close button after the sidebar is added to the DOM
     const closeBtn = document.getElementById('close-projects-sidebar');
@@ -2092,7 +2062,7 @@ export class ProjectManager {
   }
 
   /**
-   * Load user projects from the server
+   * Load user projects from localStorage
    */
   async loadUserProjects() {
     const projectsList = document.getElementById('project-list');
@@ -2101,152 +2071,126 @@ export class ProjectManager {
     projectsList.innerHTML = '<div id="empty-projects-message">Loading your projects...</div>';
     
     try {
-      const response = await getUserProjects();
+      const projects = listProjects();
       
-      if (response.success && response.projects) {
-        projectsList.innerHTML = '';
-        
-        if (response.projects.length === 0) {
-          projectsList.innerHTML = '<div id="empty-projects-message">You don\'t have any saved projects yet.</div>';
-          return;
-        }
-        
-        // Sort projects by updated date (newest first)
-        const sortedProjects = [...response.projects].sort((a, b) => {
-          return new Date(b.updatedAt as Date).getTime() - new Date(a.updatedAt as Date).getTime();
-        });
-        
-        // Get today and this week dates for categorization
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const thisWeekStart = new Date(today);
-        thisWeekStart.setDate(today.getDate() - today.getDay()); // Start of current week (Sunday)
-        
-        const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      if (projects.length === 0) {
+        projectsList.innerHTML = '<div id="empty-projects-message">You don\'t have any saved projects yet.</div>';
+        return;
+      }
+      
+      projectsList.innerHTML = '';
+      
+      // Get today and this week dates for categorization
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const thisWeekStart = new Date(today);
+      thisWeekStart.setDate(today.getDate() - today.getDay());
+      
+      const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-        // Categorize projects
-        const todayProjects = [];
-        const thisWeekProjects = [];
-        const thisMonthProjects = [];
-        const olderProjects = [];
+      // Categorize projects
+      const todayProjects = [];
+      const thisWeekProjects = [];
+      const thisMonthProjects = [];
+      const olderProjects = [];
+      
+      for (const project of projects) {
+        const updatedDate = new Date(project.updatedAt);
         
-        for (const project of sortedProjects) {
-          const updatedDate = new Date(project.updatedAt as Date);
-          
-          if (updatedDate >= today) {
-            todayProjects.push(project);
-          } else if (updatedDate >= thisWeekStart) {
-            thisWeekProjects.push(project);
-          } else if (updatedDate >= thisMonthStart) {
-            thisMonthProjects.push(project);
-          } else {
-            olderProjects.push(project);
-          }
+        if (updatedDate >= today) {
+          todayProjects.push(project);
+        } else if (updatedDate >= thisWeekStart) {
+          thisWeekProjects.push(project);
+        } else if (updatedDate >= thisMonthStart) {
+          thisMonthProjects.push(project);
+        } else {
+          olderProjects.push(project);
         }
+      }
+      
+      // Helper function to create project items
+      const createProjectItem = (project) => {
+        const projectItem = document.createElement('div');
+        projectItem.className = 'project-item';
+        projectItem.dataset.id = project.id;
         
-        // Helper function to create project items
-        const createProjectItem = (project) => {
-          const projectItem = document.createElement('div');
-          projectItem.className = 'project-item';
-          projectItem.dataset.id = project.id;
-          
-          // Add a visual indicator for local-only projects
-          const localOnlyIndicator = project.isLocalOnly ? 
-            '<span class="local-indicator" title="Stored locally only">📱</span>' : '';
-          
-          projectItem.innerHTML = `
-            <div class="project-item-content">
-              <div class="project-name">${project.name} ${localOnlyIndicator}</div>
-              <div class="project-actions">
-                <button class="load-project" data-id="${project.id}" title="Load project">Open</button>
-                <button class="delete-project" data-id="${project.id}" title="Delete project">Delete</button>
-                ${project.isLocalOnly ? 
-                  `<button class="migrate-project" data-id="${project.id}" title="Save to server">Migrate</button>` : ''}
-              </div>
+        projectItem.innerHTML = `
+          <div class="project-item-content">
+            <div class="project-name">${project.name} <span class="local-indicator" title="Stored locally">📱</span></div>
+            <div class="project-actions">
+              <button class="load-project" data-id="${project.id}" title="Load project">Open</button>
+              <button class="delete-project" data-id="${project.id}" title="Delete project">Delete</button>
             </div>
-          `;
-          
-          // Load project when clicking the load button
-          const loadBtn = projectItem.querySelector('.load-project');
-          if (loadBtn) {
-            loadBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.loadProjectFromServer(projectId);
-              }
-            });
-          }
-          
-          // Delete project when clicking the delete button
-          const deleteBtn = projectItem.querySelector('.delete-project');
-          if (deleteBtn) {
-            deleteBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              if (projectId) {
-                this.deleteProjectFromServer(projectId);
-              }
-            });
-          }
-          
-          // Migrate project when clicking the migrate button
-          const migrateBtn = projectItem.querySelector('.migrate-project');
-          if (migrateBtn) {
-            migrateBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const projectId = (e.target as HTMLElement).dataset.id;
-              // With Supabase, local projects will be shown in the projects list
-              // and can be manually re-saved if needed
-            });
-          }
-          
-          return projectItem;
-        };
+          </div>
+        `;
         
-        // Add categories and projects
-        if (todayProjects.length > 0) {
-          const todayHeader = document.createElement('h3');
-          todayHeader.textContent = 'Today';
-          projectsList.appendChild(todayHeader);
-          
-          todayProjects.forEach(project => {
-            projectsList.appendChild(createProjectItem(project));
+        // Load project when clicking the load button
+        const loadBtn = projectItem.querySelector('.load-project');
+        if (loadBtn) {
+          loadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectId = (e.target as HTMLElement).dataset.id;
+            if (projectId) {
+              this.loadProjectFromServer(projectId);
+            }
           });
         }
         
-        if (thisWeekProjects.length > 0) {
-          const thisWeekHeader = document.createElement('h3');
-          thisWeekHeader.textContent = 'This week';
-          projectsList.appendChild(thisWeekHeader);
-          
-          thisWeekProjects.forEach(project => {
-            projectsList.appendChild(createProjectItem(project));
+        // Delete project when clicking the delete button
+        const deleteBtn = projectItem.querySelector('.delete-project');
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const projectId = (e.target as HTMLElement).dataset.id;
+            if (projectId) {
+              this.deleteProjectFromServer(projectId);
+            }
           });
         }
         
-        if (thisMonthProjects.length > 0) {
-          const thisMonthHeader = document.createElement('h3');
-          thisMonthHeader.textContent = 'This month';
-          projectsList.appendChild(thisMonthHeader);
-          
-          thisMonthProjects.forEach(project => {
-            projectsList.appendChild(createProjectItem(project));
-          });
-        }
+        return projectItem;
+      };
+      
+      // Add categories and projects
+      if (todayProjects.length > 0) {
+        const todayHeader = document.createElement('h3');
+        todayHeader.textContent = 'Today';
+        projectsList.appendChild(todayHeader);
         
-        if (olderProjects.length > 0) {
-          const olderHeader = document.createElement('h3');
-          olderHeader.textContent = 'Older';
-          projectsList.appendChild(olderHeader);
-          
-          olderProjects.forEach(project => {
-            projectsList.appendChild(createProjectItem(project));
-          });
-        }
-      } else {
-        projectsList.innerHTML = '<div id="empty-projects-message">Failed to load projects.</div>';
+        todayProjects.forEach(project => {
+          projectsList.appendChild(createProjectItem(project));
+        });
+      }
+      
+      if (thisWeekProjects.length > 0) {
+        const thisWeekHeader = document.createElement('h3');
+        thisWeekHeader.textContent = 'This week';
+        projectsList.appendChild(thisWeekHeader);
+        
+        thisWeekProjects.forEach(project => {
+          projectsList.appendChild(createProjectItem(project));
+        });
+      }
+      
+      if (thisMonthProjects.length > 0) {
+        const thisMonthHeader = document.createElement('h3');
+        thisMonthHeader.textContent = 'This month';
+        projectsList.appendChild(thisMonthHeader);
+        
+        thisMonthProjects.forEach(project => {
+          projectsList.appendChild(createProjectItem(project));
+        });
+      }
+      
+      if (olderProjects.length > 0) {
+        const olderHeader = document.createElement('h3');
+        olderHeader.textContent = 'Older';
+        projectsList.appendChild(olderHeader);
+        
+        olderProjects.forEach(project => {
+          projectsList.appendChild(createProjectItem(project));
+        });
       }
     } catch (error) {
       console.error('[ProjectManager] Error loading projects:', error);
@@ -2294,15 +2238,15 @@ export class ProjectManager {
         publicToggle: !!publicToggle
       });
       
-      if (!nameInput || !descInput || !publicToggle) {
-        console.error('[ProjectManager] Cannot save project - form elements not found');
-        this.showNotification('Cannot save project - form elements not found', 'error');
+      if (!nameInput) {
+        console.error('[ProjectManager] Cannot save project - name input not found');
+        this.showNotification('Cannot save project - name input not found', 'error');
         return false;
       }
       
       const projectName = nameInput.value.trim() || 'Untitled Project';
-      const projectDescription = descInput.value.trim();
-      const isPublic = publicToggle.checked;
+      const projectDescription = descInput?.value.trim() || '';
+      const isPublic = publicToggle?.checked || false;
       
       // Update project metadata
       this.projectName = projectName;
@@ -2318,66 +2262,36 @@ export class ProjectManager {
       // Show loading indicator
       this.showLoading('Saving project...');
       
-      // Prepare the result variable
-      let result;
+      // Create project data structure
+      const projectData = {
+        id: this.currentProjectId || '',
+        name: projectName,
+        tasks: canvasData,
+        settings: {
+          description: projectDescription,
+          isPublic,
+          tags: this.tags
+        }
+      };
       
-      // Update existing project or create a new one
-      if (this.currentProjectId) {
-        console.log(`[ProjectManager] Updating existing project: ${this.currentProjectId}`);
-        // Update existing project
-        result = await updateProject(
-          this.currentProjectId,
-          canvasData,
-          {
-            name: projectName,
-            description: projectDescription,
-            isPublic: isPublic,
-            tags: this.tags
-          }
-        );
-      } else {
-        console.log('[ProjectManager] Creating new project');
-        // Create new project
-        result = await saveProject(
-          canvasData,
-          {
-            name: projectName,
-            description: projectDescription,
-            isPublic: isPublic,
-            tags: this.tags
-          }
-        );
-      }
+      // Save to localStorage using the new service
+      const projectId = saveProject(projectData);
+      this.currentProjectId = projectId;
       
-      console.log('[ProjectManager] Save result:', result);
+      // Update the URL with the project ID
+      this.updateUrlWithProjectId(projectId);
       
       // Hide loading indicator
       this.hideLoading();
       
-      if (result.success) {
-        if (result.projectId) {
-          this.currentProjectId = result.projectId;
-          
-          // Update the URL with the new project ID
-          this.updateUrlWithProjectId(result.projectId);
-        }
-        
-        // Show success message
-        this.showNotification('Project saved successfully!');
-        
-        // Update project link in UI if public
-        if (this.isPublic) {
-          this.updateProjectLink();
-        }
-        
-        // Refresh projects list
-        this.refreshProjectsList();
-        
-        console.log('[ProjectManager] Project saved successfully');
-        return true;
-      } else {
-        throw new Error(result.error || 'Failed to save project');
-      }
+      // Show success message
+      this.showNotification('Project saved successfully!');
+      
+      // Refresh projects list
+      this.refreshProjectsList();
+      
+      console.log('[ProjectManager] Project saved successfully');
+      return true;
     } catch (error) {
       console.error('[ProjectManager] Error saving project:', error);
       this.hideLoading();
@@ -2491,24 +2405,20 @@ export class ProjectManager {
       // Show loading indicator
       this.showLoading('Loading project...');
       
-      // Load project from server
-      const response = await loadProject(projectId);
+      // Load project from localStorage
+      const projectData = loadProject(projectId);
       
-      // Handle error
-      if (!response.success || !response.project) {
+      if (!projectData) {
         this.hideLoading();
-        this.showNotification('Failed to load project: ' + (response.error || 'Unknown error'), 'error');
+        this.showNotification('Failed to load project: Project not found', 'error');
         return false;
       }
       
-      // Process project data
-      const projectData = response.project;
-      
       // Update project metadata
-      this.projectName = projectData.metadata.name || 'Untitled Project';
-      this.projectDescription = projectData.metadata.description || '';
-      this.isPublic = projectData.metadata.isPublic || false;
-      this.tags = projectData.metadata.tags || [];
+      this.projectName = projectData.name || 'Untitled Project';
+      this.projectDescription = projectData.settings?.description || '';
+      this.isPublic = projectData.settings?.isPublic || false;
+      this.tags = projectData.settings?.tags || [];
       
       // Update UI fields
       this.updateProjectFields();
@@ -2523,14 +2433,12 @@ export class ProjectManager {
       this.canvas.clearCanvas(); 
       
       // Apply project data to canvas if available
-      if (projectData.projectData) {
+      if (projectData.tasks) {
         try {
           // Apply tasks and swimlanes
-          if (projectData.projectData.tasks) {
-            console.log('[ProjectManager] Loading tasks:', projectData.projectData.tasks.length);
-            this.canvas.taskManager.importState(projectData.projectData);
-            this.canvas.render();
-          }
+          console.log('[ProjectManager] Loading tasks:', projectData.tasks.length || 0);
+          this.canvas.taskManager.importState(projectData);
+          this.canvas.render();
         } catch (dataErr) {
           console.error('[ProjectManager] Error applying project data:', dataErr);
           this.showNotification('Error applying project data', 'error');
@@ -2673,7 +2581,7 @@ export class ProjectManager {
   }
 
   /**
-   * Delete a project from the server
+   * Delete a project from localStorage
    */
   async deleteProjectFromServer(projectId: string) {
     if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
@@ -2681,9 +2589,9 @@ export class ProjectManager {
     }
     
     try {
-      const response = await deleteProject(projectId);
+      const success = deleteProject(projectId);
       
-      if (response.success) {
+      if (success) {
         this.showNotification('Project deleted successfully');
         
         // Clear current project if it's the one that was deleted
@@ -2694,7 +2602,7 @@ export class ProjectManager {
         // Refresh the projects list
         this.loadUserProjects();
       } else {
-        this.showNotification('Error deleting project: ' + response.error, 'error');
+        this.showNotification('Error deleting project', 'error');
       }
     } catch (error) {
       this.showNotification('Error deleting project: ' + (error as Error).message, 'error');

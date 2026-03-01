@@ -195,11 +195,7 @@ export class Canvas {
       this.render();
     });
     
-    // Listen for auth state changes to clear canvas
-    document.addEventListener('auth-state-changed', (e: CustomEvent) => {
-      console.log('Canvas received auth state change:', e.detail);
-      this.clearCanvas();
-    });
+    // Auth state change listener removed - using localStorage only
   }
   
   /**

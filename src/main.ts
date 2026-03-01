@@ -2,7 +2,7 @@ import { Canvas } from './Canvas';
 import { Composer } from './composer/Composer';
 import { initializeDiagnostics } from './diagnostic';
 import { generateUUID } from './utils';
-import authConnector from './components/auth/AuthConnector';
+// Auth connector import removed - using localStorage only
 
 // Declare the global window object to have our canvasApp property
 declare global {
@@ -148,11 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
       app.sidebar.initializeComposer?.(app);
       console.log('Composer initialized through sidebar.');
       
-      // Initialize auth connector after components are ready
-      setTimeout(() => {
-        console.log('Initializing auth connector with increased delay');
-        authConnector.init();
-      }, 3000); // Increased delay to ensure DOM is fully loaded
+      // Auth connector initialization removed - using localStorage only
     }
   }, 500);
   

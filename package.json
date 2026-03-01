@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@pixi/math": "^7.3.2",
-    "@supabase/supabase-js": "^2.38.0",
     "dotenv": "^16.3.1",
     "jspdf": "^3.0.0",
     "rbush": "^3.0.1",
