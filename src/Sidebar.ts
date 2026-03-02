@@ -819,7 +819,7 @@ export class Sidebar {
     }
   }
 
-  private toggleProjectsList() {
+  private async toggleProjectsList() {
     const section = this.leftPanel.querySelector('#projects-list-section') as HTMLElement;
     if (!section) return;
     const isVisible = section.style.display !== 'none';
@@ -828,7 +828,7 @@ export class Sidebar {
       return;
     }
     // Populate list
-    const projects = listProjects();
+    const projects = await listProjects();
     const listEl = this.leftPanel.querySelector('#projects-list') as HTMLElement;
     const currentId = localStorage.getItem('dingplan_current_project_id');
     if (projects.length === 0) {
@@ -842,11 +842,11 @@ export class Sidebar {
       `).join('');
       // Click to load project
       listEl.querySelectorAll('.project-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
           const id = (item as HTMLElement).dataset.projectId;
           if (!id) return;
           if (window.canvasApp) window.canvasApp.saveToLocalStorage();
-          const project = loadProject(id);
+          const project = await loadProject(id);
           if (project && window.canvasApp && window.canvasApp.taskManager) {
             const tasks = window.canvasApp.taskManager.getAllTasks();
             tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));

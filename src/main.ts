@@ -216,7 +216,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
           
           if (projectData.swimlanes && Array.isArray(projectData.swimlanes)) {
-            app.taskManager.swimlanes = projectData.swimlanes;
+            projectData.swimlanes.forEach((sl: any) => {
+              app.taskManager.addSwimlane(sl.id || sl.name, sl.name, sl.color || '#3B82F6');
+            });
           }
           
           if (projectData.tasks && Array.isArray(projectData.tasks)) {

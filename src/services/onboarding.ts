@@ -122,8 +122,10 @@ export function createWelcomeProject(canvas: any): void {
       canvas.taskManager.removeTask(task.id);
     });
 
-    // Set swimlanes
-    canvas.taskManager.swimlanes = swimlanes;
+    // Add swimlanes
+    swimlanes.forEach(sl => {
+      canvas.taskManager.addSwimlane(sl.id, sl.name, sl.color);
+    });
 
     // Add tasks
     tasks.forEach(task => {
