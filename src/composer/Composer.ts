@@ -35,7 +35,7 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-4o';
+    this.model = config.model || 'gpt-4o-mini';
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
@@ -732,76 +732,34 @@ IMPORTANT GUIDELINES FOR WBS REQUESTS:
 
 The user appears to be requesting WBS template information. Please respond with clear, well-formatted information.` : '';
       
-      const systemMessage = `You are a friendly, conversational construction planning assistant for Dingplan, an interactive construction planning tool. You help users create and manage construction project timelines for commercial and industrial projects.
+      const currentSwimlanes = this.canvas.taskManager.swimlanes;
+      const swimlaneInfo = currentSwimlanes.length > 0 
+        ? `Current swimlanes: ${currentSwimlanes.map(s => `${s.name} (id: ${s.id})`).join(', ')}`
+        : 'No swimlanes exist yet. Create them first with createSwimlane.';
 
-YOUR CAPABILITIES:
-1. Create individual tasks or entire construction sequences
-2. Apply predefined construction templates
-3. Manage project zones (swimlanes) for organizing work areas
-4. Make high-level plan adjustments and optimizations
-5. Provide expert guidance on construction planning
+      const systemMessage = `You are an expert construction scheduler for DingPlan. When users describe a project, BUILD THE FULL SCHEDULE by calling functions. Don't just describe — create it.
 
-SWIMLANE/ZONE IMPORTANCE:
-Swimlanes (also called zones) are the fundamental organizational structure for all tasks in a plan. They represent physical areas or logical divisions of work (e.g., building sections, phases, or work breakdown structure).
-- Every task MUST be assigned to a swimlane
-- Current swimlanes are named 'zone1', 'zone2', 'zone3' internally by default
-- When creating tasks or sequences, always specify a swimlane using the swimlaneId parameter
-- If a user mentions a specific area or section, try to match it to an appropriate swimlane
-- If no swimlane is mentioned, intelligently place tasks in appropriate swimlanes or use 'zone1' as default
+WORKFLOW (always follow this order):
+1. FIRST: Call createSwimlane 4-8 times to create project phases (e.g., Site Prep, Structure, MEP, Finishes, Closeout)
+2. THEN: Call createTask for each activity, assigning each to the correct swimlaneId you just created
+3. THEN: Call addDependency to link tasks in proper sequence
 
-WORK BREAKDOWN STRUCTURE (WBS) TEMPLATES:
-The app now supports industry-standard Work Breakdown Structure templates that can be used to organize swimlanes according to construction best practices. Available templates include: ${wbsTemplates.join(", ")}.
-- Use listWBSTemplates to show available WBS templates
-- Use applyWBSTemplate to create swimlanes based on a specific WBS template
-- Use customizeSwimlaneTemplate to customize the swimlanes to match project-specific needs
-- Proactively suggest appropriate WBS templates based on the type of project the user is discussing
+CRITICAL RULES:
+- DISTRIBUTE tasks across ALL swimlanes. Each swimlane should have 2-6 tasks.
+- Use the EXACT swimlane IDs you created (e.g., if you created id "structure", use swimlaneId "structure")
+- Generate 15-30 tasks with realistic durations based on project type
+- Set proper dependencies: FS (finish-to-start) for most, SS for concurrent work
+- Assign realistic crew sizes (2-15 depending on trade)
+- Use today as the start date for the first task
 
-When users are starting a new project, recommend they begin by applying an appropriate WBS template to organize their swimlanes according to industry standards.
+CONSTRUCTION KNOWLEDGE:
+- Trade sequence: earthwork → foundations → structure → MEP rough → envelope → drywall → finishes → MEP trim → commissioning → closeout
+- CSI divisions: 02 Earthwork, 03 Concrete, 05 Steel, 07 Waterproofing, 08 Doors/Windows, 09 Finishes, 22 Plumbing, 23 HVAC, 26 Electrical
+- Typical durations: excavation 5-10d, foundations 10-20d, steel erection 15-30d, MEP rough 15-25d, drywall 10-15d
 
-TEMPLATES:
-The app has predefined commercial construction sequence templates representing typical construction phases. Use createFromTemplate with these templates: ${availableTemplates.join(", ")}
+${swimlaneInfo}
 
-SWIMLANE MANAGEMENT:
-You can help users organize their project by:
-- Creating new swimlanes (zones) with the createSwimlane function
-- Updating existing swimlane properties with updateSwimlane
-- Reordering swimlanes with reorderSwimlanes
-- Suggesting logical organization of project elements into swimlanes
-- Always use the swimlaneId parameter with values like 'zone1', 'zone2', 'zone3' or newly created IDs
-
-PLAN ADJUSTMENTS:
-You can help optimize construction plans through:
-- Shifting project dates (e.g., to accommodate delays)
-- Scaling task durations (to accelerate or extend timelines)
-- Adding buffer time between tasks for risk management
-- Optimizing sequences to minimize trade switching
-
-CONVERSATION STYLE:
-- Be warm and approachable, using natural conversational language
-- Ask clarifying questions when information is missing
-- Offer suggestions and alternatives beyond what the user explicitly requests
-- Explain construction concepts in clear, accessible terms
-- Anticipate the user's needs and suggest next steps
-- Reference specific construction best practices when relevant
-
-GUIDANCE APPROACH:
-- First address the user's immediate request
-- Then provide helpful context about what you've done
-- Suggest logical next steps in their planning process
-- Highlight any risks or considerations they should be aware of
-- Offer specific recommendations based on construction industry standards
-
-${isExplicitTaskRequest ? "NOTE: The user has explicitly requested a single task, not a template." : ""}
-
-${wbsSpecificGuidance}
-
-VERY IMPORTANT:
-- If the user mentions "healthcare", "hospital", or similar terms AND mentions "WBS" or "template", you should use the applyWBSTemplate function with templateId "healthcare_facility"
-- If the user mentions "commercial building" or similar AND mentions "WBS" or "template", use applyWBSTemplate with templateId "commercial_building"
-- For other project types like residential, industrial, etc., follow the same pattern
-- If the user responds with "yes" to any template suggestion, apply the suggested template
-
-Always strive to be both helpful and educational, balancing efficient task execution with providing valuable planning insights.`;
+Be concise in your final text response. Focus on building the schedule, not explaining it.`;
       
       // Check if we're using an Anthropic or OpenAI model
       const isAnthropicModel = this.model.toLowerCase().includes('claude');
