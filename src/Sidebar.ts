@@ -108,7 +108,7 @@ export class Sidebar {
           <div style="padding: 0 16px 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Schedule</div>
           <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
             <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
-            <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
+            <button class="left-nav-btn" data-action="edit-swimlanes">🏊 Swimlanes</button>
             <button class="left-nav-btn" data-action="manage-trades">🛠️ Trades</button>
             <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
             <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
@@ -233,7 +233,7 @@ export class Sidebar {
     // Create floating action buttons
     const actions = [
       { emoji: '➕', action: 'add-task', needsPanel: true },
-      { emoji: '🏗️', action: 'edit-swimlanes', needsPanel: true },
+      { emoji: '🏊', action: 'edit-swimlanes', needsPanel: true },
       { emoji: '🛠️', action: 'manage-trades', needsPanel: true },
       { emoji: '📅', action: 'go-to-today', needsPanel: false },
       { emoji: '🔗', action: 'toggle-deps', needsPanel: false },
