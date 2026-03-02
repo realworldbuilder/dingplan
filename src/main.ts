@@ -3,6 +3,7 @@ import { generateUUID } from './utils';
 import { authService } from './services/authService';
 import { authUI } from './services/authUI';
 import { importProjectFromURL } from './services/projectService';
+import { createWelcomeProject } from './services/onboarding';
 
 declare global {
   interface Window {
@@ -12,11 +13,74 @@ declare global {
 }
 
 const LEFT_PANEL_WIDTH = 260;
+const TOOLBAR_HEIGHT = 48;
+
+function initializeToolbar() {
+  // Update project name display when project name changes
+  const updateProjectName = () => {
+    const projectName = localStorage.getItem('dingplan-project-name') || 'My Project';
+    const nameDisplay = document.getElementById('project-name-display');
+    if (nameDisplay) nameDisplay.textContent = projectName;
+  };
+  
+  // Initialize project name display
+  updateProjectName();
+  
+  // Listen for project name changes
+  const nameInput = document.querySelector('#left-project-name') as HTMLInputElement;
+  if (nameInput) {
+    nameInput.addEventListener('input', updateProjectName);
+  }
+  
+  // Update toolbar user section based on auth state
+  const updateUserSection = () => {
+    const userSection = document.getElementById('toolbar-user-section');
+    if (!userSection) return;
+    
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      userSection.innerHTML = `
+        <div class="toolbar-user-info">
+          <span class="toolbar-user-email">${currentUser.email}</span>
+          <button class="toolbar-sign-out" id="toolbar-sign-out-btn">Sign Out</button>
+        </div>
+      `;
+      
+      const signOutBtn = document.getElementById('toolbar-sign-out-btn');
+      if (signOutBtn) {
+        signOutBtn.addEventListener('click', () => {
+          authService.signOut();
+          updateUserSection();
+        });
+      }
+    } else {
+      userSection.innerHTML = `
+        <button class="toolbar-sign-in" id="toolbar-sign-in-btn">Sign In</button>
+      `;
+      
+      const signInBtn = document.getElementById('toolbar-sign-in-btn');
+      if (signInBtn) {
+        signInBtn.addEventListener('click', () => {
+          authUI.show();
+        });
+      }
+    }
+  };
+  
+  // Initialize user section
+  updateUserSection();
+  
+  // Listen for auth state changes
+  authService.onAuthStateChange(updateUserSection);
+  
+  return { updateProjectName, updateUserSection };
+}
 
 function updateCanvasSize(canvasElement: HTMLCanvasElement, app: any, panelOpen: boolean) {
   const offset = panelOpen ? LEFT_PANEL_WIDTH : 0;
+  const TOOLBAR_HEIGHT = 48;
   canvasElement.width = window.innerWidth - offset;
-  canvasElement.height = window.innerHeight;
+  canvasElement.height = window.innerHeight - TOOLBAR_HEIGHT;
   if (panelOpen) {
     canvasElement.classList.add('panel-open');
   } else {
@@ -38,13 +102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize auth UI now that DOM is ready
   authUI.init();
   
-  // Show auth modal only if there's no current user and no imported project
-  const currentUser = authService.getCurrentUser();
-  if (!currentUser && !localStorage.getItem('dingplan_skip_auth')) {
-    setTimeout(() => {
-      authUI.show();
-    }, 1000);
-  }
+  // Auth modal will only show when user explicitly clicks "Sign In"
+  // No auto-show on first visit
 
   const canvasElement = document.getElementById('canvas') as HTMLCanvasElement;
   if (!canvasElement) {
@@ -54,8 +113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   let leftPanelOpen = false;
   
+  // Initialize toolbar
+  const toolbarControls = initializeToolbar();
+  
   canvasElement.width = window.innerWidth;
-  canvasElement.height = window.innerHeight;
+  canvasElement.height = window.innerHeight - TOOLBAR_HEIGHT;
   canvasElement.style.cursor = 'grab';
 
   const startDate = new Date();
@@ -71,6 +133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   window.canvasApp = app;
   
+  // Load welcome project for first-time users
+  createWelcomeProject(app);
+  
   // Wire up left panel toggle
   const toggleBtn = document.getElementById('left-panel-toggle');
   if (toggleBtn) {
@@ -78,10 +143,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       leftPanelOpen = !leftPanelOpen;
       if (leftPanelOpen) {
         app.sidebar.showLeftPanel();
-        toggleBtn.style.left = `${LEFT_PANEL_WIDTH + 12}px`;
       } else {
         app.sidebar.hideLeftPanel();
-        toggleBtn.style.left = '12px';
       }
       updateCanvasSize(canvasElement, app, leftPanelOpen);
     });
@@ -91,7 +154,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   (window as any).__leftPanelOpen = () => leftPanelOpen;
   (window as any).__setLeftPanelOpen = (open: boolean) => {
     leftPanelOpen = open;
-    if (toggleBtn) toggleBtn.style.left = open ? `${LEFT_PANEL_WIDTH + 12}px` : '12px';
     updateCanvasSize(canvasElement, app, leftPanelOpen);
   };
   

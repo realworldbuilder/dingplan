@@ -7,6 +7,8 @@ import { authService } from './services/authService';
 import { 
   loadProject, listProjects, saveProject, deleteProject, downloadProjectJSON
 } from './services/projectService';
+import { WBS_TEMPLATES } from './composer/WBSTemplates';
+import { generateUUID } from './utils';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
 
@@ -46,9 +48,15 @@ export class Sidebar {
     document.body.appendChild(this.element);
 
     this.setupEventListeners();
+    this.updateStatusBanner();
     
     this.trades.forEach(trade => {
       this.tradeFilters.set(trade.id, true);
+    });
+    
+    // Listen for auth state changes to update banner
+    authService.onAuthStateChange(() => {
+      this.updateStatusBanner();
     });
   }
 
@@ -68,8 +76,8 @@ export class Sidebar {
       </div>
 
       <!-- Status banner -->
-      <div style="padding: 8px 16px; background: #f0fdf4; border-bottom: 1px solid #dcfce7; font-size: 12px; color: #166534; display: flex; align-items: center; gap: 6px;">
-        <span>💾</span> <span>Saves to your browser — no account needed</span>
+      <div id="sidebar-status-banner" style="padding: 8px 16px; border-bottom: 1px solid #dcfce7; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+        <!-- Will be updated dynamically based on auth state -->
       </div>
 
       <!-- Project section -->
@@ -653,21 +661,143 @@ export class Sidebar {
   }
 
   private handleNewProject() {
-    const name = prompt('New project name:');
+    this.showTemplatePickerModal();
+  }
+
+  private showTemplatePickerModal() {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.8); display: flex;
+      align-items: center; justify-content: center; z-index: 10000;
+    `;
+
+    // Create modal content
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: #1a1a1a; border-radius: 12px; padding: 32px;
+      width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    `;
+
+    content.innerHTML = `
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="color: white; margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">Choose a Template</h2>
+        <p style="color: #888; margin: 0; font-size: 14px;">Start with a template or create a blank project</p>
+      </div>
+      
+      <div id="template-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+        <!-- Blank project card -->
+        <div class="template-card blank-project" data-template="blank" style="
+          background: #2a2a2a; border: 2px solid #333; border-radius: 10px;
+          padding: 20px; cursor: pointer; transition: all 0.2s;
+        ">
+          <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">📋 Blank Project</h3>
+          <p style="color: #888; margin: 0; font-size: 13px; line-height: 1.4;">Start with an empty canvas and build your schedule from scratch</p>
+        </div>
+        
+        ${WBS_TEMPLATES.map(template => `
+          <div class="template-card" data-template="${template.id}" style="
+            background: #1a1a1a; border: 2px solid transparent; border-radius: 10px;
+            padding: 20px; cursor: pointer; transition: all 0.2s;
+          ">
+            <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">${template.name}</h3>
+            <p style="color: #888; margin: 0 0 12px 0; font-size: 13px; line-height: 1.4;">${template.description}</p>
+            <div style="color: #666; font-size: 12px;">${template.categories.length} swimlanes</div>
+          </div>
+        `).join('')}
+      </div>
+      
+      <div style="text-align: center;">
+        <button id="template-cancel" style="
+          background: #333; border: none; color: white; padding: 10px 20px;
+          border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit;
+        ">Cancel</button>
+      </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    // Add hover effects
+    const style = document.createElement('style');
+    style.textContent = `
+      .template-card:hover {
+        border-color: #0066cc !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(0, 102, 204, 0.2);
+      }
+      .template-card.blank-project:hover {
+        border-color: #22c55e !important;
+        box-shadow: 0 4px 20px rgba(34, 197, 94, 0.2);
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Event listeners
+    content.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const templateId = (card as HTMLElement).dataset.template;
+        if (templateId) {
+          this.createProjectFromTemplate(templateId);
+          document.body.removeChild(modal);
+          document.head.removeChild(style);
+        }
+      });
+    });
+
+    const cancelBtn = content.querySelector('#template-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        document.head.removeChild(style);
+      });
+    }
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+        document.head.removeChild(style);
+      }
+    });
+  }
+
+  private createProjectFromTemplate(templateId: string) {
+    const name = prompt('Project name:');
     if (!name) return;
+
     // Save current project first
     if (window.canvasApp) window.canvasApp.saveToLocalStorage();
+
     // Clear canvas
     if (window.canvasApp && window.canvasApp.taskManager) {
       const tasks = window.canvasApp.taskManager.getAllTasks();
       tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
       window.canvasApp.render();
     }
-    // Update name
+
+    // Update project name
     const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
     if (nameInput) nameInput.value = name;
     localStorage.setItem('dingplan-project-name', name);
     localStorage.removeItem('dingplan_current_project_id');
+
+    // Create swimlanes from template
+    if (templateId !== 'blank' && window.canvasApp && window.canvasApp.taskManager) {
+      const template = WBS_TEMPLATES.find(t => t.id === templateId);
+      if (template) {
+        const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
+        const swimlanes = template.categories.map((category, index) => ({
+          id: generateUUID(),
+          name: category,
+          color: colors[index % colors.length]
+        }));
+        window.canvasApp.taskManager.swimlanes = swimlanes;
+        window.canvasApp.render();
+      }
+    }
   }
 
   private handleDeleteProject() {
@@ -861,6 +991,34 @@ export class Sidebar {
   }
 
   isLeftPanelOpen(): boolean { return this.leftPanelVisible; }
+
+  private updateStatusBanner() {
+    const banner = this.leftPanel.querySelector('#sidebar-status-banner');
+    if (!banner) return;
+
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      banner.innerHTML = '<span>☁️</span> <span>Synced to cloud</span>';
+      banner.style.background = '#f0fdf4';
+      banner.style.color = '#166534';
+    } else {
+      banner.innerHTML = `
+        <span>💾</span> 
+        <span>Saves to your browser — <span id="sidebar-sign-in-link" style="color: #3b82f6; cursor: pointer; text-decoration: underline;">sign in to sync</span></span>
+      `;
+      banner.style.background = '#fef3c7';
+      banner.style.color = '#92400e';
+      
+      // Wire up the sign in link
+      const signInLink = banner.querySelector('#sidebar-sign-in-link');
+      if (signInLink) {
+        signInLink.addEventListener('click', () => {
+          const authUI = (window as any).authUI;
+          if (authUI) authUI.show();
+        });
+      }
+    }
+  }
 
   getWidth(): number { return RIGHT_PANEL_WIDTH; }
   isOpen(): boolean { return this.isVisible; }

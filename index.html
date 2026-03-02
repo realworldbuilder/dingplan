@@ -20,8 +20,9 @@
       canvas {
         display: block;
         position: absolute;
-        top: 0;
+        top: 48px;
         left: 0;
+        height: calc(100vh - 48px);
         z-index: 1;
         pointer-events: auto;
         transition: left 0.3s ease, width 0.3s ease;
@@ -37,37 +38,8 @@
         height: 100%;
         z-index: 100;
       }
-      #left-panel-toggle {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        z-index: 200;
-        height: 44px;
-        padding: 0 14px;
-        border: none;
-        border-radius: 10px;
-        background: #1a1a1a;
-        color: white;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 600;
-        transition: all 0.2s ease, left 0.3s ease;
-      }
       #left-panel-toggle:hover {
-        background: #333;
-        transform: scale(1.02);
-      }
-      #left-panel-toggle img {
-        height: 22px;
-        object-fit: contain;
-      }
-      #left-panel-toggle .menu-icon {
-        font-size: 16px;
+        background: #e5e7eb;
       }
       
       /* Auth Modal Styles */
@@ -245,78 +217,108 @@
         color: #aaa;
       }
       
-      /* User Info Bar */
-      #user-info {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        display: none;
-        align-items: center;
-        gap: 12px;
+      /* Toolbar User Section */
+      .toolbar-sign-in {
         background: #1a1a1a;
-        padding: 8px 16px;
-        border-radius: 8px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-        z-index: 1000;
-      }
-      
-      #user-info.show {
-        display: flex;
-      }
-      
-      #user-email {
-        color: white;
-        font-size: 14px;
-      }
-      
-      #sign-out-btn {
-        background: #333;
         border: none;
         color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      
+      .toolbar-sign-in:hover {
+        background: #333;
+      }
+      
+      .toolbar-user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      
+      .toolbar-user-email {
+        color: #374151;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .toolbar-sign-out {
+        background: #f3f4f6;
+        border: none;
+        color: #374151;
         padding: 6px 12px;
         border-radius: 6px;
         font-size: 12px;
         cursor: pointer;
         font-family: inherit;
+        transition: all 0.2s;
       }
       
-      #sign-out-btn:hover {
-        background: #444;
+      .toolbar-sign-out:hover {
+        background: #e5e7eb;
       }
     </style>
   </head>
   <body>
-    <button id="left-panel-toggle" title="Toggle Menu"><span class="menu-icon">☰</span></button>
-    <div id="left-panel"></div>
-    <canvas id="canvas"></canvas>
-    
-    <!-- User Info Bar -->
-    <div id="user-info">
-      <span id="user-email"></span>
-      <button id="sign-out-btn">Sign Out</button>
+    <!-- Top Toolbar -->
+    <div id="top-toolbar" style="
+      position: fixed; top: 0; left: 0; right: 0; height: 48px;
+      background: white; border-bottom: 1px solid #e5e7eb; z-index: 1000;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    ">
+      <!-- Left section -->
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button id="left-panel-toggle" title="Toggle Menu" style="
+          height: 36px; padding: 0 12px; border: none; border-radius: 6px;
+          background: #f3f4f6; color: #374151; cursor: pointer;
+          display: flex; align-items: center; gap: 6px; font-family: inherit;
+          font-size: 14px; font-weight: 500; transition: all 0.2s ease;
+        ">
+          <span class="menu-icon">☰</span>
+        </button>
+        <span id="project-name-display" style="
+          color: #1a1a1a; font-size: 16px; font-weight: 600; 
+          max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        ">My Project</span>
+      </div>
+      
+      <!-- Right section -->
+      <div id="toolbar-user-section">
+        <!-- Will be populated by JavaScript based on auth state -->
+      </div>
     </div>
+    
+    <div id="left-panel"></div>
+    <canvas id="canvas" style="top: 48px; height: calc(100vh - 48px);"></canvas>
     
     <!-- Auth Modal -->
     <div id="auth-modal">
       <div class="auth-content">
         <div class="auth-header">
-          <h2 id="auth-title">Welcome to DingPlan</h2>
-          <p id="auth-subtitle">Sign in to save your projects to the cloud</p>
+          <img src="/logo.png" alt="DingPlan" style="width: 80px; height: 80px; object-fit: contain; margin: 0 auto 16px; display: block;">
+          <h2 id="auth-title">Save &amp; sync your schedules</h2>
+          <p id="auth-subtitle">Access your projects from any device</p>
         </div>
         
         <div id="auth-error" class="auth-error" style="display: none;"></div>
         
+        <button id="auth-google" class="auth-btn auth-btn-google" style="width: 100%; padding: 16px; font-size: 16px; font-weight: 600; margin-bottom: 16px;">Sign in with Google</button>
+        
+        <div class="auth-divider">
+          <span>or use email</span>
+        </div>
+        
         <form id="auth-form" class="auth-form">
           <input type="email" id="auth-email" placeholder="Email address" required>
           <input type="password" id="auth-password" placeholder="Password" required>
-          <button type="submit" id="auth-submit" class="auth-btn auth-btn-primary">Sign In</button>
+          <button type="submit" id="auth-submit" class="auth-btn auth-btn-secondary">Sign In with Email</button>
         </form>
-        
-        <div class="auth-divider">
-          <span>or</span>
-        </div>
-        
-        <button id="auth-google" class="auth-btn auth-btn-google">Sign in with Google</button>
         
         <div class="auth-toggle">
           <span id="auth-toggle-text">Don't have an account?</span>
@@ -324,7 +326,11 @@
         </div>
         
         <div class="auth-skip">
-          <button type="button" id="auth-skip-btn">Continue without account</button>
+          <button type="button" id="auth-skip-btn" style="
+            background: none; border: none; color: #0066cc; cursor: pointer; 
+            font-size: 16px; text-decoration: underline; font-family: inherit;
+            font-weight: 500; padding: 8px;
+          ">Continue without account</button>
         </div>
       </div>
     </div>
