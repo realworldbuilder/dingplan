@@ -69,12 +69,266 @@
       #left-panel-toggle .menu-icon {
         font-size: 16px;
       }
+      
+      /* Auth Modal Styles */
+      #auth-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      }
+      
+      #auth-modal.show {
+        display: flex;
+      }
+      
+      .auth-content {
+        background: #1a1a1a;
+        border-radius: 12px;
+        padding: 32px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      }
+      
+      .auth-header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+      
+      .auth-header h2 {
+        color: white;
+        margin: 0 0 8px 0;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      
+      .auth-header p {
+        color: #888;
+        margin: 0;
+        font-size: 14px;
+      }
+      
+      .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      
+      .auth-form input {
+        padding: 12px 16px;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background: #2a2a2a;
+        color: white;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      
+      .auth-form input:focus {
+        outline: none;
+        border-color: #0066cc;
+      }
+      
+      .auth-form input::placeholder {
+        color: #666;
+      }
+      
+      .auth-btn {
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      
+      .auth-btn-primary {
+        background: #0066cc;
+        color: white;
+      }
+      
+      .auth-btn-primary:hover {
+        background: #0056b3;
+      }
+      
+      .auth-btn-secondary {
+        background: #333;
+        color: white;
+      }
+      
+      .auth-btn-secondary:hover {
+        background: #444;
+      }
+      
+      .auth-btn-google {
+        background: white;
+        color: #333;
+        border: 1px solid #ddd;
+      }
+      
+      .auth-btn-google:hover {
+        background: #f5f5f5;
+      }
+      
+      .auth-divider {
+        display: flex;
+        align-items: center;
+        margin: 16px 0;
+        color: #666;
+        font-size: 14px;
+      }
+      
+      .auth-divider::before,
+      .auth-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #333;
+      }
+      
+      .auth-divider span {
+        padding: 0 16px;
+      }
+      
+      .auth-toggle {
+        text-align: center;
+        margin-top: 16px;
+        color: #888;
+        font-size: 14px;
+      }
+      
+      .auth-toggle button {
+        background: none;
+        border: none;
+        color: #0066cc;
+        cursor: pointer;
+        text-decoration: underline;
+        font-family: inherit;
+      }
+      
+      .auth-error {
+        background: #ff4444;
+        color: white;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+      
+      .auth-skip {
+        text-align: center;
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #333;
+      }
+      
+      .auth-skip button {
+        background: none;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        font-size: 14px;
+        text-decoration: underline;
+        font-family: inherit;
+      }
+      
+      .auth-skip button:hover {
+        color: #aaa;
+      }
+      
+      /* User Info Bar */
+      #user-info {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        display: none;
+        align-items: center;
+        gap: 12px;
+        background: #1a1a1a;
+        padding: 8px 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+        z-index: 1000;
+      }
+      
+      #user-info.show {
+        display: flex;
+      }
+      
+      #user-email {
+        color: white;
+        font-size: 14px;
+      }
+      
+      #sign-out-btn {
+        background: #333;
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      
+      #sign-out-btn:hover {
+        background: #444;
+      }
     </style>
   </head>
   <body>
     <button id="left-panel-toggle" title="Toggle Menu"><span class="menu-icon">☰</span> DingPlan</button>
     <div id="left-panel"></div>
     <canvas id="canvas"></canvas>
+    
+    <!-- User Info Bar -->
+    <div id="user-info">
+      <span id="user-email"></span>
+      <button id="sign-out-btn">Sign Out</button>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div id="auth-modal">
+      <div class="auth-content">
+        <div class="auth-header">
+          <h2 id="auth-title">Welcome to DingPlan</h2>
+          <p id="auth-subtitle">Sign in to save your projects to the cloud</p>
+        </div>
+        
+        <div id="auth-error" class="auth-error" style="display: none;"></div>
+        
+        <form id="auth-form" class="auth-form">
+          <input type="email" id="auth-email" placeholder="Email address" required>
+          <input type="password" id="auth-password" placeholder="Password" required>
+          <button type="submit" id="auth-submit" class="auth-btn auth-btn-primary">Sign In</button>
+        </form>
+        
+        <div class="auth-divider">
+          <span>or</span>
+        </div>
+        
+        <button id="auth-google" class="auth-btn auth-btn-google">Sign in with Google</button>
+        
+        <div class="auth-toggle">
+          <span id="auth-toggle-text">Don't have an account?</span>
+          <button type="button" id="auth-toggle-btn">Sign up</button>
+        </div>
+        
+        <div class="auth-skip">
+          <button type="button" id="auth-skip-btn">Continue without account</button>
+        </div>
+      </div>
+    </div>
+    
     <script type="module" src="./src/index.js"></script>
   </body>
 </html>

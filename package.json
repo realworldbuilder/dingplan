@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@pixi/math": "^7.3.2",
+    "@supabase/supabase-js": "^2.98.0",
     "jspdf": "^3.0.0",
     "rbush": "^3.0.1"
   }

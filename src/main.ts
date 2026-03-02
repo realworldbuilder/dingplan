@@ -1,5 +1,8 @@
 import { Canvas } from './Canvas';
 import { generateUUID } from './utils';
+import { authService } from './services/authService';
+import { authUI } from './services/authUI';
+import { importProjectFromURL } from './services/projectService';
 
 declare global {
   interface Window {
@@ -22,7 +25,25 @@ function updateCanvasSize(canvasElement: HTMLCanvasElement, app: any, panelOpen:
   if (app) app.resize(canvasElement.width, canvasElement.height);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize auth first
+  console.log('Initializing DingPlan with Supabase auth...');
+  
+  // Check for URL-based project import
+  const importedProjectId = await importProjectFromURL();
+  if (importedProjectId) {
+    console.log('Imported project from URL:', importedProjectId);
+  }
+  
+  // Show auth modal only if there's no current user and no imported project
+  const currentUser = authService.getCurrentUser();
+  if (!currentUser && !localStorage.getItem('dingplan_skip_auth')) {
+    // Show auth modal after a brief delay
+    setTimeout(() => {
+      authUI.show();
+    }, 1000);
+  }
+
   const canvasElement = document.getElementById('canvas') as HTMLCanvasElement;
   if (!canvasElement) {
     console.error('Canvas element not found');

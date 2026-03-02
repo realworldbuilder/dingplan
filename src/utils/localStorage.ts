@@ -221,6 +221,7 @@ export function hasSavedState(projectId?: string): boolean {
 
 /**
  * Clear all application data from localStorage
+ */
 export function clearAllAppData(): void {
   try {
     // Get all localStorage keys
@@ -314,4 +315,24 @@ export function createDebugPanel(): void {
       window.location.reload();
     });
   }
-} 
+}
+
+/**
+ * Clean up legacy auth localStorage keys
+ * Called when Supabase auth is initialized
+ */
+export function cleanupLegacyAuth(): void {
+  const legacyKeys = [
+    'dingplan_auth_status',
+    'dingplan_user_id',
+    'dingplan_user_email',
+    'dingplan_auth_token'
+  ];
+  
+  legacyKeys.forEach(key => {
+    if (localStorage.getItem(key)) {
+      localStorage.removeItem(key);
+      console.log(`Removed legacy auth key: ${key}`);
+    }
+  });
+}
