@@ -234,5 +234,11 @@ export class AuthUI {
   }
 }
 
-// Create global instance
-export const authUI = new AuthUI();
+// Lazy singleton — only instantiate after DOM is ready
+let _authUI: AuthUI | null = null;
+export const authUI = {
+  show() { _authUI = _authUI || new AuthUI(); _authUI.show(); },
+  hide() { _authUI?.hide(); },
+  isVisible() { return _authUI?.isVisible() ?? false; },
+  init() { _authUI = _authUI || new AuthUI(); }
+};

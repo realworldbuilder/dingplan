@@ -62,9 +62,8 @@ export class Sidebar {
     `;
 
     lp.innerHTML = `
-      <div style="padding: 16px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f0f0;">
-        <img src="/logo.png" alt="DingPlan" style="height: 32px; object-fit: contain;">
-        <span style="font-size: 17px; font-weight: 700; color: #1a1a1a;">DingPlan</span>
+      <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: center;">
+        <img src="/logo.png" alt="DingPlan" style="width: 90%; max-width: 220px; object-fit: contain;">
       </div>
 
       <!-- Status banner -->

@@ -35,10 +35,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('Imported project from URL:', importedProjectId);
   }
   
+  // Initialize auth UI now that DOM is ready
+  authUI.init();
+  
   // Show auth modal only if there's no current user and no imported project
   const currentUser = authService.getCurrentUser();
   if (!currentUser && !localStorage.getItem('dingplan_skip_auth')) {
-    // Show auth modal after a brief delay
     setTimeout(() => {
       authUI.show();
     }, 1000);
