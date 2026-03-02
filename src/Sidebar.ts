@@ -438,20 +438,24 @@ export class Sidebar {
       .color-swatch:hover { transform: scale(1.15); border-color: rgba(0,0,0,0.1); }
 
       /* AI Composer — chat-style */
+      .composer-response-area:empty::before {
+        content: 'Describe your project and AI will generate a full schedule with tasks, dependencies, and trade assignments.';
+        color: #9ca3af; font-size: 13px; line-height: 1.6; display: block; padding: 20px 0;
+      }
       .composer-response-area {
-        height: 320px; max-height: 55vh; overflow-y: auto;
-        border: none; border-radius: 10px; padding: 16px;
-        background: #1a1a1a; font-size: 14px; line-height: 1.6; white-space: pre-wrap;
-        color: #e5e7eb; margin-bottom: 16px;
+        overflow-y: auto;
+        border: none; border-radius: 0; padding: 0;
+        background: transparent; font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+        color: #1a1a1a;
       }
       .composer-response-area p { color: #6b7280; }
       .composer-message {
-        margin-bottom: 12px; padding: 10px 14px; border-radius: 8px;
-        background: rgba(255,255,255,0.06); border-left: none; color: #e5e7eb; font-size: 13px;
+        margin-bottom: 12px; padding: 10px 14px; border-radius: 10px;
+        background: #f3f4f6; color: #1a1a1a; font-size: 13px; line-height: 1.5;
       }
       .composer-message.user-message {
-        background: rgba(255,255,255,0.12); color: #fff;
-        border-left: 3px solid rgba(255,255,255,0.3); margin-left: 0;
+        background: #1a1a1a; color: #fff;
+        margin-left: 24px; border-radius: 10px;
       }
       .ai-composer-input {
         width: 100%; height: 80px; padding: 10px 12px; margin-bottom: 10px;
@@ -568,13 +572,12 @@ export class Sidebar {
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
             <div class="ai-composer" style="display:flex; flex-direction:column; height:100%;">
-              <p style="font-size:13px; color:#6b7280; margin:0 0 16px; line-height:1.5;">Describe your project and the AI will generate a schedule with tasks, dependencies, and trade assignments.</p>
-              <div class="composer-response-area" style="flex:1; margin-bottom:16px;">
-                <p style="color:#6b7280; font-size:13px;">Describe your project to get started...</p>
+              <div class="composer-response-area" style="flex:1; margin-bottom:12px; overflow-y:auto;">
               </div>
-              <textarea class="ai-composer-input" placeholder="e.g. 5-story office building, 18 months, concrete structure with curtain wall..."></textarea>
-              <button class="ai-composer-button">Generate Schedule</button>
-              <p class="composer-hint" style="font-size:12px; color:#9ca3af; margin-top:10px; line-height:1.4;">Sign in to use AI Composer, or add your own API key in Settings.</p>
+              <div style="display:flex; gap:8px; align-items:flex-end;">
+                <textarea class="ai-composer-input" placeholder="Describe your project..." rows="2" style="flex:1; resize:none;"></textarea>
+                <button class="ai-composer-button" style="height:44px; width:44px; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:10px;">▶</button>
+              </div>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
