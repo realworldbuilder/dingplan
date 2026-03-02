@@ -1024,12 +1024,16 @@ export class Sidebar {
       return;
     }
     // Populate list
-    const projects = await listProjects();
+    let projects = await listProjects();
     const listEl = this.leftPanel.querySelector('#projects-list') as HTMLElement;
-    const currentId = localStorage.getItem('dingplan_current_project_id');
+    const currentId = localStorage.getItem('currentProjectId') || 'default';
+    
+    // If no projects in index, show current project
     if (projects.length === 0) {
-      listEl.innerHTML = '<div style="font-size: 13px; color: #9ca3af; padding: 8px 0;">No saved projects yet. Your current work is auto-saved to the browser.</div>';
-    } else {
+      const currentName = localStorage.getItem('dingplan-project-name') || 'My Project';
+      projects = [{ id: currentId, name: currentName, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+    }
+    {
       listEl.innerHTML = projects.map(p => `
         <div class="project-item ${p.id === currentId ? 'active' : ''}" data-project-id="${p.id}">
           <div style="flex: 1; cursor: pointer;">
