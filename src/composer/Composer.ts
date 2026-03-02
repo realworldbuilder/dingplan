@@ -35,7 +35,7 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-4o-mini';
+    this.model = config.model || 'gpt-4o';
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
@@ -483,7 +483,7 @@ class Composer {
     }
   }
 
-  async processPrompt(userInput: string): Promise<string> {
+  async processPrompt(userInput: string, imageBase64?: string): Promise<string> {
     try {
       if (userInput.startsWith('/')) {
         return this.handleDebugCommand(userInput);
@@ -494,9 +494,17 @@ class Composer {
       }
 
       // Everything goes to GPT — no template matching
+      const userMessage = imageBase64 ? {
+        role: 'user',
+        content: [
+          { type: 'text', text: userInput || 'What do you see in this image? Generate a construction schedule based on it.' },
+          { type: 'image_url', image_url: { url: imageBase64 } }
+        ]
+      } : { role: 'user', content: userInput };
+      
       const messages = [
         { role: 'system', content: this.getSystemPrompt() },
-        { role: 'user', content: userInput }
+        userMessage
       ];
 
       let response = await this.callLLMWithFunctions(messages);

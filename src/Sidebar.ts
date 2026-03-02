@@ -471,6 +471,12 @@ export class Sidebar {
       }
       .ai-composer-button:hover { background: #333; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
       .ai-composer-button:disabled { background: #9ca3af; transform: none; box-shadow: none; cursor: not-allowed; }
+      .composer-upload-btn {
+        height: 44px; width: 44px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid #e8e8e8; border-radius: 10px; cursor: pointer; font-size: 18px;
+        flex-shrink: 0; transition: all 0.15s; background: #f8f9fa;
+      }
+      .composer-upload-btn:hover { background: #e8e8e8; }
 
       /* ===== Task Details Panel ===== */
       .task-details-panel { display: flex; flex-direction: column; gap: 20px; }
@@ -575,9 +581,15 @@ export class Sidebar {
               <div class="composer-response-area" style="flex:1; margin-bottom:12px; overflow-y:auto;">
               </div>
               <div style="display:flex; gap:8px; align-items:flex-end;">
+                <label class="composer-upload-btn" title="Upload image">
+                  <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
+                  📎
+                </label>
                 <textarea class="ai-composer-input" placeholder="Describe your project..." rows="2" style="flex:1; resize:none;"></textarea>
                 <button class="ai-composer-button" style="height:44px; width:44px; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:10px;">▶</button>
               </div>
+              <!-- Image preview area -->
+              <div class="composer-image-preview" style="display:none; margin-top:8px;"></div>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
@@ -751,12 +763,56 @@ export class Sidebar {
     const closeBtn = this.element.querySelector('.rp-close');
     if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
 
-    // Composer button
+    // Composer button and image upload
     const aiButton = this.element.querySelector('.ai-composer-button');
+    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
+    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
+    let pendingImage: string | null = null; // base64
+    
     if (aiButton) {
       aiButton.addEventListener('click', () => {
         const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-        if (input.value.trim()) this.handleAIComposerSubmit(input.value);
+        if (input.value.trim() || pendingImage) {
+          this.handleAIComposerSubmit(input.value, pendingImage);
+          // Clear pending image after sending
+          pendingImage = null;
+          if (imagePreview) {
+            imagePreview.style.display = 'none';
+            imagePreview.innerHTML = '';
+          }
+          if (imageInput) imageInput.value = '';
+        }
+      });
+    }
+    
+    if (imageInput) {
+      imageInput.addEventListener('change', () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImage = reader.result as string;
+          // Show preview
+          if (imagePreview) {
+            imagePreview.style.display = 'block';
+            imagePreview.innerHTML = `
+              <div style="position:relative; display:inline-block;">
+                <img src="${pendingImage}" style="max-height:100px; border-radius:8px; border:1px solid #e8e8e8;">
+                <button class="remove-image" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
+              </div>
+            `;
+            const removeBtn = imagePreview.querySelector('.remove-image');
+            if (removeBtn) {
+              removeBtn.addEventListener('click', () => {
+                pendingImage = null;
+                imagePreview.style.display = 'none';
+                imagePreview.innerHTML = '';
+                imageInput.value = '';
+              });
+            }
+          }
+        };
+        reader.readAsDataURL(file);
       });
     }
 
@@ -1133,8 +1189,9 @@ export class Sidebar {
     }
   }
 
-  private async handleAIComposerSubmit(prompt: string) {
-    this.addComposerMessage(prompt, true);
+  private async handleAIComposerSubmit(prompt: string, imageBase64?: string | null) {
+    const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
+    this.addComposerMessage(displayPrompt, true);
     const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
     const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
     
@@ -1157,7 +1214,7 @@ export class Sidebar {
       input.disabled = true;
       button.disabled = true;
       button.textContent = 'Processing...';
-      const response = await this.composer.processPrompt(prompt);
+      const response = await this.composer.processPrompt(displayPrompt, imageBase64 || undefined);
       this.addComposerMessage(response);
     } catch (error: unknown) {
       this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);

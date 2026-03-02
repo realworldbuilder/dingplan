@@ -32,7 +32,7 @@ export class TaskManager {
   private readonly EDGE_SENSITIVITY = 10; // Pixels from edge that trigger resize cursor
   private lastMouseWorld = { x: 0, y: 0 };
   readonly swimlanes: Swimlane[] = [];
-  readonly SWIMLANE_HEIGHT = 400; // Doubled for more vertical space
+  readonly DEFAULT_SWIMLANE_HEIGHT = 200; // Minimum height for empty swimlanes
   private readonly SWIMLANE_LABEL_WIDTH = 160;
   private isHandMode = false; // New mode flag
   private copiedTasks: TaskConfig[] = []; // Changed type to TaskConfig[]
@@ -87,13 +87,17 @@ export class TaskManager {
   }
 
   addSwimlane(id: string, name: string, color: string): void {
-    const y = this.swimlanes.length * this.SWIMLANE_HEIGHT;
+    // Calculate y as the sum of all previous swimlane heights
+    let y = 0;
+    this.swimlanes.forEach(existingSwimlane => {
+      y += existingSwimlane.height;
+    });
     
     this.swimlanes.push({
       id,
       name,
       y,
-      height: this.SWIMLANE_HEIGHT,
+      height: this.DEFAULT_SWIMLANE_HEIGHT,
       color,
       tasks: [],
       taskPositions: new Map()
@@ -167,6 +171,9 @@ export class TaskManager {
     swimlane.taskPositions.set(task.id, position);
     this.taskPositions.set(task.id, position);
     
+    // Recalculate swimlane heights after adding task
+    this.recalculateSwimlaneHeights();
+    
     return task;
   }
 
@@ -174,26 +181,73 @@ export class TaskManager {
     const taskSpacing = 15; // Spacing between tasks
     const topPadding = 40; // Padding from top of swimlane
     const rowHeight = 60; // Standard height for a row of tasks
-    const bottomPadding = 30; // Padding from bottom of swimlane
     
     // If there are no tasks yet, return the top position
     if (swimlane.tasks.length === 0) {
       return swimlane.y + topPadding;
     }
     
-    // For safety, limit the maximum Y position to ensure tasks don't go outside swimlane
-    const maxYPosition = swimlane.y + swimlane.height - rowHeight - bottomPadding;
-    
-    // Calculate Y position based on existing tasks
+    // Calculate Y position based on existing tasks - no clamping, let tasks extend as needed
     const yPosition = swimlane.y + topPadding + (swimlane.tasks.length * (rowHeight + taskSpacing));
     
-    // Ensure it doesn't exceed swimlane bounds
-    return Math.min(yPosition, maxYPosition);
+    return yPosition;
+  }
+
+  private recalculateSwimlaneHeights(): void {
+    const MIN_HEIGHT = 200; // So empty swimlanes aren't tiny
+    const topPadding = 40;
+    const rowHeight = 60;
+    const taskSpacing = 15;
+    const bottomPadding = 60;
+    
+    // First, calculate heights based on task count
+    this.swimlanes.forEach(swimlane => {
+      const taskCount = swimlane.tasks.length;
+      const calculatedHeight = Math.max(
+        MIN_HEIGHT,
+        topPadding + (taskCount * (rowHeight + taskSpacing)) + bottomPadding
+      );
+      swimlane.height = calculatedHeight;
+    });
+    
+    // Then, recalculate Y positions (they stack vertically)
+    let currentY = 0;
+    this.swimlanes.forEach(swimlane => {
+      swimlane.y = currentY;
+      currentY += swimlane.height;
+      
+      // Update task positions within each swimlane
+      swimlane.tasks.forEach((task, index) => {
+        const yPosition = swimlane.y + topPadding + (index * (rowHeight + taskSpacing));
+        swimlane.taskPositions.set(task.id, {
+          x: swimlane.taskPositions.get(task.id)?.x || 0,
+          y: yPosition
+        });
+        // Also update global task positions
+        this.taskPositions.set(task.id, {
+          x: this.taskPositions.get(task.id)?.x || 0,
+          y: yPosition
+        });
+      });
+    });
   }
 
   removeTask(id: string) {
+    // Remove from main tasks array
     this.tasks.splice(this.tasks.findIndex(t => t.id === id), 1);
     this.taskPositions.delete(id);
+    
+    // Remove from swimlanes
+    this.swimlanes.forEach(swimlane => {
+      const taskIndex = swimlane.tasks.findIndex(t => t.id === id);
+      if (taskIndex !== -1) {
+        swimlane.tasks.splice(taskIndex, 1);
+        swimlane.taskPositions.delete(id);
+      }
+    });
+    
+    // Recalculate swimlane heights after removing task
+    this.recalculateSwimlaneHeights();
   }
 
   getTask(id: string): Task | undefined {
@@ -2334,5 +2388,8 @@ export class TaskManager {
     // Clear other state
     this.selectedTasks.clear();
     this.taskPositions.clear();
+    
+    // Recalculate swimlane heights after clearing
+    this.recalculateSwimlaneHeights();
   }
 }
