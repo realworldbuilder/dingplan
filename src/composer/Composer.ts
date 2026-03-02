@@ -517,6 +517,11 @@ class Composer {
       // Final text response from GPT
       const finalMessage = response.choices[0].message.content || '';
       
+      // Auto-schedule: forward pass to stagger tasks based on dependencies
+      if (results.length > 0) {
+        this.autoSchedule();
+      }
+      
       // Render the canvas
       this.canvas.render();
       
@@ -2221,6 +2226,64 @@ Be concise in your final text response. Focus on building the schedule, not expl
   }
 
   // Helper method to get all swimlane IDs
+  /**
+   * Forward-pass scheduler: calculates start dates based on dependencies.
+   * Tasks with no predecessors start on today. Tasks with predecessors start
+   * after the latest predecessor ends.
+   */
+  private autoSchedule(): void {
+    try {
+      const tasks = this.canvas.taskManager.getAllTasks();
+      if (!tasks || tasks.length === 0) return;
+
+      // Build dependency graph
+      const taskMap = new Map<string, any>();
+      tasks.forEach((t: any) => taskMap.set(t.id, t));
+
+      // Topological sort + forward pass
+      const visited = new Set<string>();
+      const scheduled = new Set<string>();
+      
+      const scheduleTask = (task: any) => {
+        if (scheduled.has(task.id)) return;
+        if (visited.has(task.id)) return; // cycle protection
+        visited.add(task.id);
+
+        // Schedule predecessors first
+        if (task.dependencies && task.dependencies.length > 0) {
+          task.dependencies.forEach((depId: string) => {
+            const dep = taskMap.get(depId);
+            if (dep) scheduleTask(dep);
+          });
+        }
+
+        // Calculate start date
+        if (task.dependencies && task.dependencies.length > 0) {
+          let latestEnd = new Date(0);
+          task.dependencies.forEach((depId: string) => {
+            const dep = taskMap.get(depId);
+            if (dep) {
+              const depEnd = new Date(dep.startDate);
+              depEnd.setDate(depEnd.getDate() + (dep.duration || 1));
+              if (depEnd > latestEnd) latestEnd = depEnd;
+            }
+          });
+          if (latestEnd.getTime() > 0) {
+            task.startDate = latestEnd;
+          }
+        }
+        // Tasks with no dependencies keep their current start date (today)
+        
+        scheduled.add(task.id);
+      };
+
+      tasks.forEach((t: any) => scheduleTask(t));
+      this.debug(`Auto-scheduled ${scheduled.size} tasks`);
+    } catch (error) {
+      console.error('Auto-schedule error:', error);
+    }
+  }
+
   private getSwimlaneIds(): string[] {
     try {
       const swimlanes = this.canvas.taskManager.swimlanes;
