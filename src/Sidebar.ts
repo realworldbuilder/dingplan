@@ -109,7 +109,7 @@ export class Sidebar {
           <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
             <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
             <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
-            <button class="left-nav-btn" data-action="manage-trades">🔧 Trades</button>
+            <button class="left-nav-btn" data-action="manage-trades">🛠️ Trades</button>
             <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
             <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
           </div>
@@ -234,7 +234,7 @@ export class Sidebar {
     const actions = [
       { emoji: '➕', action: 'add-task', needsPanel: true },
       { emoji: '🏗️', action: 'edit-swimlanes', needsPanel: true },
-      { emoji: '🔧', action: 'manage-trades', needsPanel: true },
+      { emoji: '🛠️', action: 'manage-trades', needsPanel: true },
       { emoji: '📅', action: 'go-to-today', needsPanel: false },
       { emoji: '🔗', action: 'toggle-deps', needsPanel: false },
       { emoji: '🤖', action: 'composer', needsPanel: true },
@@ -998,7 +998,9 @@ export class Sidebar {
 
     // Update project name
     const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+    const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
     if (nameInput) nameInput.value = name;
+    if (displayEl) displayEl.textContent = name;
     localStorage.setItem('dingplan-project-name', name);
     localStorage.removeItem('dingplan_current_project_id');
 
@@ -1015,25 +1017,6 @@ export class Sidebar {
         window.canvasApp.taskManager.swimlanes = swimlanes;
         window.canvasApp.render();
       }
-    }
-  }
-
-  private handleDeleteProject() {
-    const currentId = localStorage.getItem('dingplan_current_project_id');
-    if (!currentId) {
-      if (confirm('Clear all current tasks? This cannot be undone.')) {
-        if (window.canvasApp && window.canvasApp.taskManager) {
-          const tasks = window.canvasApp.taskManager.getAllTasks();
-          tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
-          window.canvasApp.render();
-        }
-      }
-      return;
-    }
-    if (confirm('Delete this project? This cannot be undone.')) {
-      deleteProject(currentId);
-      localStorage.removeItem('dingplan_current_project_id');
-      window.location.reload();
     }
   }
 
@@ -1054,14 +1037,19 @@ export class Sidebar {
     } else {
       listEl.innerHTML = projects.map(p => `
         <div class="project-item ${p.id === currentId ? 'active' : ''}" data-project-id="${p.id}">
-          <span>${p.name}</span>
-          <span class="project-item-date">${new Date(p.updatedAt).toLocaleDateString()}</span>
+          <div style="flex: 1; cursor: pointer;">
+            <div>${p.name}</div>
+            <div class="project-item-date">${new Date(p.updatedAt).toLocaleDateString()}</div>
+          </div>
+          <button class="project-item-delete" data-project-id="${p.id}" title="Delete project">×</button>
         </div>
       `).join('');
+      
       // Click to load project
-      listEl.querySelectorAll('.project-item').forEach(item => {
+      listEl.querySelectorAll('.project-item > div:first-child').forEach(item => {
         item.addEventListener('click', async () => {
-          const id = (item as HTMLElement).dataset.projectId;
+          const projectItem = item.closest('.project-item') as HTMLElement;
+          const id = projectItem?.dataset.projectId;
           if (!id) return;
           if (window.canvasApp) window.canvasApp.saveToLocalStorage();
           const project = await loadProject(id);
@@ -1077,8 +1065,23 @@ export class Sidebar {
             localStorage.setItem('dingplan_current_project_id', id);
             localStorage.setItem('dingplan-project-name', project.name);
             const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+            const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
             if (nameInput) nameInput.value = project.name;
+            if (displayEl) displayEl.textContent = project.name;
             section.style.display = 'none';
+          }
+        });
+      });
+      
+      // Delete project buttons
+      listEl.querySelectorAll('.project-item-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = (btn as HTMLElement).dataset.projectId;
+          if (!id) return;
+          if (confirm('Delete this project? This cannot be undone.')) {
+            await deleteProject(id);
+            this.toggleProjectsList(); // Refresh the list
           }
         });
       });
