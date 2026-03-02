@@ -798,11 +798,12 @@ export class Sidebar {
       return;
     }
     
-    const apiKey = localStorage.getItem('dingPlanApiKey');
+    const apiKey = localStorage.getItem('dingPlanApiKey') || (import.meta.env.VITE_OPENAI_KEY as string) || '';
     if (!apiKey) {
-      this.addComposerMessage('Please set your OpenAI API key in localStorage (key: dingPlanApiKey).');
+      this.addComposerMessage('Please set your OpenAI API key in Settings.');
       return;
     }
+    if (this.composer) this.composer.setApiKey(apiKey);
     
     try {
       input.disabled = true;
@@ -877,12 +878,12 @@ export class Sidebar {
   initializeComposer(canvasInstance: any) {
     this.canvas = canvasInstance;
     this.composer = new Composer({ canvas: canvasInstance });
-    const storedApiKey = localStorage.getItem('dingPlanApiKey');
+    const storedApiKey = localStorage.getItem('dingPlanApiKey') || (import.meta.env.VITE_OPENAI_KEY as string) || '';
     if (storedApiKey && this.composer) {
       this.composer.setApiKey(storedApiKey);
-      this.addComposerMessage('Composer initialized with stored API key.');
+      this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
     } else {
-      this.addComposerMessage('Set localStorage key "dingPlanApiKey" to use the Composer.');
+      this.addComposerMessage('Enter your OpenAI API key in Settings to use the Composer.');
     }
   }
   
