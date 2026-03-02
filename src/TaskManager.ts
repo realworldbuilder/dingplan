@@ -704,92 +704,95 @@ export class TaskManager {
       return lagDays > 0 ? `FS+${lagDays}` : 'FS';
     };
 
-    // Remove scrollable container properties to fix double scrollbar
+    // Details panel — uses .form-group design system from Sidebar
+    const statusColors: Record<string, string> = {
+      'not-started': '#6b7280',
+      'in-progress': '#f59e0b',
+      'completed': '#22c55e',
+      'blocked': '#ef4444'
+    };
+    const statusColor = statusColors[task.status || 'not-started'] || '#6b7280';
+    const statusLabel = (task.status || 'not-started').replace('-', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+
     detailsView.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 24px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-            <div style="width: 12px; height: 12px; border-radius: 3px; background-color: ${task.color}"></div>
+      <div class="task-details-panel">
+        <!-- Task Header -->
+        <div class="td-header">
+          <div class="td-color-bar" style="background: ${task.color};"></div>
+          <div class="td-header-content">
             <input 
               type="text" 
               value="${task.name}"
-              style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a; border: 1px solid transparent; padding: 4px 8px; border-radius: 4px; width: 100%; background: transparent;"
-              onFocus="this.style.border='1px solid #2196F3'; this.style.background='#fff';"
-              onBlur="this.style.border='1px solid transparent'; this.style.background='transparent';"
+              class="td-name-input"
               data-field="name"
             >
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px; color: #666; font-size: 14px;">
-            <div>in</div>
-            <div style="font-weight: 600; background-color: ${swimlane.color}20; padding: 2px 8px; border-radius: 4px; color: ${swimlane.color}; border: 1px solid ${swimlane.color}40;">
-              ${swimlane.name}
+            <div class="td-meta">
+              <span class="td-swimlane-badge" style="background: ${swimlane.color}12; color: ${swimlane.color}; border-color: ${swimlane.color}30;">
+                ${swimlane.name}
+              </span>
+              <span class="td-status-badge" style="background: ${statusColor}15; color: ${statusColor}; border-color: ${statusColor}30;">
+                ${statusLabel}
+              </span>
             </div>
           </div>
         </div>
 
-        <div style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 10px; color: #333; font-weight: 600; font-size: 15px;">Trade</label>
-          <div style="position: relative;">
-            <select id="trade" data-field="trade" style="width: 100%; padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; background-color: #f8f9fa; cursor: pointer; appearance: none; padding-right: 36px;">
-              <option value="">-- Select Trade --</option>
-              ${Trades.getAllTrades().map(trade => `
-                <option value="${trade.id}" ${task.tradeId === trade.id ? 'selected' : ''} style="background-color: ${trade.color}20; padding: 6px; color: #333;">
-                  ${trade.name}
-                </option>
-              `).join('')}
-            </select>
-            <div style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none;">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 4L6 8L10 4" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
+        <!-- Quick Stats -->
+        <div class="td-stats-row">
+          <div class="td-stat">
+            <span class="td-stat-value">${task.duration}d</span>
+            <span class="td-stat-label">Duration</span>
+          </div>
+          <div class="td-stat">
+            <span class="td-stat-value">${task.crewSize}</span>
+            <span class="td-stat-label">Crew</span>
+          </div>
+          <div class="td-stat">
+            <span class="td-stat-value">${task.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span class="td-stat-label">Start</span>
+          </div>
+          <div class="td-stat">
+            <span class="td-stat-value">${task.getEndDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span class="td-stat-label">End</span>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
-          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-            <div style="color: #666; font-size: 13px; margin-bottom: 8px;">Start Date</div>
-            <input 
-              type="date" 
-              value="${task.startDate.toISOString().split('T')[0]}"
-              style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
-              data-field="startDate"
-            >
+        <!-- Trade -->
+        <div class="form-group">
+          <label>TRADE</label>
+          <select data-field="trade">
+            <option value="">-- Select Trade --</option>
+            ${Trades.getAllTrades().map(trade => `
+              <option value="${trade.id}" ${task.tradeId === trade.id ? 'selected' : ''}>${trade.name}</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <!-- Schedule Grid -->
+        <div class="td-section-label">SCHEDULE</div>
+        <div class="td-grid">
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" value="${task.startDate.toISOString().split('T')[0]}" data-field="startDate">
           </div>
-          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-            <div style="color: #666; font-size: 13px; margin-bottom: 8px;">Duration (days)</div>
-            <input 
-              type="number" 
-              value="${task.duration}"
-              min="1"
-              style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
-              data-field="duration"
-            >
+          <div class="form-group">
+            <label>Duration (days)</label>
+            <input type="number" value="${task.duration}" min="1" data-field="duration">
           </div>
-          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-            <div style="color: #666; font-size: 13px; margin-bottom: 8px;">Crew Size</div>
-            <input 
-              type="number" 
-              value="${task.crewSize}"
-              min="1"
-              style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
-              data-field="crewSize"
-            >
+          <div class="form-group">
+            <label>Crew Size</label>
+            <input type="number" value="${task.crewSize}" min="1" data-field="crewSize">
           </div>
-          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-            <div style="color: #666; font-size: 13px; margin-bottom: 8px;">End Date</div>
-            <div class="end-date-display" style="padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px; background: white;">
-              ${task.getEndDate().toLocaleDateString()}
-            </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <div class="td-readonly-field end-date-display">${task.getEndDate().toLocaleDateString()}</div>
           </div>
         </div>
-        
-        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-          <div style="color: #666; font-size: 13px; margin-bottom: 8px;">Status</div>
-          <select 
-            style="width: 100%; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
-            data-field="status"
-          >
+
+        <!-- Status -->
+        <div class="form-group">
+          <label>STATUS</label>
+          <select data-field="status">
             <option value="not-started" ${task.status === 'not-started' ? 'selected' : ''}>Not Started</option>
             <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
             <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Completed</option>
@@ -797,107 +800,64 @@ export class TaskManager {
           </select>
         </div>
 
-        <!-- Weekend Work Options -->
-        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-          <div style="color: #666; font-size: 13px; margin-bottom: 12px;">Work Schedule</div>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input 
-                type="checkbox" 
-                id="workOnSaturday" 
-                ${task.workOnSaturday ? 'checked' : ''}
-                style="width: 16px; height: 16px; cursor: pointer;"
-                data-field="workOnSaturday"
-              >
-              <label for="workOnSaturday" style="font-size: 14px; cursor: pointer;">Work on Saturdays</label>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <input 
-                type="checkbox" 
-                id="workOnSunday" 
-                ${task.workOnSunday ? 'checked' : ''}
-                style="width: 16px; height: 16px; cursor: pointer;"
-                data-field="workOnSunday"
-              >
-              <label for="workOnSunday" style="font-size: 14px; cursor: pointer;">Work on Sundays</label>
-            </div>
-          </div>
+        <!-- Work Schedule -->
+        <div class="td-section-label">WORK SCHEDULE</div>
+        <div class="td-toggle-group">
+          <label class="td-toggle">
+            <input type="checkbox" ${task.workOnSaturday ? 'checked' : ''} data-field="workOnSaturday">
+            <span class="td-toggle-slider"></span>
+            <span>Saturdays</span>
+          </label>
+          <label class="td-toggle">
+            <input type="checkbox" ${task.workOnSunday ? 'checked' : ''} data-field="workOnSunday">
+            <span class="td-toggle-slider"></span>
+            <span>Sundays</span>
+          </label>
         </div>
 
-        <!-- Predecessors Section -->
-        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-          <div style="color: #666; font-size: 13px; margin-bottom: 12px;">Predecessors</div>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <select 
-                id="predecessorSelect"
-                style="flex-grow: 1; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
-              >
-                <option value="">Select a predecessor...</option>
-                ${this.tasks
-                  .filter(t => t.id !== task.id && !task.dependencies.includes(t.id) && !this.wouldCreateCycle(task.id, t.id))
-                  .map(t => `
-                    <option value="${t.id}">
-                      ${t.name}
-                    </option>
-                  `).join('')}
-              </select>
-              <button 
-                style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer;"
-                onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('addPredecessor', { detail: { taskId: '${task.id}' } }))"
-              >
-                Add
-              </button>
-            </div>
-            ${task.dependencies.map(depId => {
-              const depTask = this.getTask(depId);
-              return depTask ? `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 8px; height: 8px; border-radius: 2px; background-color: ${depTask.color}"></div>
-                    <span style="font-size: 14px;">${depTask.name}</span>
-                    <span style="font-size: 12px; background: #f0f0f0; padding: 2px 5px; border-radius: 3px; color: #666;">
-                      ${calculateRelationship(task, depTask, false)}
-                    </span>
-                  </div>
-                  <button 
-                    style="padding: 4px 8px; background: none; border: none; color: #666; cursor: pointer;"
-                    onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('removePredecessor', { detail: { taskId: '${task.id}', predecessorId: '${depId}' } }))"
-                  >
-                    ×
-                  </button>
+        <!-- Predecessors -->
+        <div class="td-section-label">PREDECESSORS</div>
+        <div class="td-dep-add">
+          <select id="predecessorSelect">
+            <option value="">Add predecessor...</option>
+            ${this.tasks
+              .filter(t => t.id !== task.id && !task.dependencies.includes(t.id) && !this.wouldCreateCycle(task.id, t.id))
+              .map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+          </select>
+          <button class="td-add-btn" onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('addPredecessor', { detail: { taskId: '${task.id}' } }))">+</button>
+        </div>
+        <div class="td-dep-list">
+          ${task.dependencies.length === 0 ? '<div class="td-dep-empty">No predecessors</div>' : ''}
+          ${task.dependencies.map(depId => {
+            const depTask = this.getTask(depId);
+            return depTask ? `
+              <div class="td-dep-item">
+                <div class="td-dep-info">
+                  <div class="td-dep-dot" style="background: ${depTask.color}"></div>
+                  <span class="td-dep-name">${depTask.name}</span>
+                  <span class="td-dep-type">${calculateRelationship(task, depTask, false)}</span>
                 </div>
-              ` : '';
-            }).join('')}
-          </div>
+                <button class="td-dep-remove" onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('removePredecessor', { detail: { taskId: '${task.id}', predecessorId: '${depId}' } }))">×</button>
+              </div>
+            ` : '';
+          }).join('')}
         </div>
 
-        <!-- Successors Section -->
-        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
-          <div style="color: #666; font-size: 13px; margin-bottom: 12px;">Successors</div>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            ${successors.length === 0 ? `
-              <div style="padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; color: #666; font-size: 14px; font-style: italic;">
-                No successors
+        <!-- Successors -->
+        <div class="td-section-label">SUCCESSORS</div>
+        <div class="td-dep-list">
+          ${successors.length === 0 ? '<div class="td-dep-empty">No successors</div>' : ''}
+          ${successors.map(succ => `
+            <div class="td-dep-item">
+              <div class="td-dep-info">
+                <div class="td-dep-dot" style="background: ${succ.color}"></div>
+                <span class="td-dep-name">${succ.name}</span>
+                <span class="td-dep-type">${calculateRelationship(task, succ, true)}</span>
               </div>
-            ` : successors.map(succ => `
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <div style="width: 8px; height: 8px; border-radius: 2px; background-color: ${succ.color}"></div>
-                  <span style="font-size: 14px;">${succ.name}</span>
-                  <span style="font-size: 12px; background: #f0f0f0; padding: 2px 5px; border-radius: 3px; color: #666;">
-                    ${calculateRelationship(task, succ, true)}
-                  </span>
-                </div>
-                <button 
-                  style="padding: 4px 8px; background: none; border: none; color: #666; cursor: pointer;"
-                  onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('removeSuccessor', { detail: { taskId: '${task.id}', successorId: '${succ.id}' } }))"
-                >
-                  ×
-                </button>
-              </div>
-            `).join('')}
-          </div>
+              <button class="td-dep-remove" onclick="this.closest('#details-view').dispatchEvent(new CustomEvent('removeSuccessor', { detail: { taskId: '${task.id}', successorId: '${succ.id}' } }))">×</button>
+            </div>
+          `).join('')}
+        </div>
         </div>
       </div>
     `;
