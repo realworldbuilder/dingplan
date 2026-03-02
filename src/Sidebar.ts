@@ -985,41 +985,33 @@ export class Sidebar {
     });
   }
 
-  private createProjectFromTemplate(templateId: string) {
+  private async createProjectFromTemplate(templateId: string) {
     const name = prompt('Project name:');
     if (!name) return;
 
-    // Save current project first
-    if (window.canvasApp) window.canvasApp.saveToLocalStorage();
-
-    // Clear canvas
-    if (window.canvasApp && window.canvasApp.taskManager) {
-      const tasks = window.canvasApp.taskManager.getAllTasks();
-      tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
-      window.canvasApp.render();
-    }
-
-    // Update project name
-    const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-    const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-    if (nameInput) nameInput.value = name;
-    if (displayEl) displayEl.textContent = name;
-    localStorage.setItem('dingplan-project-name', name);
-    localStorage.removeItem('dingplan_current_project_id');
-
-    // Create swimlanes from template
-    if (templateId !== 'blank' && window.canvasApp && window.canvasApp.taskManager) {
+    // Prepare swimlanes from template
+    let swimlanes: any[] = [];
+    if (templateId !== 'blank') {
       const template = WBS_TEMPLATES.find(t => t.id === templateId);
       if (template) {
         const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
-        const swimlanes = template.categories.map((category, index) => ({
+        swimlanes = template.categories.map((category, index) => ({
           id: generateUUID(),
           name: category,
           color: colors[index % colors.length]
         }));
-        window.canvasApp.taskManager.swimlanes = swimlanes;
-        window.canvasApp.render();
       }
+    }
+
+    // Use the new unified project creation method
+    if (window.canvasApp && window.canvasApp.createNewProject) {
+      await window.canvasApp.createNewProject(name, swimlanes);
+      
+      // Update UI
+      const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+      const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
+      if (nameInput) nameInput.value = name;
+      if (displayEl) displayEl.textContent = name;
     }
   }
 
@@ -1054,24 +1046,19 @@ export class Sidebar {
           const projectItem = item.closest('.project-item') as HTMLElement;
           const id = projectItem?.dataset.projectId;
           if (!id) return;
-          if (window.canvasApp) window.canvasApp.saveToLocalStorage();
-          const project = await loadProject(id);
-          if (project && window.canvasApp && window.canvasApp.taskManager) {
-            const tasks = window.canvasApp.taskManager.getAllTasks();
-            tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
-            if (project.tasks) {
-              project.tasks.forEach((taskData: any) => {
-                try { window.canvasApp.taskManager.addTask(taskData); } catch(e) { console.error(e); }
-              });
+          
+          // Use the new unified project loading method
+          if (window.canvasApp && window.canvasApp.loadProjectById) {
+            const success = await window.canvasApp.loadProjectById(id);
+            if (success) {
+              // Update UI
+              const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+              const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
+              const projectName = localStorage.getItem('dingplan-project-name');
+              if (nameInput && projectName) nameInput.value = projectName;
+              if (displayEl && projectName) displayEl.textContent = projectName;
+              section.style.display = 'none';
             }
-            window.canvasApp.render();
-            localStorage.setItem('dingplan_current_project_id', id);
-            localStorage.setItem('dingplan-project-name', project.name);
-            const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-            const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-            if (nameInput) nameInput.value = project.name;
-            if (displayEl) displayEl.textContent = project.name;
-            section.style.display = 'none';
           }
         });
       });

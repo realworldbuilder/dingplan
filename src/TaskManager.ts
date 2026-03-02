@@ -2319,4 +2319,20 @@ export class TaskManager {
     // Return the results for external use
     return { validCount, fixedCount };
   }
+
+  /**
+   * Clear all tasks and swimlanes
+   */
+  clearAll(): void {
+    // Remove all tasks
+    const allTasks = [...this.tasks];
+    allTasks.forEach(t => this.removeTask(t.id));
+    
+    // Clear swimlanes (mutate the readonly array)
+    (this.swimlanes as Swimlane[]).length = 0;
+    
+    // Clear other state
+    this.selectedTasks.clear();
+    this.taskPositions.clear();
+  }
 }

@@ -13,6 +13,7 @@ import { TouchManager } from './TouchManager';
 import { Logger } from './utils/logger';
 import { saveToLocalStorage, loadFromLocalStorage, hasSavedState } from './utils/localStorage';
 import { ProjectManager } from './components/ProjectManager';
+import { saveProject, loadProject, listProjects, deleteProject } from './services/projectService';
 
 export interface CanvasConfig {
   canvas: HTMLCanvasElement;
@@ -48,6 +49,7 @@ export class Canvas {
   sidebar: Sidebar;
   resourceHistogram: ResourceHistogram;
   projectManager: ProjectManager;
+  currentProjectId: string = 'default'; // Current project ID for unified state management
 
   // Use the centralized trade definitions
   private readonly trades: Trade[] = Trades.getAllTrades();
@@ -111,6 +113,9 @@ export class Canvas {
     
     // Add ability to show debug panel with URL parameter or localStorage flag
     this.initDebugMode();
+    
+    // Initialize currentProjectId from localStorage
+    this.currentProjectId = localStorage.getItem('currentProjectId') || 'default';
     
     // Always try to load from localStorage
     this.loadFromLocalStorage();
@@ -1526,6 +1531,7 @@ export class Canvas {
 
   /**
    * Save current application state to localStorage
+   * @deprecated Use saveCurrentProject() for unified project management
    */
   saveToLocalStorage(): void {
     try {
@@ -1587,6 +1593,7 @@ export class Canvas {
 
   /**
    * Load application state from localStorage
+   * @deprecated Use loadProjectById() for unified project management
    */
   loadFromLocalStorage() {
     try {
@@ -1594,8 +1601,28 @@ export class Canvas {
       const projectId = localStorage.getItem('currentProjectId') || 'default';
       console.log(`Loading from localStorage for project: ${projectId}`);
       
-      // Load state using the utility function to ensure consistent key patterns
+      // For now, use the old localStorage format, but also migrate to projectService in background
       const parsedState = loadFromLocalStorage(projectId);
+      
+      // If we found old data, migrate it to projectService in background
+      if (parsedState) {
+        // Async migration in background
+        (async () => {
+          try {
+            const projectName = localStorage.getItem('dingplan-project-name') || 'My Project';
+            await saveProject({
+              id: projectId,
+              name: projectName,
+              tasks: parsedState.tasks,
+              swimlanes: parsedState.swimlanes || [],
+              settings: parsedState.settings || {}
+            });
+            console.log(`Migrated old localStorage data to projectService for project: ${projectId}`);
+          } catch (migrationError) {
+            console.warn('Failed to migrate old data to projectService:', migrationError);
+          }
+        })();
+      }
       
       if (parsedState) {
         // Count dependencies before restoring to verify initial state
@@ -1715,7 +1742,7 @@ export class Canvas {
         const now = Date.now();
         // Only save if enough time has passed since last save
         if (now - lastSaveTime >= MIN_SAVE_INTERVAL) {
-          this.saveToLocalStorage();
+          this.saveCurrentProject();
           lastSaveTime = now;
         }
       }, 1000); // Debounce for 1 second
@@ -1732,13 +1759,13 @@ export class Canvas {
     
     // Listen for beforeunload to save before the page is closed
     window.addEventListener('beforeunload', () => {
-      this.saveToLocalStorage();
+      this.saveCurrentProject();
     });
     
-    // Set up periodic saves every minute as a safety net
+    // Set up periodic saves every 30 seconds as a safety net
     setInterval(() => {
-      this.saveToLocalStorage();
-    }, 60000);
+      this.saveCurrentProject();
+    }, 30000);
   }
 
   // Duplicate clearCanvas method removed - using the one above
@@ -1782,6 +1809,126 @@ export class Canvas {
     } catch (error) {
       console.error('[Canvas] Error generating JSON representation:', error);
       return null;
+    }
+  }
+
+  /**
+   * Save current project. Uses projectService for storage.
+   */
+  async saveCurrentProject(): Promise<void> {
+    try {
+      const projectId = this.currentProjectId || 'default';
+      const state = this.taskManager.exportState();
+      const projectName = localStorage.getItem('dingplan-project-name') || 'My Project';
+      
+      // Save to projectService (handles localStorage + Supabase)
+      await saveProject({
+        id: projectId,
+        name: projectName,
+        tasks: state.tasks,
+        swimlanes: state.swimlanes,
+        settings: { startDate: this.startDate.toISOString() }
+      });
+      
+      console.log(`Successfully saved project ${projectId}: ${projectName}`);
+    } catch (error) {
+      console.error('Error saving current project:', error);
+    }
+  }
+
+  /**
+   * Load a project by ID. Clears canvas and loads new data.
+   */
+  async loadProjectById(id: string): Promise<boolean> {
+    try {
+      // Save current project first
+      await this.saveCurrentProject();
+      
+      const project = await loadProject(id);
+      if (!project) {
+        console.error(`Project ${id} not found`);
+        return false;
+      }
+      
+      // Clear current state
+      this.taskManager.clearAll();
+      
+      // Load swimlanes
+      if (project.swimlanes) {
+        project.swimlanes.forEach((sl: any) => {
+          this.taskManager.addSwimlane(sl.id || sl.name, sl.name, sl.color || '#3B82F6');
+        });
+      }
+      
+      // Load tasks
+      if (project.tasks) {
+        project.tasks.forEach((taskData: any) => {
+          try {
+            this.taskManager.addTask({
+              ...taskData,
+              startDate: new Date(taskData.startDate)
+            });
+          } catch(e) { 
+            console.error('Error loading task:', e); 
+          }
+        });
+      }
+      
+      // Update current project tracking
+      this.currentProjectId = id;
+      localStorage.setItem('currentProjectId', id);
+      localStorage.setItem('dingplan-project-name', project.name);
+      
+      // Update project name display
+      const nameDisplay = document.getElementById('project-name-display');
+      if (nameDisplay) nameDisplay.textContent = project.name;
+      
+      this.render();
+      console.log(`Successfully loaded project ${id}: ${project.name}`);
+      return true;
+    } catch (error) {
+      console.error('Error loading project:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a new empty project
+   */
+  async createNewProject(name: string, swimlanes?: any[]): Promise<string> {
+    try {
+      // Save current project first
+      await this.saveCurrentProject();
+      
+      // Clear current state
+      this.taskManager.clearAll();
+      
+      // Add default or provided swimlanes
+      if (swimlanes) {
+        swimlanes.forEach((sl: any) => {
+          this.taskManager.addSwimlane(sl.id, sl.name, sl.color);
+        });
+      }
+      
+      // Generate new project ID
+      const id = crypto.randomUUID();
+      this.currentProjectId = id;
+      localStorage.setItem('currentProjectId', id);
+      localStorage.setItem('dingplan-project-name', name);
+      
+      // Update project name display
+      const nameDisplay = document.getElementById('project-name-display');
+      if (nameDisplay) nameDisplay.textContent = name;
+      
+      // Save the new empty project
+      await this.saveCurrentProject();
+      
+      this.render();
+      console.log(`Successfully created new project ${id}: ${name}`);
+      return id;
+    } catch (error) {
+      console.error('Error creating new project:', error);
+      return 'default';
     }
   }
 } 

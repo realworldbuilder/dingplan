@@ -186,19 +186,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCanvasSize(canvasElement, app, leftPanelOpen);
   });
   
-  // Save before unload
-  window.addEventListener('beforeunload', () => {
-    if (window.canvasApp) {
-      window.canvasApp.saveToLocalStorage();
-    }
-  });
-  
-  // Auto-save every minute
-  if (window.canvasApp && window.canvasApp.saveToLocalStorage) {
-    setInterval(() => {
-      window.canvasApp.saveToLocalStorage();
-    }, 60000);
-  }
+  // The Canvas constructor already sets up autosave with the new unified methods
+  // No additional save handlers needed here anymore
   
   // Check for shared project in URL
   setTimeout(async () => {
@@ -254,8 +243,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 window.forceSave = function() {
-  if (window.canvasApp && window.canvasApp.saveToLocalStorage) {
-    window.canvasApp.saveToLocalStorage();
+  if (window.canvasApp && window.canvasApp.saveCurrentProject) {
+    window.canvasApp.saveCurrentProject();
     return true;
   }
   return false;
