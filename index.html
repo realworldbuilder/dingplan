@@ -32,11 +32,15 @@
       }
       #left-panel {
         position: fixed;
-        top: 0;
+        top: 48px;
         left: 0;
         width: 260px;
-        height: 100%;
+        height: calc(100% - 48px);
         z-index: 100;
+        pointer-events: none;
+      }
+      #left-panel > * {
+        pointer-events: auto;
       }
       #left-panel-toggle:hover {
         background: #e5e7eb;
