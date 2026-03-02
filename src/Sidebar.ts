@@ -173,9 +173,9 @@ export class Sidebar {
         transition: all 0.15s ease; line-height: 1;
       }
       .rp-close:hover { background: #f5f5f5; color: #1a1a1a; }
-      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; }
+      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; }
       .rp-view { display: none; }
-      .rp-view.active { display: block; }
+      .rp-view.active { display: flex; flex-direction: column; }
 
       /* Form groups */
       .form-group { margin-bottom: 20px; }
@@ -353,8 +353,8 @@ export class Sidebar {
         </div>
         <div class="rp-body">
           <div id="details-view" class="rp-view active"></div>
-          <div id="composer-view" class="rp-view">
-            <div class="ai-composer" style="display:flex; flex-direction:column; height:calc(100vh - 140px);">
+          <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
+            <div class="ai-composer" style="display:flex; flex-direction:column; height:100%;">
               <p style="font-size:13px; color:#6b7280; margin:0 0 16px; line-height:1.5;">Describe your project and the AI will generate a schedule with tasks, dependencies, and trade assignments.</p>
               <div class="composer-response-area" style="flex:1; margin-bottom:16px;">
                 <p style="color:#6b7280; font-size:13px;">Describe your project to get started...</p>
