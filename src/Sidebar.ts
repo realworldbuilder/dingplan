@@ -4,7 +4,7 @@ import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
 import { 
-  loadProject 
+  loadProject, listProjects, saveProject, deleteProject, downloadProjectJSON
 } from './services/projectService';
 
 export type SidebarView = 'details' | 'composer' | 'options' | 'add-task' | 'edit-swimlanes' | 'manage-trades';
@@ -62,17 +62,37 @@ export class Sidebar {
     `;
 
     lp.innerHTML = `
-      <div style="padding: 20px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f0f0;">
-        <img src="/logo.png" alt="DingPlan" style="height: 36px; object-fit: contain;">
-        <span style="font-size: 18px; font-weight: 700; color: #1a1a1a;">DingPlan</span>
+      <div style="padding: 16px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f0f0;">
+        <img src="/logo.png" alt="DingPlan" style="height: 32px; object-fit: contain;">
+        <span style="font-size: 17px; font-weight: 700; color: #1a1a1a;">DingPlan</span>
       </div>
+
+      <!-- Status banner -->
+      <div style="padding: 8px 16px; background: #f0fdf4; border-bottom: 1px solid #dcfce7; font-size: 12px; color: #166534; display: flex; align-items: center; gap: 6px;">
+        <span>💾</span> <span>Saves to your browser — no account needed</span>
+      </div>
+
+      <!-- Project section -->
       <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
+        <div style="font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Project</div>
         <input id="left-project-name" type="text" value="My Project" placeholder="Project Name"
-          style="width: 100%; border: 1px solid transparent; background: transparent; font-size: 15px; font-weight: 600; color: #333; padding: 6px 8px; border-radius: 6px; font-family: inherit; outline: none;"
-          onfocus="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb'"
-          onblur="this.style.borderColor='transparent'; this.style.background='transparent'">
+          style="width: 100%; border: 1px solid #e5e7eb; background: #f9fafb; font-size: 14px; font-weight: 600; color: #333; padding: 8px 10px; border-radius: 6px; font-family: inherit; outline: none; box-sizing: border-box;"
+          onfocus="this.style.borderColor='#3b82f6'; this.style.background='#fff'"
+          onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'">
+        <div style="display: flex; gap: 6px; margin-top: 8px;">
+          <button class="left-nav-btn-sm" data-action="new-project">+ New</button>
+          <button class="left-nav-btn-sm" data-action="open-project">Open</button>
+          <button class="left-nav-btn-sm" data-action="delete-project" style="color: #dc2626;">Delete</button>
+        </div>
       </div>
+
+      <!-- Saved projects list (collapsible) -->
+      <div id="projects-list-section" style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0; max-height: 200px; overflow-y: auto;">
+        <div id="projects-list"></div>
+      </div>
+
       <div class="left-nav" style="padding: 8px 0; flex: 1;">
+        <div style="padding: 4px 20px 4px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Schedule</div>
         <div class="nav-section" style="padding: 0 8px;">
           <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
           <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
@@ -110,6 +130,19 @@ export class Sidebar {
         transition: background 0.15s;
       }
       .left-nav-btn:hover { background: #f3f4f6; }
+      .left-nav-btn-sm {
+        flex: 1; padding: 6px 8px; border: 1px solid #e5e7eb; background: #fff;
+        font-size: 12px; font-weight: 500; color: #374151; cursor: pointer;
+        border-radius: 6px; font-family: inherit; transition: all 0.15s; text-align: center;
+      }
+      .left-nav-btn-sm:hover { background: #f3f4f6; border-color: #d1d5db; }
+      .project-item {
+        display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
+        border-radius: 6px; cursor: pointer; font-size: 13px; color: #374151; transition: background 0.15s;
+      }
+      .project-item:hover { background: #f3f4f6; }
+      .project-item.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+      .project-item-date { font-size: 11px; color: #9ca3af; }
       .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
     `;
     document.head.appendChild(style);
@@ -382,6 +415,7 @@ export class Sidebar {
     });
 
     // Project name auto-save
+    // Project name auto-save
     const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
     if (nameInput) {
       nameInput.addEventListener('change', () => {
@@ -390,6 +424,16 @@ export class Sidebar {
       const saved = localStorage.getItem('dingplan-project-name');
       if (saved) nameInput.value = saved;
     }
+
+    // Project management buttons
+    this.leftPanel.querySelectorAll('.left-nav-btn-sm').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = (e.currentTarget as HTMLElement).dataset.action;
+        if (action === 'new-project') this.handleNewProject();
+        if (action === 'open-project') this.toggleProjectsList();
+        if (action === 'delete-project') this.handleDeleteProject();
+      });
+    });
 
     // RIGHT panel close
     const closeBtn = this.element.querySelector('.rp-close');
@@ -507,6 +551,92 @@ export class Sidebar {
     };
     const view = viewMap[action];
     if (view) this.show(view, window.canvasApp);
+  }
+
+  private handleNewProject() {
+    const name = prompt('New project name:');
+    if (!name) return;
+    // Save current project first
+    if (window.canvasApp) window.canvasApp.saveToLocalStorage();
+    // Clear canvas
+    if (window.canvasApp && window.canvasApp.taskManager) {
+      const tasks = window.canvasApp.taskManager.getAllTasks();
+      tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
+      window.canvasApp.render();
+    }
+    // Update name
+    const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+    if (nameInput) nameInput.value = name;
+    localStorage.setItem('dingplan-project-name', name);
+    localStorage.removeItem('dingplan_current_project_id');
+  }
+
+  private handleDeleteProject() {
+    const currentId = localStorage.getItem('dingplan_current_project_id');
+    if (!currentId) {
+      if (confirm('Clear all current tasks? This cannot be undone.')) {
+        if (window.canvasApp && window.canvasApp.taskManager) {
+          const tasks = window.canvasApp.taskManager.getAllTasks();
+          tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
+          window.canvasApp.render();
+        }
+      }
+      return;
+    }
+    if (confirm('Delete this project? This cannot be undone.')) {
+      deleteProject(currentId);
+      localStorage.removeItem('dingplan_current_project_id');
+      window.location.reload();
+    }
+  }
+
+  private toggleProjectsList() {
+    const section = this.leftPanel.querySelector('#projects-list-section') as HTMLElement;
+    if (!section) return;
+    const isVisible = section.style.display !== 'none';
+    if (isVisible) {
+      section.style.display = 'none';
+      return;
+    }
+    // Populate list
+    const projects = listProjects();
+    const listEl = this.leftPanel.querySelector('#projects-list') as HTMLElement;
+    const currentId = localStorage.getItem('dingplan_current_project_id');
+    if (projects.length === 0) {
+      listEl.innerHTML = '<div style="font-size: 13px; color: #9ca3af; padding: 8px 0;">No saved projects yet. Your current work is auto-saved to the browser.</div>';
+    } else {
+      listEl.innerHTML = projects.map(p => `
+        <div class="project-item ${p.id === currentId ? 'active' : ''}" data-project-id="${p.id}">
+          <span>${p.name}</span>
+          <span class="project-item-date">${new Date(p.updatedAt).toLocaleDateString()}</span>
+        </div>
+      `).join('');
+      // Click to load project
+      listEl.querySelectorAll('.project-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const id = (item as HTMLElement).dataset.projectId;
+          if (!id) return;
+          if (window.canvasApp) window.canvasApp.saveToLocalStorage();
+          const project = loadProject(id);
+          if (project && window.canvasApp && window.canvasApp.taskManager) {
+            const tasks = window.canvasApp.taskManager.getAllTasks();
+            tasks.forEach((t: any) => window.canvasApp.taskManager.removeTask(t.id));
+            if (project.tasks) {
+              project.tasks.forEach((taskData: any) => {
+                try { window.canvasApp.taskManager.addTask(taskData); } catch(e) { console.error(e); }
+              });
+            }
+            window.canvasApp.render();
+            localStorage.setItem('dingplan_current_project_id', id);
+            localStorage.setItem('dingplan-project-name', project.name);
+            const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
+            if (nameInput) nameInput.value = project.name;
+            section.style.display = 'none';
+          }
+        });
+      });
+    }
+    section.style.display = 'block';
   }
 
   private async handleImportXER() {
