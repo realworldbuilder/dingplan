@@ -33,9 +33,10 @@ export class AuthUI {
     this.title = document.getElementById('auth-title')!;
     this.subtitle = document.getElementById('auth-subtitle')!;
     this.toggleText = document.getElementById('auth-toggle-text')!;
-    this.userInfo = document.getElementById('user-info')!;
-    this.userEmail = document.getElementById('user-email')!;
-    this.signOutBtn = document.getElementById('sign-out-btn') as HTMLButtonElement;
+    // User info is now in the toolbar, managed by main.ts
+    this.userInfo = document.getElementById('user-info') || document.createElement('div');
+    this.userEmail = document.getElementById('user-email') || document.createElement('span');
+    this.signOutBtn = (document.getElementById('sign-out-btn') || document.createElement('button')) as HTMLButtonElement;
     
     this.setupEventListeners();
     this.setupAuthStateListener();
