@@ -35,7 +35,7 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-3.5-turbo';
+    this.model = config.model || 'gpt-4o';
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
@@ -216,20 +216,20 @@ class Composer {
       },
       {
         name: "addDependency",
-        description: "Add a dependency between two tasks",
+        description: "Add a dependency between two tasks (predecessor -> successor)",
         parameters: {
           type: "object",
           properties: {
-            predecessorId: {
+            predecessorName: {
               type: "string",
-              description: "ID of the predecessor task"
+              description: "Name of the predecessor task"
             },
-            successorId: {
+            successorName: {
               type: "string",
-              description: "ID of the successor task"
+              description: "Name of the successor task"
             }
           },
-          required: ["predecessorId", "successorId"]
+          required: ["predecessorName", "successorName"]
         }
       },
       {
@@ -289,13 +289,13 @@ class Composer {
       },
       {
         name: "createSwimlane",
-        description: "Create a new swimlane/zone for organizing tasks",
+        description: "Create a new swimlane/phase in the schedule",
         parameters: {
           type: "object",
           properties: {
             id: {
               type: "string",
-              description: "Unique identifier for the swimlane"
+              description: "Unique ID for the swimlane (e.g., 'site-prep', 'structure')"
             },
             name: {
               type: "string",
@@ -303,10 +303,10 @@ class Composer {
             },
             color: {
               type: "string",
-              description: "Color for the swimlane (hex code)"
+              description: "Hex color code for the swimlane"
             }
           },
-          required: ["id", "name", "color"]
+          required: ["id", "name"]
         }
       },
       {
@@ -485,239 +485,174 @@ class Composer {
 
   async processPrompt(userInput: string): Promise<string> {
     try {
-      this.debug(`Processing prompt: "${userInput}"`);
-      
-      // Handle simple affirmative responses to previous template suggestions
-      const normalizedInput = userInput.toLowerCase().trim();
-      const isAffirmative = ['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'apply it', 'use it', 'sounds good'].includes(normalizedInput);
-      
-      // Check if this is a direct confirmation to apply a previously suggested template
-      if (isAffirmative && Composer.lastSuggestedTemplate) {
-        this.debug(`Detected affirmative response for template: ${Composer.lastSuggestedTemplate}`);
-        const result = await this.applyWBSTemplate({ templateId: Composer.lastSuggestedTemplate });
-        Composer.lastSuggestedTemplate = ''; // Reset after applying
-        return result;
-      }
-      
-      // Extract potential swimlane information
-      let swimlaneId = null;
-      
-      // Common patterns for specifying swimlanes
-      const inSwimlaneMatch = normalizedInput.match(/in\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
-      if (inSwimlaneMatch && inSwimlaneMatch[1]) {
-        swimlaneId = inSwimlaneMatch[1];
-        this.debug(`Detected 'in swimlane' pattern: ${swimlaneId}`);
-      }
-      
-      // Another pattern: "to the X swimlane"
-      const toSwimlaneMatch = normalizedInput.match(/to\s+(?:the\s+)?(.+?)(?:\s+swimlane|\s+zone|\s+area|\s+category|$)/i);
-      if (toSwimlaneMatch && toSwimlaneMatch[1]) {
-        swimlaneId = toSwimlaneMatch[1];
-        this.debug(`Detected 'to swimlane' pattern: ${swimlaneId}`);
-      }
-      
-      // Pattern for "first/second/etc. swimlane"
-      const ordinalMatch = normalizedInput.match(/(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:swimlane|zone|area|category)/i);
-      if (ordinalMatch && ordinalMatch[1]) {
-        const ordinal = ordinalMatch[1].toLowerCase();
-        const swimlanes = this.canvas.taskManager.swimlanes;
-        
-        // Map the ordinal to an index
-        let index = 0;
-        if (ordinal === 'second' || ordinal === '2nd') index = 1;
-        else if (ordinal === 'third' || ordinal === '3rd') index = 2;
-        else if (ordinal === 'fourth' || ordinal === '4th') index = 3;
-        else if (ordinal === 'fifth' || ordinal === '5th') index = 4;
-        
-        // Get the swimlane if it exists
-        if (swimlanes.length > index) {
-          swimlaneId = swimlanes[index].id;
-          this.debug(`Mapped ordinal ${ordinal} to swimlane: ${swimlaneId}`);
-        }
-      }
-      
-      // Check for site preparation sequence requests
-      if ((normalizedInput.includes('site') && 
-           (normalizedInput.includes('prep') || normalizedInput.includes('preparation'))) ||
-          normalizedInput.includes('site clearing') ||
-          normalizedInput.includes('clearing sequence') ||
-          normalizedInput.includes('site work') ||
-          normalizedInput.includes('earthwork') ||
-          normalizedInput.includes('excavation')) {
-        
-        this.debug(`Detected site preparation request with swimlaneId: ${swimlaneId || 'none specified'}`);
-        return await this.createSitePreparationSequence(swimlaneId);
-      }
-      
-      // Check for other common template requests
-      const templateMatches = [
-        { keywords: ['foundation', 'footing'], template: 'foundation' },
-        { keywords: ['frame', 'framing', 'structural'], template: 'framing' },
-        { keywords: ['mep', 'mechanical', 'electrical', 'plumbing'], template: 'mep' },
-        { keywords: ['kitchen'], template: 'kitchen' },
-        { keywords: ['bathroom'], template: 'bathroom' },
-        { keywords: ['roof', 'roofing'], template: 'roofing' },
-        { keywords: ['finish', 'interior finish'], template: 'interior_finishes' }
-      ];
-      
-      // Check if any template keywords match and it's not a WBS template request
-      if (!normalizedInput.includes('wbs') && !normalizedInput.includes('breakdown structure')) {
-        for (const matcher of templateMatches) {
-          if (matcher.keywords.some(keyword => normalizedInput.includes(keyword))) {
-            this.debug(`Detected template request for: ${matcher.template} with swimlaneId: ${swimlaneId || 'none specified'}`);
-            return await this.createFromTemplate({ 
-              templateName: matcher.template, 
-              swimlaneId: swimlaneId 
-            });
-          }
-        }
-      }
-      
-      // Check for default template request - DISTINGUISH BETWEEN WBS AND TASK TEMPLATES
-      if (normalizedInput.includes('default') || normalizedInput.includes('standard')) {
-        // Check if this is specifically about WBS templates
-        if (normalizedInput.includes('wbs') || 
-            normalizedInput.includes('breakdown') || 
-            normalizedInput.includes('structure') || 
-            normalizedInput.includes('swimlane') ||
-            normalizedInput.includes('categories')) {
-          return await this.applyDefaultWBSTemplate();
-        }
-        
-        // If they just say "template" without context, assume WBS template
-        if (normalizedInput.includes('template') && 
-            !normalizedInput.includes('task') && 
-            !normalizedInput.includes('sequence')) {
-          return await this.applyDefaultWBSTemplate();
-        }
-        
-        // Otherwise, they might want a task template
-        if (normalizedInput.includes('task') || 
-            normalizedInput.includes('sequence') || 
-            normalizedInput.includes('foundation') || 
-            normalizedInput.includes('structure') || 
-            normalizedInput.includes('mep')) {
-          return await this.createFromTemplate({ templateName: 'foundation' });
-        }
-      }
-      
-      // Continue with normal processing
-      if (!this.apiKey) {
-        return "API key not set. Please set an API key first.";
-      }
-      
-      // Special debug case
       if (userInput.startsWith('/')) {
         return this.handleDebugCommand(userInput);
       }
-      
-      // IMPROVED DIRECT TEMPLATE MATCHING
-      // First check for explicit template requests by full name
-      const explicitIndustrialMatch = /industrial\s+facility/i.test(normalizedInput);
-      const explicitCommercialMatch = /commercial\s+building/i.test(normalizedInput);
-      const explicitResidentialMatch = /residential\s+building/i.test(normalizedInput);
-      const explicitHealthcareMatch = /healthcare\s+facility/i.test(normalizedInput);
-      const explicitInfrastructureMatch = /infrastructure\s+project/i.test(normalizedInput);
-      const explicitRenewableMatch = /renewable\s+energy/i.test(normalizedInput);
-      const explicitEducationMatch = /education\s+facility/i.test(normalizedInput);
-      const explicitMixedUseMatch = /mixed[\-\s]use/i.test(normalizedInput);
-      
-      // Check for WBS or template keywords
-      const isTemplateRequest = /wbs|template/i.test(normalizedInput);
-      
-      if (isTemplateRequest) {
-        // Apply the template directly if we have an explicit match
-        if (explicitIndustrialMatch) {
-          return await this.applyWBSTemplate({ templateId: 'industrial_facility' });
-        } else if (explicitCommercialMatch) {
-          return await this.applyWBSTemplate({ templateId: 'commercial_building' });
-        } else if (explicitResidentialMatch) {
-          return await this.applyWBSTemplate({ templateId: 'residential_building' });
-        } else if (explicitHealthcareMatch) {
-          return await this.applyWBSTemplate({ templateId: 'healthcare_facility' });
-        } else if (explicitInfrastructureMatch) {
-          return await this.applyWBSTemplate({ templateId: 'infrastructure_project' });
-        } else if (explicitRenewableMatch) {
-          return await this.applyWBSTemplate({ templateId: 'renewable_energy' });
-        } else if (explicitEducationMatch) {
-          return await this.applyWBSTemplate({ templateId: 'education_facility' });
-        } else if (explicitMixedUseMatch) {
-          return await this.applyWBSTemplate({ templateId: 'mixed_use_development' });
-        }
+
+      if (!this.apiKey) {
+        return 'Please sign in or add your OpenAI API key in Settings to use AI Composer.';
       }
-      
-      // Improved regex pattern for multi-word template matching
-      const directTemplateMatch = userInput.match(/(?:use|apply|create)(?:\s+an?|\s+the)?\s+(.+?)(?:\s+wbs|\s+template)/i);
-      if (directTemplateMatch) {
-        const requestedType = directTemplateMatch[1].toLowerCase();
-        const wbsTemplates = getAllWBSTemplates();
+
+      // Everything goes to GPT — no template matching
+      const messages = [
+        { role: 'system', content: this.getSystemPrompt() },
+        { role: 'user', content: userInput }
+      ];
+
+      let response = await this.callLLMWithFunctions(messages);
+      let results: string[] = [];
+
+      // Loop to handle multiple function calls
+      while (response.choices[0].message.function_call) {
+        const fc = response.choices[0].message.function_call;
+        const result = await this.handleFunctionCall(fc);
+        results.push(result);
         
-        // Find matching templates - improved matching logic
-        const matchingTemplates = wbsTemplates.filter(template => 
-          template.id.toLowerCase().includes(requestedType) || 
-          template.name.toLowerCase().includes(requestedType) ||
-          template.projectTypes.some(type => type.toLowerCase().includes(requestedType)) ||
-          // Check if requestedType contains significant parts of template name
-          requestedType.includes(template.id.toLowerCase().replace(/_/g, ' '))
-        );
-        
-        if (matchingTemplates.length === 1) {
-          // Single match - apply it directly
-          return await this.applyWBSTemplate({ templateId: matchingTemplates[0].id });
-        } else if (matchingTemplates.length > 1) {
-          // Multiple matches but with specific keywords that should match one template
-          if (requestedType.includes('industrial')) {
-            const industrialTemplate = matchingTemplates.find(t => t.id === 'industrial_facility');
-            if (industrialTemplate) {
-              return await this.applyWBSTemplate({ templateId: industrialTemplate.id });
-            }
-          } else if (requestedType.includes('commercial')) {
-            const commercialTemplate = matchingTemplates.find(t => t.id === 'commercial_building');
-            if (commercialTemplate) {
-              return await this.applyWBSTemplate({ templateId: commercialTemplate.id });
-            }
-          } else if (requestedType.includes('health')) {
-            const healthcareTemplate = matchingTemplates.find(t => t.id === 'healthcare_facility');
-            if (healthcareTemplate) {
-              return await this.applyWBSTemplate({ templateId: healthcareTemplate.id });
-            }
-          }
-          
-          // Simplified multiple match response
-          const templateOptions = matchingTemplates.map(t => t.name).join(", ");
-          
-          // Store the first match as a fallback for simple affirmative responses
-          Composer.lastSuggestedTemplate = matchingTemplates[0].id;
-          return `I found these options: ${templateOptions}. Which one would you like to use?`;
-        } else if (requestedType.includes('data') && requestedType.includes('center')) {
-          // Simplified data center special case
-          Composer.lastSuggestedTemplate = 'industrial_facility';
-          return `I'll use the Industrial Facility template for your data center project. OK?`;
-        } else {
-          // No matching templates, set last suggested template to empty
-          Composer.lastSuggestedTemplate = '';
-        }
+        // Add the function result to conversation and call again
+        messages.push({ role: 'assistant', content: null, function_call: fc });
+        messages.push({ role: 'function', name: fc.name, content: result });
+        response = await this.callLLMWithFunctions(messages);
       }
+
+      // Final text response from GPT
+      const finalMessage = response.choices[0].message.content || '';
       
-      try {
-        // Call the LLM with the user's input
-        const response = await this.callLLM(userInput);
-        
-        // Check if the response contains a function call
-        if (response.choices[0].message.function_call) {
-          return await this.handleFunctionCall(response.choices[0].message.function_call);
-        } else {
-          // If no function call, return the text response
-          return response.choices[0].message.content || "No response from LLM";
-        }
-      } catch (error: any) {
-        return `Error: ${error.message}`;
+      // Render the canvas
+      this.canvas.render();
+      
+      if (results.length > 0) {
+        return `${finalMessage}\n\nCreated ${results.length} items in your schedule.`;
       }
+      return finalMessage;
     } catch (error: any) {
-      return `Error processing prompt: ${error.message}`;
+      return `Error: ${error.message}`;
     }
   }
   
+  private getSystemPrompt(): string {
+    return `You are an expert construction scheduler. When a user describes a project, generate a complete CPM schedule by calling the provided functions.
+
+For ANY project description:
+1. Create appropriate swimlanes (phases/zones) using createSwimlane
+2. Create all tasks with realistic durations using createTask  
+3. Link tasks with dependencies using addDependency
+4. Assign appropriate trades and crew sizes
+
+You have deep knowledge of:
+- CSI divisions and trade sequencing
+- Typical durations for all construction activities
+- All 4 dependency types (FS, SS, FF, SF)
+- Critical path methodology
+- Industry-standard WBS structures for: commercial, residential, industrial, healthcare, education, data centers, infrastructure, tenant improvements, MEP, sitework
+
+When the user asks for a schedule, DON'T just describe it — actually create the tasks by calling the functions. Generate 15-40 tasks with proper dependencies for a realistic schedule.
+
+Always start by creating swimlanes, then tasks, then dependencies.
+
+AVAILABLE TEMPLATES AS REFERENCE:
+WBS Templates: ${getAllWBSTemplates().map(t => t.name).join(', ')}
+Task Templates: ${getTemplateNames().join(', ')}
+
+Use these as reference for industry-standard structures but generate tasks dynamically based on the user's specific needs.`;
+  }
+
+  private async callLLMWithFunctions(messages: any[]): Promise<ChatResponse> {
+    try {
+      if (!this.apiKey) {
+        throw new Error("API key not configured");
+      }
+      
+      // Check if we're using an Anthropic or OpenAI model
+      const isAnthropicModel = this.model.toLowerCase().includes('claude');
+      
+      let response;
+      
+      if (isAnthropicModel) {
+        // Anthropic API format
+        const requestBody = {
+          model: this.model,
+          messages: messages,
+          tools: this.functions,
+          temperature: 0.7,
+          max_tokens: this.maxTokens || 4000
+        };
+        
+        response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } else {
+        // OpenAI API format
+        const requestBody = {
+          model: this.model,
+          messages: messages,
+          functions: this.functions,
+          temperature: 0.7,
+          max_tokens: this.maxTokens || 2000,
+          function_call: "auto"
+        };
+        
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify(requestBody)
+        });
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API request failed: ${response.status} - ${errorText}`);
+      }
+      
+      const jsonResponse = await response.json();
+      
+      // Convert Anthropic response format to OpenAI format if needed
+      if (isAnthropicModel) {
+        if (jsonResponse.tool_calls && jsonResponse.tool_calls.length > 0) {
+          return {
+            choices: [{
+              message: {
+                function_call: {
+                  name: jsonResponse.tool_calls[0].name,
+                  arguments: JSON.stringify(jsonResponse.tool_calls[0].parameters)
+                }
+              }
+            }]
+          };
+        } else if (jsonResponse.content && jsonResponse.content.length > 0) {
+          return {
+            choices: [{
+              message: {
+                content: jsonResponse.content[0].text
+              }
+            }]
+          };
+        } else {
+          return {
+            choices: [{
+              message: {
+                content: "The AI model didn't provide a valid response."
+              }
+            }]
+          };
+        }
+      }
+      
+      return jsonResponse;
+    } catch (error) {
+      this.debug('LLM call error', error);
+      throw error;
+    }
+  }
+
   // Add a debug command handler
   private handleDebugCommand(command: string): string {
     const parts = command.substring(1).split(' ');
@@ -2187,26 +2122,27 @@ Always strive to be both helpful and educational, balancing efficient task execu
     try {
       this.debug('Adding dependency', args);
       
-      const { predecessorId, successorId } = args;
+      const { predecessorName, successorName } = args;
       
-      if (!predecessorId || !successorId) {
-        return "Both predecessor and successor task IDs are required";
+      if (!predecessorName || !successorName) {
+        return "Both predecessor and successor task names are required";
       }
 
-      // Check if both tasks exist
-      const predecessor = this.canvas.taskManager.getAllTasks().find(task => task.id === predecessorId);
-      const successor = this.canvas.taskManager.getAllTasks().find(task => task.id === successorId);
+      // Find tasks by name
+      const allTasks = this.canvas.taskManager.getAllTasks();
+      const predecessor = allTasks.find(task => task.name.toLowerCase() === predecessorName.toLowerCase());
+      const successor = allTasks.find(task => task.name.toLowerCase() === successorName.toLowerCase());
 
       if (!predecessor) {
-        return `Predecessor task with ID ${predecessorId} not found`;
+        return `Predecessor task "${predecessorName}" not found`;
       }
 
       if (!successor) {
-        return `Successor task with ID ${successorId} not found`;
+        return `Successor task "${successorName}" not found`;
       }
 
-      // Add the dependency
-      successor.dependencies.push(predecessorId);
+      // Add the dependency using task ID
+      successor.dependencies.push(predecessor.id);
       
       // Refresh the canvas
       this.canvas.render();
@@ -2401,10 +2337,13 @@ Always strive to be both helpful and educational, balancing efficient task execu
         return `A swimlane with ID '${id}' already exists. Please use a different ID.`;
       }
       
-      // Add the new swimlane
-      this.canvas.taskManager.addSwimlane(id, name, color);
+      // Use provided color or generate a random one
+      const swimlaneColor = color || this.getRandomColor();
       
-      return `Successfully created a new swimlane '${name}' with ID '${id}'.`;
+      // Add the new swimlane
+      this.canvas.taskManager.addSwimlane(id, name, swimlaneColor);
+      
+      return `Created swimlane: ${name}`;
     } catch (error) {
       return this.handleError("creating swimlane", error);
     }
