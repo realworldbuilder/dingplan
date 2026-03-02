@@ -162,119 +162,185 @@ export class Sidebar {
     // Add right panel styles
     const style = document.createElement('style');
     style.textContent = `
+      /* ===== Right Panel Design System ===== */
       .rp-header {
-        padding: 16px 20px; display: flex; justify-content: space-between;
-        align-items: center; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+        padding: 18px 20px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 1px solid #e8e8e8; flex-shrink: 0;
       }
-      .rp-title { margin: 0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
+      .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em; }
       .rp-close {
-        border: none; background: none; font-size: 20px; cursor: pointer;
-        padding: 8px; margin: -8px; color: #666; border-radius: 6px;
+        border: none; background: none; font-size: 18px; cursor: pointer;
+        padding: 6px 8px; margin: -6px -8px; color: #9ca3af; border-radius: 8px;
+        transition: all 0.15s ease; line-height: 1;
       }
-      .rp-close:hover { background: rgba(0,0,0,0.05); color: #333; }
-      .rp-body { padding: 24px 20px; overflow-y: auto; flex-grow: 1; }
+      .rp-close:hover { background: #f5f5f5; color: #1a1a1a; }
+      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; }
       .rp-view { display: none; }
       .rp-view.active { display: block; }
-      .form-group { margin-bottom: 16px; }
-      .form-group label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #444; }
+
+      /* Form groups */
+      .form-group { margin-bottom: 20px; }
+      .form-group label {
+        display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500;
+        color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;
+      }
       .form-group input, .form-group select {
-        width: 100%; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 8px;
-        font-size: 14px; font-family: inherit; background: #f8f9fa;
+        width: 100%; padding: 10px 12px; border: 1px solid #e8e8e8; border-radius: 8px;
+        font-size: 14px; font-family: inherit; background: #fff; color: #1a1a1a;
+        transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box; height: 40px;
       }
       .form-group input:focus, .form-group select:focus {
-        border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.1);
-        background: #fff; outline: none;
+        border-color: #1a1a1a; box-shadow: 0 0 0 3px rgba(26,26,26,0.08);
+        outline: none;
       }
-      .checkbox-group { display: flex; align-items: center; margin-bottom: 8px; }
-      .checkbox-group label { margin-bottom: 0; margin-left: 8px; cursor: pointer; }
-      .checkbox-group input[type="checkbox"] { width: auto; margin-right: 8px; cursor: pointer; }
-      .form-actions { display: flex; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
+
+      /* Custom checkboxes */
+      .checkbox-group { display: flex; align-items: center; margin-bottom: 10px; }
+      .checkbox-group label {
+        margin-bottom: 0; margin-left: 10px; cursor: pointer;
+        font-size: 14px; color: #374151; text-transform: none; letter-spacing: 0; font-weight: 400;
+      }
+      .checkbox-group input[type="checkbox"] {
+        width: 18px; height: 18px; margin-right: 0; cursor: pointer;
+        accent-color: #1a1a1a; border-radius: 4px;
+      }
+
+      /* Buttons */
+      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
       .btn-primary {
-        padding: 10px 16px; border: none; border-radius: 8px; background: #4CAF50;
+        padding: 10px 20px; border: none; border-radius: 8px; background: #1a1a1a;
         color: white; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-primary:hover { background: #3d9140; }
+      .btn-primary:hover { background: #333; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
       .btn-secondary {
-        padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px;
-        background: white; color: #555; font-size: 14px; font-weight: 500; cursor: pointer;
+        padding: 10px 20px; border: 1px solid #e8e8e8; border-radius: 8px;
+        background: white; color: #374151; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-secondary:hover { background: #f5f5f5; }
+      .btn-secondary:hover { background: #fafafa; border-color: #d1d5db; }
       .btn-danger {
-        padding: 10px 16px; border: none; border-radius: 8px; background: #ef4444;
-        color: white; font-size: 14px; font-weight: 500; cursor: pointer;
+        padding: 10px 20px; border: 1px solid #fecaca; border-radius: 8px; background: white;
+        color: #dc2626; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-danger:hover { background: #dc2626; }
+      .btn-danger:hover { background: #fef2f2; }
+
+      /* Swimlane items — card with color left border */
       .swimlane-item {
-        display: flex; align-items: center; margin-bottom: 8px; padding: 12px;
-        background: #f8f9fa; border-radius: 8px; border: 1px solid #f0f0f0;
+        display: flex; align-items: center; margin-bottom: 8px; padding: 12px 14px;
+        background: #fafafa; border-radius: 10px; border: 1px solid #f0f0f0;
+        border-left: 4px solid #9ca3af; transition: box-shadow 0.15s ease;
       }
-      .swimlane-color { width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; }
+      .swimlane-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+      .swimlane-color { display: none; }
       .swimlane-name-input {
-        flex-grow: 1; padding: 8px 12px; border: 1px solid #e0e0e0;
-        border-radius: 6px; font-size: 14px; background: white;
+        flex-grow: 1; padding: 8px 10px; border: 1px solid transparent;
+        border-radius: 6px; font-size: 14px; background: transparent; color: #1a1a1a;
+        font-family: inherit; transition: all 0.15s ease;
       }
-      .swimlane-actions { display: flex; margin-left: 8px; }
-      .swimlane-actions button { padding: 6px; background: none; border: none; cursor: pointer; opacity: 0.7; }
-      .swimlane-actions button:hover { opacity: 1; }
-      .trade-filter-container { background: #f8f9fa; border-radius: 12px; padding: 16px; margin-top: 12px; }
-      .trade-filter-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
-      .trade-filter-actions { display: flex; gap: 8px; }
-      .trade-filter-action { font-size: 12px; color: #2196F3; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
-      .trade-filter-action:hover { background: rgba(33,150,243,0.1); }
-      .trade-filter-list { display: flex; flex-direction: column; gap: 12px; }
+      .swimlane-name-input:hover { background: #fff; }
+      .swimlane-name-input:focus {
+        outline: none; background: #fff; border-color: #e8e8e8;
+        box-shadow: 0 0 0 3px rgba(26,26,26,0.06);
+      }
+      .swimlane-actions { display: flex; margin-left: 4px; gap: 2px; }
+      .swimlane-actions button {
+        padding: 4px 6px; background: none; border: none; cursor: pointer;
+        opacity: 0.4; font-size: 14px; border-radius: 6px; transition: all 0.15s;
+      }
+      .swimlane-actions button:hover { opacity: 1; background: #f0f0f0; }
+
+      /* Trade management */
+      .trade-filter-container { background: transparent; border-radius: 0; padding: 0; margin-top: 8px; }
+      .trade-filter-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0;
+      }
+      .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+      .trade-filter-actions { display: flex; gap: 4px; }
+      .trade-filter-action {
+        font-size: 12px; color: #6b7280; background: none; border: none; cursor: pointer;
+        padding: 4px 8px; border-radius: 6px; font-weight: 500; transition: all 0.15s; font-family: inherit;
+      }
+      .trade-filter-action:hover { background: #f5f5f5; color: #1a1a1a; }
+      .trade-filter-list { display: flex; flex-direction: column; gap: 6px; }
       .trade-filter-item {
-        display: flex; align-items: center; padding: 10px 12px; background: white;
-        border-radius: 8px; border: 1px solid #eee;
+        display: flex; align-items: center; padding: 10px 12px; background: #fafafa;
+        border-radius: 10px; border: 1px solid #f0f0f0; transition: all 0.15s ease;
       }
-      .trade-filter-item:hover { border-color: #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-      .trade-filter-item.disabled { opacity: 0.5; background: #f5f5f5; }
-      .trade-filter-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 12px; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; }
+      .trade-filter-item:hover { border-color: #e8e8e8; background: #fff; }
+      .trade-filter-item.disabled { opacity: 0.45; }
+      .trade-filter-color {
+        width: 22px; height: 22px; border-radius: 6px; margin-right: 12px; flex-shrink: 0;
+        border: 2px solid transparent; cursor: pointer; transition: all 0.15s ease;
+      }
+      .trade-filter-color:hover { border-color: rgba(0,0,0,0.15); transform: scale(1.1); }
       .trade-filter-name {
-        flex-grow: 1; font-size: 14px; color: #333; border: none; background: transparent;
-        font-family: inherit; padding: 4px; border-radius: 4px;
+        flex-grow: 1; font-size: 14px; color: #1a1a1a; border: none; background: transparent;
+        font-family: inherit; padding: 4px 6px; border-radius: 6px; font-weight: 450;
       }
-      .trade-filter-name:focus { outline: none; background: #f0f0f0; }
+      .trade-filter-name:focus { outline: none; background: #fff; box-shadow: 0 0 0 2px rgba(26,26,26,0.08); }
       .trade-filter-toggle {
-        width: 36px; height: 20px; background: #e0e0e0; border-radius: 20px;
-        position: relative; cursor: pointer; transition: background 0.2s; border: none; padding: 0;
+        width: 40px; height: 22px; background: #d1d5db; border-radius: 22px;
+        position: relative; cursor: pointer; transition: background 0.2s ease; border: none; padding: 0;
+        flex-shrink: 0; margin-left: 8px;
       }
-      .trade-filter-toggle.active { background: #4CAF50; }
+      .trade-filter-toggle.active { background: #22c55e; }
       .trade-filter-toggle::before {
-        content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
-        background: white; top: 2px; left: 2px; transition: transform 0.2s;
+        content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+        background: white; top: 2px; left: 2px; transition: transform 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       }
-      .trade-filter-toggle.active::before { transform: translateX(16px); }
+      .trade-filter-toggle.active::before { transform: translateX(18px); }
       .trade-filter-delete {
-        background: none; border: none; color: #ccc; font-size: 18px;
-        cursor: pointer; padding: 0 8px; opacity: 0.5;
+        background: none; border: none; color: #d1d5db; font-size: 16px;
+        cursor: pointer; padding: 0 4px 0 8px; transition: color 0.15s; line-height: 1;
       }
-      .trade-filter-delete:hover { opacity: 1; color: #ff4444; }
+      .trade-filter-delete:hover { color: #ef4444; }
+
+      /* Color picker */
       .color-picker-dialog {
-        position: absolute; background: white; border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 12px; z-index: 1001;
+        position: absolute; background: white; border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+        padding: 14px; z-index: 1001; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
       }
       .color-swatch {
-        width: 24px; height: 24px; border-radius: 4px; margin: 4px; cursor: pointer;
-        display: inline-block; border: 1px solid rgba(0,0,0,0.1);
+        width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+        display: inline-block; border: 2px solid transparent; transition: all 0.15s;
       }
-      .color-swatch:hover { transform: scale(1.1); }
+      .color-swatch:hover { transform: scale(1.15); border-color: rgba(0,0,0,0.1); }
+
+      /* AI Composer — chat-style */
       .composer-response-area {
-        margin-top: 10px; height: 300px; max-height: 50vh; overflow-y: auto;
-        border: 1px solid #ddd; border-radius: 4px; padding: 10px;
-        background: #f9f9f9; font-size: 14px; line-height: 1.5; white-space: pre-wrap;
+        height: 320px; max-height: 55vh; overflow-y: auto;
+        border: none; border-radius: 10px; padding: 16px;
+        background: #1a1a1a; font-size: 14px; line-height: 1.6; white-space: pre-wrap;
+        color: #e5e7eb; margin-bottom: 16px;
       }
-      .composer-message { margin-bottom: 10px; padding: 8px 12px; border-radius: 4px; background: #fff; border-left: 3px solid #ddd; }
-      .composer-message.user-message { background: #e5f0fa; border-left-color: #2a5885; }
+      .composer-response-area p { color: #6b7280; }
+      .composer-message {
+        margin-bottom: 12px; padding: 10px 14px; border-radius: 8px;
+        background: rgba(255,255,255,0.06); border-left: none; color: #e5e7eb; font-size: 13px;
+      }
+      .composer-message.user-message {
+        background: rgba(255,255,255,0.12); color: #fff;
+        border-left: 3px solid rgba(255,255,255,0.3); margin-left: 0;
+      }
       .ai-composer-input {
-        width: 100%; height: 80px; padding: 8px; margin-bottom: 8px;
-        border: 1px solid #ccc; border-radius: 4px; resize: vertical;
-        font-family: inherit; font-size: 14px;
+        width: 100%; height: 80px; padding: 10px 12px; margin-bottom: 10px;
+        border: 1px solid #e8e8e8; border-radius: 8px; resize: vertical;
+        font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fff;
+        transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box;
       }
+      .ai-composer-input:focus { border-color: #1a1a1a; box-shadow: 0 0 0 3px rgba(26,26,26,0.08); outline: none; }
       .ai-composer-button {
-        width: 100%; padding: 10px; background: #3B82F6; color: white;
-        border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;
+        width: 100%; padding: 10px; background: #1a1a1a; color: white;
+        border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+        font-family: inherit; height: 42px; transition: all 0.15s ease;
       }
-      .ai-composer-button:hover { background: #2563EB; }
+      .ai-composer-button:hover { background: #333; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+      .ai-composer-button:disabled { background: #9ca3af; transform: none; box-shadow: none; cursor: not-allowed; }
     `;
     document.head.appendChild(style);
   }
@@ -289,14 +355,14 @@ export class Sidebar {
         <div class="rp-body">
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view">
-            <div class="ai-composer">
-              <p style="font-size:13px; color:#666; margin:0 0 12px;">Describe your project and the AI will generate a schedule with tasks, dependencies, and trade assignments.</p>
-              <div class="composer-response-area">
-                <p style="color:#9ca3af; font-size:13px;">Describe your project to get started...</p>
+            <div class="ai-composer" style="display:flex; flex-direction:column; height:calc(100vh - 140px);">
+              <p style="font-size:13px; color:#6b7280; margin:0 0 16px; line-height:1.5;">Describe your project and the AI will generate a schedule with tasks, dependencies, and trade assignments.</p>
+              <div class="composer-response-area" style="flex:1; margin-bottom:16px;">
+                <p style="color:#6b7280; font-size:13px;">Describe your project to get started...</p>
               </div>
               <textarea class="ai-composer-input" placeholder="e.g. 5-story office building, 18 months, concrete structure with curtain wall..."></textarea>
               <button class="ai-composer-button">Generate Schedule</button>
-              <p style="font-size:11px; color:#9ca3af; margin-top:8px;">Requires an OpenAI API key saved in localStorage (key: dingPlanApiKey)</p>
+              <p style="font-size:12px; color:#9ca3af; margin-top:10px; line-height:1.4;">Requires an OpenAI API key — set it in Settings.</p>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
@@ -331,13 +397,15 @@ export class Sidebar {
               </div>
               <div class="form-group">
                 <label>Work Schedule</label>
-                <div class="checkbox-group">
-                  <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
-                  <label for="sidebar-work-saturday">Work on Saturdays</label>
-                </div>
-                <div class="checkbox-group">
-                  <input type="checkbox" id="sidebar-work-sunday" name="workOnSunday">
-                  <label for="sidebar-work-sunday">Work on Sundays</label>
+                <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:14px;">
+                  <div class="checkbox-group">
+                    <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
+                    <label for="sidebar-work-saturday">Work on Saturdays</label>
+                  </div>
+                  <div class="checkbox-group" style="margin-bottom:0;">
+                    <input type="checkbox" id="sidebar-work-sunday" name="workOnSunday">
+                    <label for="sidebar-work-sunday">Work on Sundays</label>
+                  </div>
                 </div>
               </div>
               <div class="form-actions">
@@ -347,15 +415,15 @@ export class Sidebar {
             </form>
           </div>
           <div id="edit-swimlanes-view" class="rp-view">
-            <p style="font-size:13px; color:#666; margin:0 0 16px;">Organize your schedule into swimlanes (phases, zones, or areas).</p>
+            <p style="font-size:13px; color:#6b7280; margin:0 0 16px; line-height:1.5;">Organize your schedule into swimlanes — phases, zones, or areas.</p>
             <div id="sidebar-swimlane-list"></div>
-            <button id="sidebar-add-swimlane" class="btn-secondary">Add Swimlane</button>
+            <button id="sidebar-add-swimlane" class="btn-secondary" style="width:100%; margin-top:4px;">+ Add Swimlane</button>
             <div class="form-actions">
               <button id="sidebar-save-swimlanes" class="btn-primary">Save Changes</button>
             </div>
           </div>
           <div id="manage-trades-view" class="rp-view">
-            <p style="font-size:13px; color:#666; margin:0 0 12px;">Toggle trade visibility and customize colors. Trades are assigned to tasks for color-coding and filtering.</p>
+            <p style="font-size:13px; color:#6b7280; margin:0 0 16px; line-height:1.5;">Toggle visibility and customize colors. Trades are assigned to tasks for color-coding and filtering.</p>
             <div class="trade-filter-container">
               <div class="trade-filter-header">
                 <span>Trades & Visibility</span>
@@ -374,26 +442,31 @@ export class Sidebar {
             </div>
           </div>
           <div id="settings-view" class="rp-view">
-            <div style="margin-bottom:24px;">
-              <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#333;">About</h4>
-              <p style="font-size:13px; color:#666; margin:0 0 4px;">DingPlan — Free construction scheduling for subcontractors.</p>
+            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600; color:#1a1a1a;">About</h4>
+              <p style="font-size:13px; color:#6b7280; margin:0 0 4px; line-height:1.5;">DingPlan — Free construction scheduling for subcontractors.</p>
               <p style="font-size:12px; color:#9ca3af; margin:0;">Open source · No account required · All data stored locally</p>
             </div>
-            <div style="margin-bottom:24px;">
-              <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#333;">AI Composer Key</h4>
-              <p style="font-size:12px; color:#666; margin:0 0 8px;">Enter your OpenAI API key to use the AI Composer.</p>
+            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="font-size:16px;">🔒</span>
+                <h4 style="margin:0; font-size:14px; font-weight:600; color:#1a1a1a;">AI Composer Key</h4>
+              </div>
+              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">Enter your OpenAI API key to use the AI Composer. Stored locally in your browser.</p>
               <div style="display:flex; gap:8px;">
                 <input type="password" id="settings-api-key" placeholder="sk-..." 
-                  style="flex:1; padding:8px 10px; border:1px solid #e0e0e0; border-radius:6px; font-size:13px; font-family:inherit;">
-                <button id="save-api-key" class="btn-primary" style="padding:8px 14px; font-size:13px;">Save</button>
+                  style="flex:1; padding:10px 12px; border:1px solid #e8e8e8; border-radius:8px; font-size:14px; font-family:inherit; background:#fff; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
+                  onfocus="this.style.borderColor='#1a1a1a'; this.style.boxShadow='0 0 0 3px rgba(26,26,26,0.08)'"
+                  onblur="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'">
+                <button id="save-api-key" class="btn-primary" style="padding:10px 16px; font-size:14px; white-space:nowrap;">Save</button>
               </div>
             </div>
-            <div style="padding-top:16px; border-top:1px solid #f0f0f0;">
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:16px;">
               <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#dc2626;">Danger Zone</h4>
-              <button id="clear-local-storage" class="btn-danger" style="font-size:13px;">Reset All Data</button>
-              <p style="font-size:12px; color:#9ca3af; margin-top:8px;">
-                Clears all projects, tasks, and settings from your browser. Cannot be undone.
+              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">
+                Clears all projects, tasks, and settings from your browser. This cannot be undone.
               </p>
+              <button id="clear-local-storage" class="btn-danger" style="font-size:14px;">Reset All Data</button>
             </div>
           </div>
         </div>
@@ -1025,13 +1098,14 @@ export class Sidebar {
       canvasInstance.taskManager.swimlanes.forEach((sl: any, i: number) => {
         const item = document.createElement('div');
         item.className = 'swimlane-item';
+        item.style.borderLeftColor = sl.color;
         item.innerHTML = `
           <div class="swimlane-color" style="background-color: ${sl.color}"></div>
           <input type="text" class="swimlane-name-input" value="${sl.name}" data-lane-id="${sl.id}">
           <div class="swimlane-actions">
-            ${i > 0 ? `<button class="move-up-btn" data-lane-id="${sl.id}">⬆️</button>` : '<div style="width:28px"></div>'}
-            ${i < canvasInstance.taskManager.swimlanes.length - 1 ? `<button class="move-down-btn" data-lane-id="${sl.id}">⬇️</button>` : '<div style="width:28px"></div>'}
-            <button class="delete-lane-btn" data-lane-id="${sl.id}">🗑️</button>
+            ${i > 0 ? `<button class="move-up-btn" data-lane-id="${sl.id}" title="Move up">↑</button>` : '<div style="width:28px"></div>'}
+            ${i < canvasInstance.taskManager.swimlanes.length - 1 ? `<button class="move-down-btn" data-lane-id="${sl.id}" title="Move down">↓</button>` : '<div style="width:28px"></div>'}
+            <button class="delete-lane-btn" data-lane-id="${sl.id}" title="Delete">×</button>
           </div>
         `;
         container.appendChild(item);
@@ -1051,13 +1125,14 @@ export class Sidebar {
       item.className = 'swimlane-item';
       const id = this.generateUUID();
       const color = this.getRandomHexColor();
+      item.style.borderLeftColor = color;
       item.innerHTML = `
         <div class="swimlane-color" style="background-color: ${color}"></div>
         <input type="text" class="swimlane-name-input" value="New Swimlane" data-lane-id="${id}">
         <div class="swimlane-actions">
-          <button class="move-up-btn" data-lane-id="${id}">⬆️</button>
-          <button class="move-down-btn" data-lane-id="${id}">⬇️</button>
-          <button class="delete-lane-btn" data-lane-id="${id}">🗑️</button>
+          <button class="move-up-btn" data-lane-id="${id}" title="Move up">↑</button>
+          <button class="move-down-btn" data-lane-id="${id}" title="Move down">↓</button>
+          <button class="delete-lane-btn" data-lane-id="${id}" title="Delete">×</button>
         </div>
       `;
       container.appendChild(item);
