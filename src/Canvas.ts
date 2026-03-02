@@ -350,9 +350,13 @@ export class Canvas {
       return;
     }
 
-    // Convert screen coordinates to world coordinates
-    const worldX = (x - this.camera.x * this.camera.zoom) / this.camera.zoom;
-    const worldY = (y - this.camera.y * this.camera.zoom) / this.camera.zoom;
+    // Convert screen coordinates to world coordinates correctly using Camera's method
+    const headerHeight = this.timeAxis.getHeaderHeight();
+    const screenX = x;
+    const screenY = y - headerHeight; // Subtract header height
+    const worldPos = this.camera.screenToWorld(screenX, screenY);
+    const worldX = worldPos.x;
+    const worldY = worldPos.y;
 
     // Check for task hover - use the taskManager's new method that respects filters
     let hoveredTask = null;

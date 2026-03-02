@@ -19,7 +19,6 @@ export class Sidebar {
   private isVisible: boolean = false;
   public element: HTMLElement; // right detail panel
   private leftPanel: HTMLElement;
-  private floatingBar: HTMLElement;
   private currentView: SidebarView = 'details';
   private task: Task | null = null;
   private tradeFilters: Map<string, boolean> = new Map();
@@ -41,11 +40,6 @@ export class Sidebar {
     } else {
       document.body.appendChild(this.leftPanel);
     }
-
-    // Create floating action bar (appears when sidebar is hidden)
-    this.floatingBar = document.createElement('div');
-    this.setupFloatingBar();
-    document.body.appendChild(this.floatingBar);
 
     // Create RIGHT detail panel (slide-out)
     this.element = document.createElement('div');
@@ -69,7 +63,7 @@ export class Sidebar {
   private setupLeftPanel() {
     const lp = this.leftPanel;
     lp.style.cssText = `
-      width: ${LEFT_PANEL_WIDTH}px; height: 100%; background: #fafafa;
+      width: ${LEFT_PANEL_WIDTH}px; height: 100%; background: #ffffff;
       border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-y: auto; user-select: none;
@@ -77,104 +71,79 @@ export class Sidebar {
     `;
 
     lp.innerHTML = `
-      <!-- Compact header -->
-      <div style="padding: 16px; text-align: center; border-bottom: 1px solid #e1e5e9;">
-        <img src="/logo.png" alt="DingPlan" style="height: 40px; object-fit: contain;">
+      <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0; text-align: center;">
+        <img src="/logo.png" alt="DingPlan" style="width: 90%; max-width: 220px; object-fit: contain;">
       </div>
 
-      <!-- Project Switcher -->
-      <div style="padding: 16px; border-bottom: 1px solid #e1e5e9;">
-        <button id="project-switcher" style="width: 100%; display: flex; align-items: center; justify-content: space-between; background: white; border: 1px solid #e1e5e9; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 500; color: #374151; cursor: pointer; font-family: inherit; min-height: 44px; box-sizing: border-box;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span>📁</span>
-            <span id="current-project-display">My Project</span>
-          </div>
-          <span style="font-size: 12px; color: #9ca3af;">▼</span>
-        </button>
+      <!-- Status banner -->
+      <div id="sidebar-status-banner" style="padding: 8px 16px; border-bottom: 1px solid #dcfce7; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+        <!-- Will be updated dynamically based on auth state -->
+      </div>
+
+      <!-- Project section -->
+      <div style="padding: 12px 16px; border-bottom: 1px solid #f0f0f0;">
+        <div style="font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Project</div>
+        <input id="left-project-name" type="text" value="My Project" placeholder="Project Name"
+          style="width: 100%; border: 1px solid #e5e7eb; background: #f9fafb; font-size: 14px; font-weight: 600; color: #333; padding: 8px 10px; border-radius: 6px; font-family: inherit; outline: none; box-sizing: border-box;"
+          onfocus="this.style.borderColor='#3b82f6'; this.style.background='#fff'"
+          onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb'">
         <div style="display: flex; gap: 6px; margin-top: 8px;">
           <button class="left-nav-btn-sm" data-action="new-project">+ New</button>
           <button class="left-nav-btn-sm" data-action="open-project">Open</button>
+          <button class="left-nav-btn-sm" data-action="delete-project" style="color: #dc2626;">Delete</button>
         </div>
       </div>
 
       <!-- Saved projects list (collapsible) -->
-      <div id="projects-list-section" style="display: none; padding: 8px 16px; border-bottom: 1px solid #e1e5e9; max-height: 200px; overflow-y: auto;">
+      <div id="projects-list-section" style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0; max-height: 200px; overflow-y: auto;">
         <div id="projects-list"></div>
       </div>
 
-      <div class="left-nav" style="padding: 16px 0; flex: 1; display: flex; flex-direction: column;">
-        <!-- SCHEDULE Section -->
-        <div style="margin-bottom: 24px;">
-          <div style="padding: 0 16px 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Schedule</div>
-          <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
-            <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
-            <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
-            <button class="left-nav-btn" data-action="manage-trades">🔧 Trades</button>
-            <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
-            <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
-          </div>
+      <div class="left-nav" style="padding: 8px 0; flex: 1;">
+        <div style="padding: 4px 20px 4px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Schedule</div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
+          <button class="left-nav-btn" data-action="edit-swimlanes">🏗️ Swimlanes</button>
+          <button class="left-nav-btn" data-action="manage-trades">🛠️ Trades</button>
+          <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
+          <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
         </div>
-
-        <!-- AI Composer (Prominent) -->
-        <div style="margin-bottom: 24px; padding: 0 8px;">
-          <button class="ai-composer-btn" data-action="composer" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s;">
-            🤖 AI Composer
-          </button>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="composer">🤖 AI Composer</button>
         </div>
-
-        <!-- IMPORT / EXPORT Section -->
-        <div style="margin-bottom: auto;">
-          <div style="padding: 0 16px 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Import / Export</div>
-          <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
-            <button class="left-nav-btn-compact" data-action="import-xer">📥 Import XER</button>
-            <button class="left-nav-btn-compact" data-action="export-pdf">📄 Export PDF</button>
-            <button class="left-nav-btn-compact" data-action="export-json">💾 Export JSON</button>
-            <button class="left-nav-btn-compact" data-action="share-link">🔗 Share Link</button>
-          </div>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div style="padding: 4px 20px 4px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Import / Export</div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="import-xer">📥 Import XER</button>
+          <button class="left-nav-btn" data-action="export-pdf">📄 Export PDF</button>
+          <button class="left-nav-btn" data-action="export-json">💾 Export JSON</button>
+          <button class="left-nav-btn" data-action="import-json">📂 Import JSON</button>
+          <button class="left-nav-btn" data-action="share-link">🔗 Share Link</button>
         </div>
-
-        <!-- Footer -->
-        <div style="padding: 16px; border-top: 1px solid #e1e5e9; margin-top: auto;">
-          <div id="sidebar-status-banner" style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <!-- Will be updated dynamically based on auth state -->
-          </div>
-          <button class="left-nav-btn-compact" data-action="settings" style="width: 100%;">⚙️ Settings</button>
+        <div style="height: 1px; background: #f0f0f0; margin: 8px 16px;"></div>
+        <div class="nav-section" style="padding: 0 8px;">
+          <button class="left-nav-btn" data-action="settings">⚙️ Settings</button>
         </div>
       </div>
-
-      <!-- Hidden project name input for compatibility -->
-      <input id="left-project-name" type="text" value="My Project" style="display: none;">
     `;
 
     // Add nav button styles
     const style = document.createElement('style');
     style.textContent = `
       .left-nav-btn {
-        display: block; width: 100%; text-align: left; padding: 10px 16px;
-        border: 1px solid #e1e5e9; background: white; font-size: 14px; color: #374151;
+        display: block; width: 100%; text-align: left; padding: 9px 12px;
+        border: none; background: none; font-size: 14px; color: #374151;
         cursor: pointer; border-radius: 6px; font-family: inherit;
-        transition: all 0.15s; min-height: 44px; box-sizing: border-box;
-        display: flex; align-items: center;
+        transition: background 0.15s;
       }
-      .left-nav-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
-      .left-nav-btn-compact {
-        display: block; width: 100%; text-align: left; padding: 8px 12px;
-        border: 1px solid #e1e5e9; background: white; font-size: 13px; color: #374151;
-        cursor: pointer; border-radius: 6px; font-family: inherit;
-        transition: all 0.15s; min-height: 36px; box-sizing: border-box;
-      }
-      .left-nav-btn-compact:hover { background: #f3f4f6; border-color: #d1d5db; }
+      .left-nav-btn:hover { background: #f3f4f6; }
       .left-nav-btn-sm {
-        flex: 1; padding: 8px 12px; border: 1px solid #e1e5e9; background: white;
+        flex: 1; padding: 6px 8px; border: 1px solid #e5e7eb; background: #fff;
         font-size: 12px; font-weight: 500; color: #374151; cursor: pointer;
         border-radius: 6px; font-family: inherit; transition: all 0.15s; text-align: center;
-        min-height: 36px; box-sizing: border-box;
       }
       .left-nav-btn-sm:hover { background: #f3f4f6; border-color: #d1d5db; }
-      .ai-composer-btn:hover { 
-        transform: translateY(-1px); 
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-      }
       .project-item {
         display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
         border-radius: 6px; cursor: pointer; font-size: 13px; color: #374151; transition: background 0.15s;
@@ -182,96 +151,9 @@ export class Sidebar {
       .project-item:hover { background: #f3f4f6; }
       .project-item.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
       .project-item-date { font-size: 11px; color: #9ca3af; }
-      .project-item-delete {
-        padding: 4px 8px; background: none; border: none; color: #dc2626;
-        cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: 500;
-        transition: background 0.15s; margin-left: 8px;
-      }
-      .project-item-delete:hover { background: #fee2e2; }
       .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
-      #project-switcher:hover { background: #f9fafb; border-color: #d1d5db; }
-      
-      /* Floating Action Bar */
-      .floating-action-bar {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        padding: 8px 12px;
-        display: flex;
-        gap: 4px;
-        z-index: 500;
-        transition: opacity 0.3s ease;
-      }
-      .floating-action-btn {
-        width: 44px;
-        height: 44px;
-        border: none;
-        background: transparent;
-        border-radius: 8px;
-        font-size: 20px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.15s;
-      }
-      .floating-action-btn:hover {
-        background: #f3f4f6;
-      }
     `;
     document.head.appendChild(style);
-  }
-
-  private setupFloatingBar() {
-    this.floatingBar.className = 'floating-action-bar';
-    this.floatingBar.style.display = 'flex'; // Starts visible (sidebar starts hidden)
-    
-    // Create floating action buttons
-    const actions = [
-      { emoji: '➕', action: 'add-task', needsPanel: true },
-      { emoji: '🏗️', action: 'edit-swimlanes', needsPanel: true },
-      { emoji: '🔧', action: 'manage-trades', needsPanel: true },
-      { emoji: '📅', action: 'go-to-today', needsPanel: false },
-      { emoji: '🔗', action: 'toggle-deps', needsPanel: false },
-      { emoji: '🤖', action: 'composer', needsPanel: true },
-    ];
-
-    actions.forEach(({ emoji, action, needsPanel }) => {
-      const btn = document.createElement('button');
-      btn.className = 'floating-action-btn';
-      btn.textContent = emoji;
-      btn.title = this.getActionTitle(action);
-      btn.setAttribute('data-action', action);
-      
-      btn.addEventListener('click', () => {
-        // If action needs the right panel, also open the sidebar
-        if (needsPanel) {
-          this.showLeftPanel();
-          if ((window as any).__setLeftPanelOpen) {
-            (window as any).__setLeftPanelOpen(true);
-          }
-        }
-        this.handleNavAction(action);
-      });
-      
-      this.floatingBar.appendChild(btn);
-    });
-  }
-
-  private getActionTitle(action: string): string {
-    const titles: Record<string, string> = {
-      'add-task': 'Add Task',
-      'edit-swimlanes': 'Swimlanes',
-      'manage-trades': 'Trades',
-      'go-to-today': 'Go to Today',
-      'toggle-deps': 'Dependencies',
-      'composer': 'AI Composer',
-    };
-    return titles[action] || action;
   }
 
   private setupRightPanel() {
@@ -701,7 +583,7 @@ export class Sidebar {
 
   private setupEventListeners() {
     // LEFT panel nav buttons
-    this.leftPanel.querySelectorAll('.left-nav-btn, .left-nav-btn-compact, .ai-composer-btn').forEach(btn => {
+    this.leftPanel.querySelectorAll('.left-nav-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const action = (e.currentTarget as HTMLElement).dataset.action;
         if (!action) return;
@@ -709,30 +591,15 @@ export class Sidebar {
       });
     });
 
-    // Project switcher
-    const projectSwitcher = this.leftPanel.querySelector('#project-switcher');
-    if (projectSwitcher) {
-      projectSwitcher.addEventListener('click', () => {
-        this.toggleProjectsList();
-      });
-    }
-
-    // Project name sync
+    // Project name auto-save
+    // Project name auto-save
     const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-    const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-    if (nameInput && displayEl) {
-      // Load saved project name
-      const saved = localStorage.getItem('dingplan-project-name');
-      if (saved) {
-        nameInput.value = saved;
-        displayEl.textContent = saved;
-      }
-      
-      // Update display when hidden input changes (for compatibility)
-      nameInput.addEventListener('input', () => {
-        displayEl.textContent = nameInput.value;
+    if (nameInput) {
+      nameInput.addEventListener('change', () => {
         localStorage.setItem('dingplan-project-name', nameInput.value);
       });
+      const saved = localStorage.getItem('dingplan-project-name');
+      if (saved) nameInput.value = saved;
     }
 
     // Project management buttons
@@ -741,6 +608,7 @@ export class Sidebar {
         const action = (e.currentTarget as HTMLElement).dataset.action;
         if (action === 'new-project') this.handleNewProject();
         if (action === 'open-project') this.toggleProjectsList();
+        if (action === 'delete-project') this.handleDeleteProject();
       });
     });
 
@@ -1201,13 +1069,11 @@ export class Sidebar {
   showLeftPanel() {
     this.leftPanelVisible = true;
     this.leftPanel.style.transform = 'translateX(0)';
-    this.floatingBar.style.display = 'none'; // Hide floating bar when sidebar opens
   }
 
   hideLeftPanel() {
     this.leftPanelVisible = false;
     this.leftPanel.style.transform = `translateX(-${LEFT_PANEL_WIDTH}px)`;
-    this.floatingBar.style.display = 'flex'; // Show floating bar when sidebar closes
   }
 
   isLeftPanelOpen(): boolean { return this.leftPanelVisible; }
@@ -1218,11 +1084,25 @@ export class Sidebar {
 
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
-      banner.innerHTML = '<span style="color: #22c55e; font-size: 8px;">●</span> <span>☁️ Synced</span>';
-      banner.style.color = '#6b7280';
+      banner.innerHTML = '<span>☁️</span> <span>Synced to cloud</span>';
+      banner.style.background = '#f0fdf4';
+      banner.style.color = '#166534';
     } else {
-      banner.innerHTML = '<span style="color: #22c55e; font-size: 8px;">●</span> <span>Saves automatically</span>';
-      banner.style.color = '#6b7280';
+      banner.innerHTML = `
+        <span>💾</span> 
+        <span>Saves to your browser — <span id="sidebar-sign-in-link" style="color: #3b82f6; cursor: pointer; text-decoration: underline;">sign in to sync</span></span>
+      `;
+      banner.style.background = '#fef3c7';
+      banner.style.color = '#92400e';
+      
+      // Wire up the sign in link
+      const signInLink = banner.querySelector('#sidebar-sign-in-link');
+      if (signInLink) {
+        signInLink.addEventListener('click', () => {
+          const authUI = (window as any).authUI;
+          if (authUI) authUI.show();
+        });
+      }
     }
   }
 
