@@ -3,6 +3,7 @@ import { Trades } from './Trades';
 import { Composer } from './composer/Composer';
 import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
+import { authService } from './services/authService';
 import { 
   loadProject, listProjects, saveProject, deleteProject, downloadProjectJSON
 } from './services/projectService';
@@ -361,7 +362,7 @@ export class Sidebar {
               </div>
               <textarea class="ai-composer-input" placeholder="e.g. 5-story office building, 18 months, concrete structure with curtain wall..."></textarea>
               <button class="ai-composer-button">Generate Schedule</button>
-              <p style="font-size:12px; color:#9ca3af; margin-top:10px; line-height:1.4;">Requires an OpenAI API key — set it in Settings.</p>
+              <p class="composer-hint" style="font-size:12px; color:#9ca3af; margin-top:10px; line-height:1.4;">Sign in to use AI Composer, or add your own API key in Settings.</p>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
@@ -797,9 +798,12 @@ export class Sidebar {
       return;
     }
     
-    const apiKey = localStorage.getItem('dingPlanApiKey') || (import.meta.env.VITE_OPENAI_KEY as string) || '';
+    const userKey = localStorage.getItem('dingPlanApiKey');
+    const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
+    const isLoggedIn = !!authService.getCurrentUser();
+    const apiKey = userKey || (isLoggedIn ? builtInKey : '');
     if (!apiKey) {
-      this.addComposerMessage('Please set your OpenAI API key in Settings.');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer error — please try again.' : 'Sign in or add your OpenAI API key in Settings to use AI Composer.');
       return;
     }
     if (this.composer) this.composer.setApiKey(apiKey);
@@ -877,12 +881,15 @@ export class Sidebar {
   initializeComposer(canvasInstance: any) {
     this.canvas = canvasInstance;
     this.composer = new Composer({ canvas: canvasInstance });
-    const storedApiKey = localStorage.getItem('dingPlanApiKey') || (import.meta.env.VITE_OPENAI_KEY as string) || '';
-    if (storedApiKey && this.composer) {
-      this.composer.setApiKey(storedApiKey);
+    const userKey = localStorage.getItem('dingPlanApiKey');
+    const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
+    const isLoggedIn = !!authService.getCurrentUser();
+    const apiKey = userKey || (isLoggedIn ? builtInKey : '');
+    if (apiKey && this.composer) {
+      this.composer.setApiKey(apiKey);
       this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
     } else {
-      this.addComposerMessage('Enter your OpenAI API key in Settings to use the Composer.');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your OpenAI API key in Settings to use AI Composer.');
     }
   }
   
