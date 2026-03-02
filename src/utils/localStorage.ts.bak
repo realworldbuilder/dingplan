@@ -64,7 +64,19 @@ export function loadFromLocalStorage(projectId?: string): any | null {
     if (!projectId) {
       projectId = localStorage.getItem('currentProjectId') || undefined;
     }
-
+    
+    // Load authService to check if we're authenticated
+    const authStatus = localStorage.getItem('dingplan_auth_status');
+    const userId = localStorage.getItem('dingplan_user_id');
+    const isAuthenticated = authStatus === 'authenticated' && userId && userId !== 'anonymous';
+    
+    console.log(`[localStorage] Loading state with auth status: ${authStatus}, userId: ${userId}, projectId: ${projectId}, isAuthenticated: ${isAuthenticated}`);
+    
+    // If authenticated but no project ID, don't load anything (wait for proper project loading)
+    if (!projectId && isAuthenticated) {
+      console.log('[localStorage] No project ID and user is authenticated, not loading anonymous state');
+      return null;
+    }
     
     // Always validate project ID format
     if (projectId) {
@@ -221,23 +233,41 @@ export function hasSavedState(projectId?: string): boolean {
 
 /**
  * Clear all application data from localStorage
-export function clearAllAppData(): void {
+ * @param {boolean} preserveAuth - Whether to preserve authentication data
+ */
+export function clearAllAppData(preserveAuth: boolean = false): void {
   try {
     // Get all localStorage keys
     const keysToRemove = [];
+    const preservedValues: Record<string, string> = {};
+    
+    // If preserving auth, save these values first
+    if (preserveAuth) {
+      const authKeys = ['dingplan_user_id', 'dingplan_auth_status'];
+      authKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          preservedValues[key] = value;
+        }
+      });
+    }
     
     // Find all keys related to our app
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (
-        key.startsWith("dingplan_") || 
+        key.startsWith('dingplan_') || 
         key.startsWith(BASE_STORAGE_KEY) || 
         key.startsWith(DEPENDENCIES_KEY) ||
-        key.startsWith("backup-") || 
-        key.startsWith("construction-") ||
+        key.startsWith('backup-') || 
+        key.startsWith('construction-') ||
         key === PROJECTS_KEY ||
-        key === "currentProjectId"
+        key === 'currentProjectId'
       )) {
+        // Skip auth keys if preserving auth
+        if (preserveAuth && (key === 'dingplan_user_id' || key === 'dingplan_auth_status')) {
+          continue;
+        }
         keysToRemove.push(key);
       }
     }
@@ -245,16 +275,14 @@ export function clearAllAppData(): void {
     // Remove each key
     keysToRemove.forEach(key => localStorage.removeItem(key));
     
-    console.log(`Cleared all application data (${keysToRemove.length} items)`);
-  } catch (error) {
-    console.error("Failed to clear all application data:", error);
-  }
-}
-
-/**
- * Create a database persistence debug panel
+    // Restore preserved values if needed
+    if (preserveAuth) {
+      Object.entries(preservedValues).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+    }
     
-    console.log(`Cleared all application data (${keysToRemove.length} items)`);
+    console.log(`Cleared all application data (${keysToRemove.length} items)${preserveAuth ? ', preserved auth data' : ''}`);
   } catch (error) {
     console.error('Failed to clear all application data:', error);
   }
@@ -289,13 +317,22 @@ export function createDebugPanel(): void {
   
   const content = document.createElement('div');
   content.id = 'db-debug-content';
-  const currentProjectId = localStorage.getItem("currentProjectId") || "none";
+  
+  const authStatus = localStorage.getItem('dingplan_auth_status') || 'none';
+  const userId = localStorage.getItem('dingplan_user_id') || 'none';
+  const currentProjectId = localStorage.getItem('currentProjectId') || 'none';
   
   content.innerHTML = `
-    <p><strong>Current Project:</strong> ${currentProjectId === "none" ? "none" : currentProjectId.substring(0, 10) + "..."}</p>
+    <p><strong>Auth Status:</strong> ${authStatus}</p>
+    <p><strong>User ID:</strong> ${userId.substring(0, 10)}...</p>
+    <p><strong>Current Project:</strong> ${currentProjectId === 'none' ? 'none' : currentProjectId.substring(0, 10) + '...'}</p>
     <button id="db-debug-clear">Clear All Data</button>
     <button id="db-debug-refresh">Refresh Page</button>
   `;
+  
+  debugPanel.appendChild(content);
+  document.body.appendChild(debugPanel);
+  
   // Add event listeners
   const clearBtn = document.getElementById('db-debug-clear');
   const refreshBtn = document.getElementById('db-debug-refresh');
@@ -303,7 +340,7 @@ export function createDebugPanel(): void {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       if (confirm('This will clear all localStorage data. Continue?')) {
-        clearAllAppData();
+        clearAllAppData(false);
         alert('All data cleared. Click refresh to reload the page.');
       }
     });
