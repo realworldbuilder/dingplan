@@ -290,19 +290,16 @@ export class Sidebar {
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view">
             <div class="ai-composer">
-              <h3 style="margin:0 0 12px; font-size:16px; color:#333;">AI Composer</h3>
+              <p style="font-size:13px; color:#666; margin:0 0 12px;">Describe your project and the AI will generate a schedule with tasks, dependencies, and trade assignments.</p>
               <div class="composer-response-area">
-                <p class="composer-initial-message">Composer is ready. Enter a prompt below.</p>
+                <p style="color:#9ca3af; font-size:13px;">Describe your project to get started...</p>
               </div>
-              <textarea class="ai-composer-input" placeholder="plan, search, build. LFG."></textarea>
-              <button class="ai-composer-button">Send Request</button>
-              <div style="text-align:left; margin-top:10px; font-size:12px;">
-                <a href="/composer-guide.html" target="_blank" style="color:#3B82F6; text-decoration:none;">📖 Guide</a>
-              </div>
+              <textarea class="ai-composer-input" placeholder="e.g. 5-story office building, 18 months, concrete structure with curtain wall..."></textarea>
+              <button class="ai-composer-button">Generate Schedule</button>
+              <p style="font-size:11px; color:#9ca3af; margin-top:8px;">Requires an OpenAI API key saved in localStorage (key: dingPlanApiKey)</p>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
-            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Add New Task</h3>
             <form id="sidebar-add-task-form">
               <div class="form-group">
                 <label for="sidebar-task-name">Task Name</label>
@@ -350,7 +347,7 @@ export class Sidebar {
             </form>
           </div>
           <div id="edit-swimlanes-view" class="rp-view">
-            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Edit Swimlanes</h3>
+            <p style="font-size:13px; color:#666; margin:0 0 16px;">Organize your schedule into swimlanes (phases, zones, or areas).</p>
             <div id="sidebar-swimlane-list"></div>
             <button id="sidebar-add-swimlane" class="btn-secondary">Add Swimlane</button>
             <div class="form-actions">
@@ -358,8 +355,7 @@ export class Sidebar {
             </div>
           </div>
           <div id="manage-trades-view" class="rp-view">
-            <h3 style="margin:0 0 12px; font-size:18px; font-weight:600; color:#333;">Manage Trades</h3>
-            <p style="font-size:14px; color:#666; margin-bottom:12px;">Manage trades and their visibility:</p>
+            <p style="font-size:13px; color:#666; margin:0 0 12px;">Toggle trade visibility and customize colors. Trades are assigned to tasks for color-coding and filtering.</p>
             <div class="trade-filter-container">
               <div class="trade-filter-header">
                 <span>Trades & Visibility</span>
@@ -378,13 +374,27 @@ export class Sidebar {
             </div>
           </div>
           <div id="settings-view" class="rp-view">
-            <h3 style="margin:0 0 20px; font-size:18px; font-weight:600; color:#333;">Settings</h3>
-            <div style="margin-bottom:16px;">
-              <button id="clear-local-storage" class="btn-danger">Reset Application State</button>
+            <div style="margin-bottom:24px;">
+              <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#333;">About</h4>
+              <p style="font-size:13px; color:#666; margin:0 0 4px;">DingPlan — Free construction scheduling for subcontractors.</p>
+              <p style="font-size:12px; color:#9ca3af; margin:0;">Open source · No account required · All data stored locally</p>
             </div>
-            <p style="font-size:13px; color:#666;">
-              This will clear all saved tasks and settings. The page will refresh with defaults. This cannot be undone.
-            </p>
+            <div style="margin-bottom:24px;">
+              <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#333;">AI Composer Key</h4>
+              <p style="font-size:12px; color:#666; margin:0 0 8px;">Enter your OpenAI API key to use the AI Composer.</p>
+              <div style="display:flex; gap:8px;">
+                <input type="password" id="settings-api-key" placeholder="sk-..." 
+                  style="flex:1; padding:8px 10px; border:1px solid #e0e0e0; border-radius:6px; font-size:13px; font-family:inherit;">
+                <button id="save-api-key" class="btn-primary" style="padding:8px 14px; font-size:13px;">Save</button>
+              </div>
+            </div>
+            <div style="padding-top:16px; border-top:1px solid #f0f0f0;">
+              <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#dc2626;">Danger Zone</h4>
+              <button id="clear-local-storage" class="btn-danger" style="font-size:13px;">Reset All Data</button>
+              <p style="font-size:12px; color:#9ca3af; margin-top:8px;">
+                Clears all projects, tasks, and settings from your browser. Cannot be undone.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -482,10 +492,26 @@ export class Sidebar {
       this.hide();
     });
 
+    // Settings: API key save
+    const apiKeyInput = this.element.querySelector('#settings-api-key') as HTMLInputElement;
+    const saveApiKeyBtn = this.element.querySelector('#save-api-key');
+    if (apiKeyInput) {
+      const stored = localStorage.getItem('dingPlanApiKey');
+      if (stored) apiKeyInput.value = stored;
+    }
+    if (saveApiKeyBtn) saveApiKeyBtn.addEventListener('click', () => {
+      const key = apiKeyInput?.value?.trim();
+      if (key) {
+        localStorage.setItem('dingPlanApiKey', key);
+        if (this.composer) this.composer.setApiKey(key);
+        alert('API key saved!');
+      }
+    });
+
     // Settings: reset
     const clearBtn = this.element.querySelector('#clear-local-storage');
     if (clearBtn) clearBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to reset the application state? This will remove all tasks and settings. This action cannot be undone.')) {
+      if (confirm('Delete ALL projects, tasks, and settings? This cannot be undone.')) {
         clearLocalStorage();
         window.location.reload();
       }
