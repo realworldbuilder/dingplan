@@ -26,7 +26,7 @@ export class Sidebar {
   private trades = Trades.getAllTrades();
   private onTradeFilterChange: ((filters: Map<string, boolean>) => void) | null = null;
   private composer: Composer | null = null;
-  private composerResponseArea: HTMLElement | null = null;
+  private composerResponseArea: HTMLElement | null = null; // Legacy - no longer used
   private canvas: any = null;
   private activeNavItem: string | null = null;
   private leftPanelVisible: boolean = false;
@@ -807,7 +807,7 @@ export class Sidebar {
       </div>
     `;
 
-    this.composerResponseArea = this.element.querySelector('.composer-response-area');
+    // Note: Chat messages now handled by .chat-messages container
   }
 
   private renderTradeList(): string {
@@ -873,58 +873,7 @@ export class Sidebar {
     const closeBtn = this.element.querySelector('.rp-close');
     if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
 
-    // Composer button and image upload
-    const aiButton = this.element.querySelector('.ai-composer-button');
-    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
-    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
-    let pendingImage: string | null = null; // base64
-    
-    if (aiButton) {
-      aiButton.addEventListener('click', () => {
-        const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-        if (input.value.trim() || pendingImage) {
-          this.handleAIComposerSubmit(input.value, pendingImage);
-          // Clear pending image after sending
-          pendingImage = null;
-          if (imagePreview) {
-            imagePreview.style.display = 'none';
-            imagePreview.innerHTML = '';
-          }
-          if (imageInput) imageInput.value = '';
-        }
-      });
-    }
-    
-    if (imageInput) {
-      imageInput.addEventListener('change', () => {
-        const file = imageInput.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          pendingImage = reader.result as string;
-          // Show preview
-          if (imagePreview) {
-            imagePreview.style.display = 'block';
-            imagePreview.innerHTML = `
-              <div style="position:relative; display:inline-block;">
-                <img src="${pendingImage}" style="max-height:100px; border-radius:8px; border:1px solid #e8e8e8;">
-                <button class="remove-image" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
-              </div>
-            `;
-            const removeBtn = imagePreview.querySelector('.remove-image');
-            if (removeBtn) {
-              removeBtn.addEventListener('click', () => {
-                pendingImage = null;
-                imagePreview.style.display = 'none';
-                imagePreview.innerHTML = '';
-                imageInput.value = '';
-              });
-            }
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-    }
+    // Note: Chat interface event listeners are now handled in setupChatInterface()
 
     // Trade toggles, color pickers, delete, select/clear all, add new
     this.setupTradeListEventListeners();
@@ -1248,13 +1197,9 @@ export class Sidebar {
   }
 
   private async handleAIComposerSubmit(prompt: string, imageBase64?: string | null) {
-    const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
-    this.addComposerMessage(displayPrompt, true);
-    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
-    
     if (!this.composer) {
-      this.addComposerMessage('Composer not initialized. Please refresh the page.');
+      this.hideTypingIndicator();
+      this.addChatMessage('Composer not initialized. Please refresh the page.', 'assistant');
       return;
     }
     
@@ -1262,26 +1207,27 @@ export class Sidebar {
     const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
     const isLoggedIn = !!authService.getCurrentUser();
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
+    
     if (!apiKey) {
-      this.addComposerMessage(isLoggedIn ? 'AI Composer error — please try again.' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
+      this.hideTypingIndicator();
+      const message = isLoggedIn ? 
+        'AI Composer error — please try again.' : 
+        'Add your API key (OpenAI or Anthropic) in Settings to use AI Composer.';
+      this.addChatMessage(message, 'assistant');
       return;
     }
+    
     if (this.composer) this.composer.setApiKey(apiKey);
     
     try {
-      input.disabled = true;
-      button.disabled = true;
-      button.textContent = 'Processing...';
+      const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
       const response = await this.composer.processPrompt(displayPrompt, imageBase64 || undefined);
-      this.addComposerMessage(response);
+      this.hideTypingIndicator();
+      this.addChatMessage(response, 'assistant');
     } catch (error: unknown) {
-      this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
-    } finally {
-      input.disabled = false;
-      button.disabled = false;
-      button.textContent = 'Send Request';
-      input.value = '';
-      input.focus();
+      this.hideTypingIndicator();
+      const errorMessage = `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`;
+      this.addChatMessage(errorMessage, 'assistant');
     }
   }
 
@@ -1362,21 +1308,55 @@ export class Sidebar {
     const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
     const isLoggedIn = !!authService.getCurrentUser();
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
+    
+    // Clear any existing messages and show welcome
+    this.clearChat();
+    this.showWelcomeMessage();
+    
     if (apiKey && this.composer) {
       this.composer.setApiKey(apiKey);
-      this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
     } else {
-      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
+      const message = isLoggedIn ? 
+        'AI Composer needs setup. Add your API key in Settings.' : 
+        'Add your API key (OpenAI or Anthropic) in Settings to use AI Composer.';
+      this.addChatMessage(message, 'assistant');
     }
+    
+    // Set up chat interface
+    this.setupChatInterface();
   }
   
+  private addChatMessage(message: string, type: 'user' | 'assistant', skipFormatting = false) {
+    const chatMessages = this.element.querySelector('.chat-messages');
+    if (!chatMessages) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message-bubble ${type}`;
+    
+    if (skipFormatting) {
+      messageDiv.textContent = message;
+    } else {
+      // Parse markdown-like formatting for assistant messages
+      if (type === 'assistant') {
+        messageDiv.innerHTML = this.parseMarkdown(this.stripJsonBlocks(message));
+      } else {
+        messageDiv.textContent = message;
+      }
+    }
+    
+    // Add timestamp
+    const timestamp = document.createElement('div');
+    timestamp.className = 'message-timestamp';
+    timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    messageDiv.appendChild(timestamp);
+    
+    chatMessages.appendChild(messageDiv);
+    this.scrollToBottom();
+  }
+
   private addComposerMessage(message: string, isUserInput = false) {
-    if (!this.composerResponseArea) return;
-    const el = document.createElement('div');
-    el.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
-    el.textContent = isUserInput ? `You: ${message}` : message;
-    this.composerResponseArea.appendChild(el);
-    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
+    // Legacy method - redirect to new chat message system
+    this.addChatMessage(message, isUserInput ? 'user' : 'assistant');
   }
 
   // ---- Trade management ----
@@ -1797,6 +1777,225 @@ export class Sidebar {
   }
 
   getElement(): HTMLElement { return this.element; }
+
+  // ---- Modern Chat Interface Methods ----
+
+  private showWelcomeMessage() {
+    const chatMessages = this.element.querySelector('.chat-messages');
+    if (!chatMessages) return;
+
+    const welcomeDiv = document.createElement('div');
+    welcomeDiv.className = 'welcome-message';
+    welcomeDiv.innerHTML = `
+      <div class="welcome-title">🚀 Welcome to AI Composer</div>
+      <div class="welcome-subtitle">Describe your project and I'll build the schedule. Try: "datacenter" or "3-story office building"</div>
+      <div class="quick-actions">
+        <div class="quick-action-chip" data-prompt="Datacenter construction project">Datacenter</div>
+        <div class="quick-action-chip" data-prompt="Tenant improvement project">Tenant Improvement</div>
+        <div class="quick-action-chip" data-prompt="Residential construction project">Residential</div>
+        <div class="quick-action-chip" data-prompt="Commercial office building">Commercial Office</div>
+        <div class="quick-action-chip" data-prompt="Add more detail to the schedule">Add more detail</div>
+        <div class="quick-action-chip" data-prompt="Compress the schedule timeline">Compress schedule</div>
+      </div>
+    `;
+    chatMessages.appendChild(welcomeDiv);
+    this.setupQuickActionChips();
+  }
+
+  private setupQuickActionChips() {
+    const chips = this.element.querySelectorAll('.quick-action-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = (chip as HTMLElement).dataset.prompt;
+        if (prompt) {
+          this.sendChatMessage(prompt);
+        }
+      });
+    });
+  }
+
+  private setupChatInterface() {
+    const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
+    const sendBtn = this.element.querySelector('.chat-send-btn') as HTMLButtonElement;
+    const clearBtn = this.element.querySelector('.chat-clear-btn') as HTMLButtonElement;
+    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
+    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
+    
+    let pendingImage: string | null = null;
+
+    if (!input || !sendBtn) return;
+
+    // Auto-growing textarea
+    const adjustTextareaHeight = () => {
+      input.style.height = 'auto';
+      const scrollHeight = Math.min(input.scrollHeight, 120);
+      input.style.height = scrollHeight + 'px';
+      input.style.overflowY = scrollHeight === 120 ? 'auto' : 'hidden';
+    };
+
+    // Input event listeners
+    input.addEventListener('input', () => {
+      adjustTextareaHeight();
+      const hasText = input.value.trim().length > 0;
+      sendBtn.disabled = !hasText && !pendingImage;
+    });
+
+    // Keyboard shortcuts
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (input.value.trim() || pendingImage) {
+          this.sendChatMessage(input.value, pendingImage);
+        }
+      }
+    });
+
+    // Send button
+    sendBtn.addEventListener('click', () => {
+      if (input.value.trim() || pendingImage) {
+        this.sendChatMessage(input.value, pendingImage);
+      }
+    });
+
+    // Clear chat button
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (confirm('Clear chat history?')) {
+          this.clearChat();
+          this.showWelcomeMessage();
+        }
+      });
+    }
+
+    // Image upload
+    if (imageInput && imagePreview) {
+      imageInput.addEventListener('change', () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImage = reader.result as string;
+          sendBtn.disabled = false;
+          
+          // Show preview
+          imagePreview.style.display = 'block';
+          imagePreview.innerHTML = `
+            <div style="position:relative; display:inline-block;">
+              <img src="${pendingImage}" style="max-height:80px; border-radius:8px; border:1px solid #404040;">
+              <button class="remove-image" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
+            </div>
+          `;
+          
+          const removeBtn = imagePreview.querySelector('.remove-image');
+          if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+              pendingImage = null;
+              imagePreview.style.display = 'none';
+              imagePreview.innerHTML = '';
+              imageInput.value = '';
+              sendBtn.disabled = input.value.trim().length === 0;
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Focus input when composer opens
+    setTimeout(() => input.focus(), 100);
+  }
+
+  private sendChatMessage(text: string, imageBase64?: string | null) {
+    const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
+    const sendBtn = this.element.querySelector('.chat-send-btn') as HTMLButtonElement;
+    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
+    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
+
+    if (!input || !sendBtn) return;
+
+    const message = text.trim();
+    if (!message && !imageBase64) return;
+
+    // Add user message
+    if (message) {
+      this.addChatMessage(message, 'user');
+    } else if (imageBase64) {
+      this.addChatMessage('📷 Image uploaded', 'user');
+    }
+
+    // Clear input
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    // Clear image preview
+    if (imagePreview && imageInput) {
+      imagePreview.style.display = 'none';
+      imagePreview.innerHTML = '';
+      imageInput.value = '';
+    }
+
+    // Show typing indicator
+    this.showTypingIndicator();
+
+    // Process with AI
+    this.handleAIComposerSubmit(message, imageBase64);
+  }
+
+  private showTypingIndicator() {
+    const indicator = this.element.querySelector('.typing-indicator') as HTMLElement;
+    if (indicator) {
+      indicator.style.display = 'block';
+      indicator.style.opacity = '1';
+      this.scrollToBottom();
+    }
+  }
+
+  private hideTypingIndicator() {
+    const indicator = this.element.querySelector('.typing-indicator') as HTMLElement;
+    if (indicator) {
+      indicator.style.opacity = '0';
+      setTimeout(() => {
+        indicator.style.display = 'none';
+      }, 300);
+    }
+  }
+
+  private clearChat() {
+    const chatMessages = this.element.querySelector('.chat-messages');
+    if (chatMessages) {
+      chatMessages.innerHTML = '';
+    }
+  }
+
+  private scrollToBottom() {
+    const chatMessages = this.element.querySelector('.chat-messages');
+    if (chatMessages) {
+      setTimeout(() => {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }, 100);
+    }
+  }
+
+  private parseMarkdown(text: string): string {
+    return text
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.*?)__/g, '<strong>$1</strong>')
+      // Simple lists
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+      // Line breaks
+      .replace(/\n/g, '<br>');
+  }
+
+  private stripJsonBlocks(text: string): string {
+    // Remove JSON blocks that are meant for the schedule, not display
+    return text.replace(/```json\s*\{[\s\S]*?\}\s*```/g, '')
+      .replace(/\{[\s\S]*?"tasks"[\s\S]*?\}/g, '')
+      .trim();
+  }
 
   public addSidebarTab(id: SidebarView, title: string, iconSvg: string): HTMLElement | null {
     let container = this.element.querySelector('.sidebar-tabs');
