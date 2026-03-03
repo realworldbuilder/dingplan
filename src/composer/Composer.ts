@@ -29,8 +29,9 @@ class Composer {
   private model: string;
   private canvas: Canvas;
   private functions: any[];
-  private debugMode: boolean = true; // Enable debug mode
+  private debugMode: boolean = true;
   private maxTokens: number;
+  private conversationHistory: any[] = [];
   // Add static property for tracking last suggested template
   private static lastSuggestedTemplate: string = '';
 
@@ -195,9 +196,17 @@ class Composer {
         ]
       } : { role: 'user', content: userInput };
       
+      // Add user message to conversation history
+      this.conversationHistory.push(userMessage);
+      
+      // Keep last 20 messages to avoid token bloat
+      if (this.conversationHistory.length > 20) {
+        this.conversationHistory = this.conversationHistory.slice(-20);
+      }
+
       const messages = [
         { role: 'system', content: this.getSystemPrompt() },
-        userMessage
+        ...this.conversationHistory
       ];
 
       let response = await this.callLLMWithFunctions(messages);
@@ -209,7 +218,10 @@ class Composer {
         const result = await this.handleFunctionCall(fc);
         results.push(result);
         
-        // Add the function result to conversation and call again
+        // Add function calls to history so GPT knows what it did
+        this.conversationHistory.push({ role: 'assistant', content: null, function_call: fc });
+        this.conversationHistory.push({ role: 'function', name: fc.name, content: result });
+        
         messages.push({ role: 'assistant', content: null, function_call: fc });
         messages.push({ role: 'function', name: fc.name, content: result });
         response = await this.callLLMWithFunctions(messages);
@@ -217,6 +229,9 @@ class Composer {
 
       // Final text response from GPT
       const finalMessage = response.choices[0].message.content || '';
+      
+      // Add assistant response to history
+      this.conversationHistory.push({ role: 'assistant', content: finalMessage });
       
       // Auto-schedule: forward pass to stagger tasks based on dependencies
       if (results.length > 0) {
