@@ -13,9 +13,9 @@
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         overflow: hidden;
-        background: #212121;
+        background: #f5f5f5;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        color: #ececec;
+        color: #1a1a1a;
       }
       canvas {
         display: block;
@@ -35,82 +35,84 @@
 
       /* Auth Modal */
       #auth-modal {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+        position: fixed; inset: 0; background: rgba(0,0,0,0.4);
         display: none; align-items: center; justify-content: center; z-index: 10000;
       }
       #auth-modal.show { display: flex; }
       .auth-content {
-        background: #2f2f2f; border-radius: 12px; padding: 32px;
-        width: 100%; max-width: 400px; border: 1px solid #444;
+        background: #fff; border-radius: 12px; padding: 32px;
+        width: 100%; max-width: 400px; border: 1px solid #e0e0e0;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
       }
       .auth-header { text-align: center; margin-bottom: 24px; }
-      .auth-header h2 { color: #fff; margin: 0 0 8px; font-size: 20px; }
-      .auth-header p { color: #999; margin: 0; font-size: 14px; }
+      .auth-header h2 { color: #1a1a1a; margin: 0 0 8px; font-size: 20px; }
+      .auth-header p { color: #666; margin: 0; font-size: 14px; }
       .auth-form { display: flex; flex-direction: column; gap: 12px; }
       .auth-form input {
-        padding: 10px 12px; border: 1px solid #555; border-radius: 8px;
-        background: #3a3a3a; color: #fff; font-size: 14px; font-family: inherit;
+        padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+        background: #fafafa; color: #1a1a1a; font-size: 14px; font-family: inherit;
       }
-      .auth-form input:focus { outline: none; border-color: #10a37f; }
-      .auth-form input::placeholder { color: #888; }
+      .auth-form input:focus { outline: none; border-color: #0066cc; }
+      .auth-form input::placeholder { color: #999; }
       .auth-btn {
         padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
-        cursor: pointer; font-family: inherit; border: 1px solid #555; transition: background 0.15s;
+        cursor: pointer; font-family: inherit; border: 1px solid #ddd; transition: background 0.15s;
       }
-      .auth-btn-primary { background: #10a37f; border: none; color: #fff; }
-      .auth-btn-primary:hover { background: #0d8a6a; }
-      .auth-btn-secondary { background: #3a3a3a; color: #fff; }
-      .auth-btn-secondary:hover { background: #444; }
+      .auth-btn-primary { background: #0066cc; border: none; color: #fff; }
+      .auth-btn-primary:hover { background: #0052a3; }
+      .auth-btn-secondary { background: #f5f5f5; color: #1a1a1a; }
+      .auth-btn-secondary:hover { background: #eee; }
       .auth-btn-google { background: #fff; color: #333; border: 1px solid #ddd; }
       .auth-btn-google:hover { background: #f5f5f5; }
       .auth-divider {
-        display: flex; align-items: center; margin: 16px 0; color: #888; font-size: 13px;
+        display: flex; align-items: center; margin: 16px 0; color: #999; font-size: 13px;
       }
-      .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #444; }
+      .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
       .auth-divider span { padding: 0 12px; }
-      .auth-toggle { text-align: center; margin-top: 16px; color: #999; font-size: 13px; }
-      .auth-toggle button { background: none; border: none; color: #10a37f; cursor: pointer; font-family: inherit; }
+      .auth-toggle { text-align: center; margin-top: 16px; color: #666; font-size: 13px; }
+      .auth-toggle button { background: none; border: none; color: #0066cc; cursor: pointer; font-family: inherit; }
       .auth-error { background: #dc2626; color: #fff; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
-      .auth-skip { text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #444; }
-      .auth-skip button { background: none; border: none; color: #999; cursor: pointer; font-size: 13px; font-family: inherit; }
-      .auth-skip button:hover { color: #10a37f; }
+      .auth-skip { text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+      .auth-skip button { background: none; border: none; color: #666; cursor: pointer; font-size: 13px; font-family: inherit; }
+      .auth-skip button:hover { color: #0066cc; }
 
       /* Scrollbars */
       ::-webkit-scrollbar { width: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #777; }
-      * { scrollbar-width: thin; scrollbar-color: #555 transparent; }
+      ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+      * { scrollbar-width: thin; scrollbar-color: #ccc transparent; }
 
       /* Toolbar buttons */
       .toolbar-sign-in {
-        background: #10a37f; border: none; color: #fff; padding: 6px 14px;
+        background: #0066cc; border: none; color: #fff; padding: 6px 14px;
         border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit;
       }
-      .toolbar-sign-in:hover { background: #0d8a6a; }
+      .toolbar-sign-in:hover { background: #0052a3; }
       .toolbar-user-info { display: flex; align-items: center; gap: 10px; }
-      .toolbar-user-email { color: #ccc; font-size: 13px; }
+      .toolbar-user-email { color: #444; font-size: 13px; }
       .toolbar-sign-out {
-        background: none; border: 1px solid #555; color: #999; padding: 4px 10px;
+        background: none; border: 1px solid #ddd; color: #666; padding: 4px 10px;
         border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit;
       }
-      .toolbar-sign-out:hover { background: #3a3a3a; color: #fff; }
+      .toolbar-sign-out:hover { background: #f5f5f5; color: #333; }
     </style>
   </head>
   <body>
     <!-- Toolbar -->
     <div id="top-toolbar" style="
       position: fixed; top: 0; left: 0; right: 0; height: 48px;
-      background: #2f2f2f; border-bottom: 1px solid #444; z-index: 1000;
+      background: #fff; border-bottom: 1px solid #e0e0e0; z-index: 1000;
       display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     ">
       <div style="display: flex; align-items: center; gap: 12px;">
         <button id="left-panel-toggle" title="Toggle Menu" style="
-          height: 34px; padding: 0 10px; border: 1px solid #555; border-radius: 6px;
-          background: transparent; color: #ccc; cursor: pointer; font-size: 14px;
+          height: 34px; padding: 0 10px; border: 1px solid #ddd; border-radius: 6px;
+          background: transparent; color: #444; cursor: pointer; font-size: 14px;
         ">☰</button>
         <span id="project-name-display" style="
-          color: #fff; font-size: 15px; font-weight: 600;
+          color: #1a1a1a; font-size: 15px; font-weight: 600;
           max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         ">My Project</span>
       </div>
@@ -124,7 +126,7 @@
     <div id="auth-modal">
       <div class="auth-content">
         <div class="auth-header">
-          <span style="font-size: 24px; font-weight: 700; color: #ececec; display: block; text-align: center; margin-bottom: 12px;">DingPlan</span>
+          <span style="font-size: 24px; font-weight: 700; color: #1a1a1a; display: block; text-align: center; margin-bottom: 12px;">DingPlan</span>
           <h2 id="auth-title">Save &amp; sync your schedules</h2>
           <p id="auth-subtitle">Access your projects from any device</p>
         </div>

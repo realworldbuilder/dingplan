@@ -26,7 +26,7 @@ export class Sidebar {
   private trades = Trades.getAllTrades();
   private onTradeFilterChange: ((filters: Map<string, boolean>) => void) | null = null;
   private composer: Composer | null = null;
-  private composerResponseArea: HTMLElement | null = null; // Legacy - no longer used
+  private composerResponseArea: HTMLElement | null = null;
   private canvas: any = null;
   private activeNavItem: string | null = null;
   private leftPanelVisible: boolean = false;
@@ -70,22 +70,21 @@ export class Sidebar {
   private setupLeftPanel() {
     const lp = this.leftPanel;
     lp.style.cssText = `
-      width: ${LEFT_PANEL_WIDTH}px; height: 100%; 
-      background: #2f2f2f; border-right: 1px solid #444;
-      display: flex; flex-direction: column;
+      width: ${LEFT_PANEL_WIDTH}px; height: 100%; background: #fafafa;
+      border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-y: auto; user-select: none;
-      transform: translateX(-${LEFT_PANEL_WIDTH}px); transition: transform 0.2s ease;
+      transform: translateX(-${LEFT_PANEL_WIDTH}px); transition: transform 0.3s ease;
     `;
 
     lp.innerHTML = `
       <!-- Logo -->
-      <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #444;">
-        <span style="font-size:18px; font-weight:700; color:#ececec; letter-spacing:0.5px;">DingPlan</span>
+      <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+        <img src="/logo.png" alt="DingPlan" style="width: 100%; max-width: 220px; object-fit: contain;">
       </div>
 
       <!-- Project Dropdown -->
-      <div style="padding: 10px 12px; border-bottom: 1px solid #444;">
+      <div style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
         <div style="position: relative;">
           <select id="sidebar-project-select" class="sb-select"></select>
         </div>
@@ -125,7 +124,7 @@ export class Sidebar {
         </div>
 
         <!-- Footer -->
-        <div style="padding: 12px; border-top: 1px solid #444; margin-top: auto;">
+        <div style="padding: 12px; border-top: 1px solid #e5e7eb; margin-top: auto;">
           <div id="sidebar-status-banner" style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"></div>
           <button class="sb-btn" data-action="settings">⚙️ Settings</button>
         </div>
@@ -137,54 +136,74 @@ export class Sidebar {
     // Add nav button styles
     const style = document.createElement('style');
     style.textContent = `
-      /* Clean dark sidebar */
+      /* Unified sidebar design system */
       .sb-section { margin-bottom: 12px; }
       .sb-label {
         padding: 0 16px 6px; font-size: 11px; font-weight: 600;
-        color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;
       }
-      .sb-group { padding: 0 12px; display: flex; flex-direction: column; gap: 1px; }
+      .sb-group { padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
       .sb-btn {
         display: flex; align-items: center; width: 100%; text-align: left;
         padding: 8px 12px; border: none; background: transparent;
-        font-size: 13px; color: #ccc; cursor: pointer; border-radius: 6px;
-        font-family: inherit; transition: background 0.15s; box-sizing: border-box;
+        font-size: 13px; color: #374151; cursor: pointer; border-radius: 6px;
+        font-family: inherit; transition: background 0.12s; box-sizing: border-box;
       }
-      .sb-btn:hover { background: #3a3a3a; }
-      .sb-btn.active { background: #3a3a3a; color: #fff; font-weight: 600; }
+      .sb-btn:hover { background: #f3f4f6; }
+      .sb-btn.active { background: #e8f0fe; color: #1a56db; font-weight: 600; }
       .sb-btn-sm {
         padding: 6px 10px; font-size: 12px; font-weight: 500;
-        border: 1px solid #555; border-radius: 6px; background: transparent;
-        color: #ccc; text-align: center;
+        border: 1px solid #e1e5e9; border-radius: 6px; background: white;
+        text-align: center;
       }
-      .sb-btn-sm:hover { background: #3a3a3a; border-color: #666; }
+      .sb-btn-sm:hover { background: #f3f4f6; border-color: #d1d5db; }
       .sb-btn-primary {
-        background: #10a37f; color: #fff; font-weight: 500;
-        justify-content: center; gap: 8px; padding: 10px 12px;
-        border-radius: 8px; border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; font-weight: 500; justify-content: center; gap: 8px;
+        padding: 10px 12px; border-radius: 8px;
       }
-      .sb-btn-primary:hover { background: #0d8a6a; }
-      .sb-btn-danger { color: #ef4444; border-color: #ef4444; }
-      .sb-btn-danger:hover { background: rgba(239,68,68,0.15); }
+      .sb-btn-primary:hover { opacity: 0.9; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+      .sb-btn-danger { color: #dc2626; border-color: #fecaca; }
+      .sb-btn-danger:hover { background: #fee2e2; border-color: #dc2626; }
       .sb-select {
-        width: 100%; padding: 8px 10px; border: 1px solid #555;
-        border-radius: 6px; background: #3a3a3a; font-size: 13px; color: #ccc;
+        width: 100%; padding: 8px 10px; border: 1px solid #e1e5e9;
+        border-radius: 6px; background: white; font-size: 13px; color: #374151;
         font-family: inherit; cursor: pointer; appearance: auto;
       }
-      .sb-select:focus { outline: none; border-color: #10a37f; }
+      .sb-select:hover { border-color: #d1d5db; }
+      .sb-select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
       
+      /* Floating Action Bar */
       .floating-action-bar {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: #2f2f2f; border: 1px solid #444; border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4); padding: 8px 12px;
-        display: flex; gap: 4px; z-index: 500;
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        padding: 8px 12px;
+        display: flex;
+        gap: 4px;
+        z-index: 500;
+        transition: opacity 0.3s ease;
       }
       .floating-action-btn {
-        width: 44px; height: 44px; border: none; background: transparent;
-        border-radius: 8px; font-size: 20px; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; color: #ccc;
+        width: 44px;
+        height: 44px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
       }
-      .floating-action-btn:hover { background: #3a3a3a; }
+      .floating-action-btn:hover {
+        background: #f3f4f6;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -195,12 +214,12 @@ export class Sidebar {
     
     // Create floating action buttons
     const actions = [
-      { emoji: '+', action: 'add-task', needsPanel: true },
-      { emoji: '◫', action: 'edit-swimlanes', needsPanel: true },
-      { emoji: '⚙', action: 'manage-trades', needsPanel: true },
-      { emoji: '⊙', action: 'go-to-today', needsPanel: false },
-      { emoji: '⋯', action: 'toggle-deps', needsPanel: false },
-      { emoji: 'AI', action: 'composer', needsPanel: true },
+      { emoji: '➕', action: 'add-task', needsPanel: true },
+      { emoji: '🏊', action: 'edit-swimlanes', needsPanel: true },
+      { emoji: '🛠️', action: 'manage-trades', needsPanel: true },
+      { emoji: '📅', action: 'go-to-today', needsPanel: false },
+      { emoji: '🔗', action: 'toggle-deps', needsPanel: false },
+      { emoji: '🤖', action: 'composer', needsPanel: true },
     ];
 
     actions.forEach(({ emoji, action, needsPanel }) => {
@@ -240,12 +259,10 @@ export class Sidebar {
   private setupRightPanel() {
     this.element.style.cssText = `
       position: fixed; top: 0; right: 0; width: ${RIGHT_PANEL_WIDTH}px; height: 100%;
-      background: #212121; 
-      
-      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+      background: #ffffff; box-shadow: -4px 0 25px rgba(0,0,0,0.1);
       display: none; z-index: 1000;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      border-left: 1px solid #444; flex-direction: column;
+      border-left: 1px solid rgba(0,0,0,0.1); flex-direction: column;
       overflow: hidden; transition: transform 0.3s ease;
       transform: translateX(${RIGHT_PANEL_WIDTH}px);
     `;
@@ -253,23 +270,19 @@ export class Sidebar {
     // Add right panel styles
     const style = document.createElement('style');
     style.textContent = `
-      /* ===== Clean dark Right Panel Design System ===== */
+      /* ===== Right Panel Design System ===== */
       .rp-header {
         padding: 18px 20px; display: flex; justify-content: space-between;
-        align-items: center; border-bottom: 1px solid #444; flex-shrink: 0; background: #2f2f2f;
+        align-items: center; border-bottom: 1px solid #e8e8e8; flex-shrink: 0;
       }
-      .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #ccc; letter-spacing: -0.01em; }
+      .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em; }
       .rp-close {
         border: none; background: none; font-size: 18px; cursor: pointer;
-        padding: 6px 8px; margin: -6px -8px; color: #999; border-radius: 6px;
-        transition: background 0.15s; line-height: 1;
+        padding: 6px 8px; margin: -6px -8px; color: #9ca3af; border-radius: 8px;
+        transition: all 0.15s ease; line-height: 1;
       }
-      .rp-close:hover { 
-        background: #404040; 
-        color: #ccc;
-        ;
-      }
-      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; background: #212121; }
+      .rp-close:hover { background: #f5f5f5; color: #1a1a1a; }
+      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; }
       .rp-view { display: none; }
       .rp-view.active { display: flex; flex-direction: column; }
 
@@ -277,17 +290,15 @@ export class Sidebar {
       .form-group { margin-bottom: 20px; }
       .form-group label {
         display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500;
-        color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;
       }
       .form-group input, .form-group select {
-        width: 100%; padding: 10px 12px; border: 1px solid #444; 
-        border-radius: 8px; font-size: 14px; font-family: inherit; 
-        background: #2f2f2f; color: #ececec;
-        transition: background 0.15s; box-sizing: border-box; height: 40px;
+        width: 100%; padding: 10px 12px; border: 1px solid #e8e8e8; border-radius: 8px;
+        font-size: 14px; font-family: inherit; background: #fff; color: #1a1a1a;
+        transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box; height: 40px;
       }
       .form-group input:focus, .form-group select:focus {
-        border-color: #10a37f; 
-        background: #3a3a3a;
+        border-color: #1a1a1a; box-shadow: 0 0 0 3px rgba(26,26,26,0.08);
         outline: none;
       }
 
@@ -295,134 +306,99 @@ export class Sidebar {
       .checkbox-group { display: flex; align-items: center; margin-bottom: 10px; }
       .checkbox-group label {
         margin-bottom: 0; margin-left: 10px; cursor: pointer;
-        font-size: 14px; color: #ececec; text-transform: none; letter-spacing: 0; font-weight: 400;
+        font-size: 14px; color: #374151; text-transform: none; letter-spacing: 0; font-weight: 400;
       }
       .checkbox-group input[type="checkbox"] {
         width: 18px; height: 18px; margin-right: 0; cursor: pointer;
-        accent-color: #10a37f; border-radius: 4px;
+        accent-color: #1a1a1a; border-radius: 4px;
       }
 
       /* Buttons */
-      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #444; }
+      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
       .btn-primary {
-        padding: 10px 20px; border: none; border-radius: 8px; 
-        background: #10a37f;
-        color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
-        height: 40px; transition: background 0.15s; font-family: inherit;
+        padding: 10px 20px; border: none; border-radius: 8px; background: #1a1a1a;
+        color: white; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-primary:hover { 
-        ;
-        transform: translateY(-1px);
-      }
+      .btn-primary:hover { background: #333; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
       .btn-secondary {
-        padding: 10px 20px; border: 1px solid #444; border-radius: 8px;
-        background: #2f2f2f; color: #ececec; font-size: 14px; font-weight: 500; cursor: pointer;
-        height: 40px; transition: background 0.15s; font-family: inherit;
+        padding: 10px 20px; border: 1px solid #e8e8e8; border-radius: 8px;
+        background: white; color: #374151; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-secondary:hover { 
-        background: #3a3a3a; 
-        border-color: rgba(16, 163, 127, 0.3);
-      }
+      .btn-secondary:hover { background: #fafafa; border-color: #d1d5db; }
       .btn-danger {
-        padding: 10px 20px; border: 1px solid rgba(245, 101, 101, 0.3); border-radius: 8px; 
-        background: rgba(245, 101, 101, 0.1);
-        color: #f56565; font-size: 14px; font-weight: 500; cursor: pointer;
-        height: 40px; transition: background 0.15s; font-family: inherit;
+        padding: 10px 20px; border: 1px solid #fecaca; border-radius: 8px; background: white;
+        color: #dc2626; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: all 0.15s ease; font-family: inherit;
       }
-      .btn-danger:hover { 
-        background: rgba(245, 101, 101, 0.2);
-        border-color: #f56565;
-        ;
-      }
+      .btn-danger:hover { background: #fef2f2; }
 
-      /* Swimlane items — glass card with colored left border */
+      /* Swimlane items — card with color left border */
       .swimlane-item {
         display: flex; align-items: center; margin-bottom: 8px; padding: 12px 14px;
-        background: #2f2f2f; border-radius: 8px; 
-        border: 1px solid #444;
-        border-left: 4px solid #10a37f; transition: background 0.15s;
+        background: #fafafa; border-radius: 10px; border: 1px solid #f0f0f0;
+        border-left: 4px solid #9ca3af; transition: box-shadow 0.15s ease;
       }
-      .swimlane-item:hover { 
-        background: #3a3a3a;
-      }
+      .swimlane-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
       .swimlane-color { display: none; }
       .swimlane-name-input {
         flex-grow: 1; padding: 8px 10px; border: 1px solid transparent;
-        border-radius: 8px; font-size: 14px; background: transparent; color: #ececec;
-        font-family: inherit; transition: background 0.15s;
+        border-radius: 6px; font-size: 14px; background: transparent; color: #1a1a1a;
+        font-family: inherit; transition: all 0.15s ease;
       }
-      .swimlane-name-input:hover { background: #3a3a3a; }
+      .swimlane-name-input:hover { background: #fff; }
       .swimlane-name-input:focus {
-        outline: none; background: #3a3a3a; 
-        border-color: #10a37f;
+        outline: none; background: #fff; border-color: #e8e8e8;
+        box-shadow: 0 0 0 3px rgba(26,26,26,0.06);
       }
       .swimlane-actions { display: flex; margin-left: 4px; gap: 2px; }
       .swimlane-actions button {
         padding: 4px 6px; background: none; border: none; cursor: pointer;
-        opacity: 0.6; font-size: 14px; border-radius: 8px; transition: all 0.3s;
-        color: #999;
+        opacity: 0.4; font-size: 14px; border-radius: 6px; transition: all 0.15s;
       }
-      .swimlane-actions button:hover { 
-        opacity: 1; 
-        background: #404040;
-        color: #ccc;
-      }
+      .swimlane-actions button:hover { opacity: 1; background: #f0f0f0; }
 
       /* Trade management */
       .trade-filter-container { background: transparent; border-radius: 0; padding: 0; margin-top: 8px; }
       .trade-filter-header {
         display: flex; justify-content: space-between; align-items: center;
-        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #444;
+        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0;
       }
-      .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+      .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
       .trade-filter-actions { display: flex; gap: 4px; }
       .trade-filter-action {
-        font-size: 12px; color: #999; background: none; border: none; cursor: pointer;
-        padding: 4px 8px; border-radius: 8px; font-weight: 500; transition: all 0.3s; font-family: inherit;
+        font-size: 12px; color: #6b7280; background: none; border: none; cursor: pointer;
+        padding: 4px 8px; border-radius: 6px; font-weight: 500; transition: all 0.15s; font-family: inherit;
       }
-      .trade-filter-action:hover { 
-        background: #404040; 
-        color: #ccc;
-      }
+      .trade-filter-action:hover { background: #f5f5f5; color: #1a1a1a; }
       .trade-filter-list { display: flex; flex-direction: column; gap: 6px; }
       .trade-filter-item {
-        display: flex; align-items: center; padding: 10px 12px; 
-        background: #2f2f2f;
-        border-radius: 8px; border: 1px solid #444; 
-        transition: background 0.15s;
+        display: flex; align-items: center; padding: 10px 12px; background: #fafafa;
+        border-radius: 10px; border: 1px solid #f0f0f0; transition: all 0.15s ease;
       }
-      .trade-filter-item:hover { 
-        border-color: rgba(16, 163, 127, 0.3); 
-        background: #3a3a3a;
-      }
+      .trade-filter-item:hover { border-color: #e8e8e8; background: #fff; }
       .trade-filter-item.disabled { opacity: 0.45; }
       .trade-filter-color {
-        width: 22px; height: 22px; border-radius: 8px; margin-right: 12px; flex-shrink: 0;
-        border: 2px solid transparent; cursor: pointer; transition: background 0.15s;
+        width: 22px; height: 22px; border-radius: 6px; margin-right: 12px; flex-shrink: 0;
+        border: 2px solid transparent; cursor: pointer; transition: all 0.15s ease;
       }
-      .trade-filter-color:hover { 
-        border-color: rgba(16, 163, 127, 0.4); 
-        transform: scale(1.1);
-        ;
-      }
+      .trade-filter-color:hover { border-color: rgba(0,0,0,0.15); transform: scale(1.1); }
       .trade-filter-name {
-        flex-grow: 1; font-size: 14px; color: #ececec; border: none; background: transparent;
-        font-family: inherit; padding: 4px 6px; border-radius: 8px; font-weight: 450;
+        flex-grow: 1; font-size: 14px; color: #1a1a1a; border: none; background: transparent;
+        font-family: inherit; padding: 4px 6px; border-radius: 6px; font-weight: 450;
       }
-      .trade-filter-name:focus { 
-        outline: none; 
-        background: #3a3a3a; 
-      }
+      .trade-filter-name:focus { outline: none; background: #fff; box-shadow: 0 0 0 2px rgba(26,26,26,0.08); }
       .trade-filter-toggle {
-        width: 40px; height: 22px; background: #444; border-radius: 22px;
-        position: relative; cursor: pointer; transition: background 0.15s; border: none; padding: 0;
+        width: 40px; height: 22px; background: #d1d5db; border-radius: 22px;
+        position: relative; cursor: pointer; transition: background 0.2s ease; border: none; padding: 0;
         flex-shrink: 0; margin-left: 8px;
       }
-      .trade-filter-toggle.active { background: #10a37f; }
+      .trade-filter-toggle.active { background: #22c55e; }
       .trade-filter-toggle::before {
         content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-        background: #ececec; top: 2px; left: 2px; transition: transform 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        background: white; top: 2px; left: 2px; transition: transform 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       }
       .trade-filter-toggle.active::before { transform: translateX(18px); }
       .trade-filter-delete {
@@ -433,7 +409,7 @@ export class Sidebar {
 
       /* Color picker */
       .color-picker-dialog {
-        position: absolute; background: white; border-radius: 8px;
+        position: absolute; background: white; border-radius: 12px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
         padding: 14px; z-index: 1001; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
       }
@@ -448,22 +424,22 @@ export class Sidebar {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
       .chat-clear-btn:hover {
-        background: #3a3a3a !important; color: #ececec !important;
+        background: #374151 !important; color: #e5e7eb !important;
       }
       .chat-input:focus {
-        border-color: #10a37f !important; box-shadow: 0 0 0 2px rgba(16,163,127,0.2) !important;
+        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,0.2) !important;
       }
       .chat-input::placeholder {
-        color: #999;
+        color: #6b7280;
       }
       .chat-send-btn:disabled {
-        background: #666 !important; cursor: not-allowed; opacity: 0.6;
+        background: #6b7280 !important; cursor: not-allowed; opacity: 0.6;
       }
       .chat-send-btn:not(:disabled):hover {
-        background: #0d8c6d !important; transform: translateY(-50%) scale(1.05);
+        background: #1d4ed8 !important; transform: translateY(-50%) scale(1.05);
       }
       .chat-upload-btn:hover {
-        background: #3a3a3a !important; border-color: #666 !important;
+        background: #374151 !important; border-color: #6b7280 !important;
       }
       
       /* Chat Message Bubbles */
@@ -472,15 +448,15 @@ export class Sidebar {
         line-height: 1.4; word-wrap: break-word; position: relative; animation: messageSlideIn 0.3s ease-out;
       }
       .message-bubble.user {
-        background: #10a37f; color: white; align-self: flex-end; margin-left: auto;
+        background: #2563eb; color: white; align-self: flex-end; margin-left: auto;
         border-bottom-right-radius: 6px;
       }
       .message-bubble.assistant {
-        background: #2f2f2f; color: #ececec; align-self: flex-start; margin-right: auto;
-        border-bottom-left-radius: 6px; border: 1px solid #444;
+        background: #2a2a2a; color: #e5e7eb; align-self: flex-start; margin-right: auto;
+        border-bottom-left-radius: 6px; border: 1px solid #404040;
       }
       .message-timestamp {
-        font-size: 11px; color: #999; margin-top: 6px; text-align: right;
+        font-size: 11px; color: #6b7280; margin-top: 6px; text-align: right;
       }
       .message-bubble.user .message-timestamp {
         color: rgba(255,255,255,0.7);
@@ -488,8 +464,8 @@ export class Sidebar {
       
       /* Welcome Message */
       .welcome-message {
-        background: #10a37f; 
-        color: white; padding: 20px; border-radius: 6px; text-align: center;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+        color: white; padding: 20px; border-radius: 16px; text-align: center;
         margin-bottom: 8px; border: none; animation: messageSlideIn 0.5s ease-out;
       }
       .welcome-title {
@@ -506,7 +482,7 @@ export class Sidebar {
       .quick-action-chip {
         background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
         color: white; padding: 8px 12px; border-radius: 20px; font-size: 12px;
-        cursor: pointer; transition: all 0.2s; 
+        cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px);
         font-weight: 500;
       }
       .quick-action-chip:hover {
@@ -550,28 +526,28 @@ export class Sidebar {
         width: 6px;
       }
       .chat-messages::-webkit-scrollbar-track {
-        background: #212121;
+        background: #1a1a1a;
       }
       .chat-messages::-webkit-scrollbar-thumb {
-        background: #444; border-radius: 3px;
+        background: #404040; border-radius: 3px;
       }
       .chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #666;
+        background: #525252;
       }
 
       /* ===== Task Details Panel ===== */
       .task-details-panel { display: flex; flex-direction: column; gap: 20px; }
-      .td-header { display: flex; gap: 0; border-radius: 6px; overflow: hidden; background: #2f2f2f; }
+      .td-header { display: flex; gap: 0; border-radius: 10px; overflow: hidden; background: #f8f9fa; }
       .td-color-bar { width: 5px; flex-shrink: 0; }
       .td-header-content { padding: 14px 16px; flex: 1; }
       .td-name-input {
-        width: 100%; font-size: 17px; font-weight: 600; color: #ececec;
+        width: 100%; font-size: 17px; font-weight: 600; color: #1a1a1a;
         border: 1.5px solid transparent; padding: 6px 8px; border-radius: 6px;
         background: transparent; font-family: inherit; box-sizing: border-box;
         transition: all 0.15s ease;
       }
-      .td-name-input:hover { background: #3a3a3a; border-color: #444; }
-      .td-name-input:focus { background: #3a3a3a; border-color: #10a37f; outline: none; box-shadow: 0 0 0 3px rgba(16,163,127,0.15); }
+      .td-name-input:hover { background: #fff; border-color: #e8e8e8; }
+      .td-name-input:focus { background: #fff; border-color: #1a1a1a; outline: none; box-shadow: 0 0 0 3px rgba(26,26,26,0.06); }
       .td-meta { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
       .td-swimlane-badge, .td-status-badge {
         font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px;
@@ -579,71 +555,71 @@ export class Sidebar {
       }
       .td-stats-row {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-        background: #212121; border-radius: 6px; overflow: hidden;
+        background: #1a1a1a; border-radius: 10px; overflow: hidden;
       }
       .td-stat {
         display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
-        border-right: 1px solid #444;
+        border-right: 1px solid #333;
       }
       .td-stat:last-child { border-right: none; }
-      .td-stat-value { color: #ececec; font-size: 15px; font-weight: 700; }
-      .td-stat-label { color: #999; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+      .td-stat-value { color: #fff; font-size: 15px; font-weight: 700; }
+      .td-stat-label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
       .td-section-label {
-        font-size: 11px; font-weight: 600; color: #999; letter-spacing: 0.8px;
+        font-size: 11px; font-weight: 600; color: #9ca3af; letter-spacing: 0.8px;
         text-transform: uppercase; margin-bottom: -12px;
       }
       .td-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .td-readonly-field {
-        padding: 10px 12px; border: 1px solid #444; border-radius: 8px;
-        font-size: 14px; background: #2f2f2f; color: #999; height: 40px;
+        padding: 10px 12px; border: 1px solid #e8e8e8; border-radius: 8px;
+        font-size: 14px; background: #f8f9fa; color: #6b7280; height: 40px;
         box-sizing: border-box; display: flex; align-items: center;
       }
       .td-toggle-group { display: flex; flex-direction: column; gap: 10px; }
       .td-toggle {
         display: flex; align-items: center; gap: 10px; cursor: pointer;
-        font-size: 14px; color: #ececec;
+        font-size: 14px; color: #374151;
       }
       .td-toggle input[type="checkbox"] {
         width: 36px; height: 20px; appearance: none; -webkit-appearance: none;
-        background: #444; border-radius: 6px; position: relative;
+        background: #d1d5db; border-radius: 10px; position: relative;
         cursor: pointer; transition: background 0.2s;
       }
       .td-toggle input[type="checkbox"]::after {
         content: ''; position: absolute; top: 2px; left: 2px;
-        width: 16px; height: 16px; background: #ececec; border-radius: 50%;
+        width: 16px; height: 16px; background: #fff; border-radius: 50%;
         transition: transform 0.2s;
       }
-      .td-toggle input[type="checkbox"]:checked { background: #10a37f; }
+      .td-toggle input[type="checkbox"]:checked { background: #1a1a1a; }
       .td-toggle input[type="checkbox"]:checked::after { transform: translateX(16px); }
       .td-dep-add { display: flex; gap: 6px; }
       .td-dep-add select { flex: 1; }
       .td-add-btn {
         width: 40px; height: 40px; border: none; border-radius: 8px;
-        background: #10a37f; color: #fff; font-size: 18px; cursor: pointer;
+        background: #1a1a1a; color: #fff; font-size: 18px; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         transition: background 0.15s;
       }
-      .td-add-btn:hover { background: #0d8c6d; }
+      .td-add-btn:hover { background: #333; }
       .td-dep-list { display: flex; flex-direction: column; gap: 6px; }
       .td-dep-item {
         display: flex; align-items: center; justify-content: space-between;
-        padding: 10px 12px; background: #2f2f2f; border-radius: 8px;
-        border: 1px solid #444; transition: border-color 0.15s;
+        padding: 10px 12px; background: #f8f9fa; border-radius: 8px;
+        border: 1px solid #f0f0f0; transition: border-color 0.15s;
       }
-      .td-dep-item:hover { border-color: #666; }
+      .td-dep-item:hover { border-color: #d1d5db; }
       .td-dep-info { display: flex; align-items: center; gap: 8px; }
       .td-dep-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
-      .td-dep-name { font-size: 13px; font-weight: 500; color: #ececec; }
+      .td-dep-name { font-size: 13px; font-weight: 500; color: #1a1a1a; }
       .td-dep-type {
-        font-size: 11px; font-weight: 600; background: #444; padding: 2px 6px;
-        border-radius: 4px; color: #999; font-family: monospace;
+        font-size: 11px; font-weight: 600; background: #e8e8e8; padding: 2px 6px;
+        border-radius: 4px; color: #6b7280; font-family: monospace;
       }
       .td-dep-remove {
-        border: none; background: none; color: #999; cursor: pointer;
+        border: none; background: none; color: #9ca3af; cursor: pointer;
         font-size: 16px; padding: 4px 8px; border-radius: 4px; transition: all 0.15s;
       }
-      .td-dep-remove:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
-      .td-dep-empty { padding: 10px 12px; font-size: 13px; color: #999; font-style: italic; }
+      .td-dep-remove:hover { background: #fee2e2; color: #ef4444; }
+      .td-dep-empty { padding: 10px 12px; font-size: 13px; color: #9ca3af; font-style: italic; }
     `;
     document.head.appendChild(style);
   }
@@ -659,9 +635,9 @@ export class Sidebar {
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
             <!-- Modern Chat Interface -->
-            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#212121; border-radius:12px; overflow:hidden;">
+            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#1a1a1a; border-radius:12px; overflow:hidden;">
               <!-- Chat Header -->
-              <div class="chat-header" style="padding:16px 20px; background:#2f2f2f; border-bottom:1px solid #444; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+              <div class="chat-header" style="padding:16px 20px; background:#2a2a2a; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.5);"></div>
                   <span style="color:#e5e7eb; font-size:14px; font-weight:500;">AI Project Composer</span>
@@ -676,23 +652,23 @@ export class Sidebar {
 
               <!-- Typing Indicator -->
               <div class="typing-indicator" style="display:none; padding:0 20px 16px; opacity:0; transition:all 0.3s;">
-                <div style="background:#2f2f2f; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px; border:1px solid #444;">
+                <div style="background:#2a2a2a; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
                   <div class="typing-dots" style="display:flex; gap:4px;">
-                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite;"></div>
-                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
-                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite;"></div>
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
                   </div>
                 </div>
               </div>
 
               <!-- Chat Input Area -->
-              <div class="chat-input-area" style="border-top:1px solid #444; background:#212121; padding:16px 20px; flex-shrink:0;">
+              <div class="chat-input-area" style="border-top:1px solid #333; background:#1a1a1a; padding:16px 20px; flex-shrink:0;">
                 <!-- Image preview area -->
                 <div class="composer-image-preview" style="display:none; margin-bottom:12px;"></div>
                 
                 <div style="display:flex; gap:12px; align-items:flex-end;">
                   <!-- Image Upload Button -->
-                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2f2f2f; border:1px solid #444; border-radius:10px; cursor:pointer; font-size:18px; color:#999; transition:all 0.15s; flex-shrink:0;" title="Upload image">
+                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border:1px solid #404040; border-radius:10px; cursor:pointer; font-size:18px; color:#9ca3af; transition:all 0.15s; flex-shrink:0;" title="Upload image">
                     <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
                     📎
                   </label>
@@ -702,14 +678,14 @@ export class Sidebar {
                     <textarea 
                       class="chat-input" 
                       placeholder="Describe your project and I'll build the schedule..."
-                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2f2f2f; border:1px solid #444; border-radius:22px; color:#ececec; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
+                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2a2a2a; border:1px solid #404040; border-radius:22px; color:#e5e7eb; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
                       rows="1"
                     ></textarea>
                     
                     <!-- Send Button (positioned inside textarea) -->
                     <button 
                       class="chat-send-btn" 
-                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#10a37f; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
+                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#2563eb; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
                       disabled
                     >
                       ▶
@@ -717,8 +693,8 @@ export class Sidebar {
                   </div>
                 </div>
                 
-                <div style="font-size:12px; color:#999; margin-top:8px; text-align:center;">
-                  Press <kbd style="background:#2f2f2f; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2f2f2f; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
+                <div style="font-size:12px; color:#6b7280; margin-top:8px; text-align:center;">
+                  Press <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
                 </div>
               </div>
             </div>
@@ -755,7 +731,7 @@ export class Sidebar {
               </div>
               <div class="form-group">
                 <label>Work Schedule</label>
-                <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:14px;">
+                <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:14px;">
                   <div class="checkbox-group">
                     <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
                     <label for="sidebar-work-saturday">Work on Saturdays</label>
@@ -800,28 +776,28 @@ export class Sidebar {
             </div>
           </div>
           <div id="settings-view" class="rp-view">
-            <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:16px; margin-bottom:20px;">
-              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600; color:#ececec;">About</h4>
-              <p style="font-size:13px; color:#999; margin:0 0 4px; line-height:1.5;">DingPlan — Free construction scheduling for subcontractors.</p>
-              <p style="font-size:12px; color:#666; margin:0;">Open source · No account required · All data stored locally</p>
+            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600; color:#1a1a1a;">About</h4>
+              <p style="font-size:13px; color:#6b7280; margin:0 0 4px; line-height:1.5;">DingPlan — Free construction scheduling for subcontractors.</p>
+              <p style="font-size:12px; color:#9ca3af; margin:0;">Open source · No account required · All data stored locally</p>
             </div>
-            <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:16px; margin-bottom:20px;">
+            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                 <span style="font-size:16px;">🔒</span>
-                <h4 style="margin:0; font-size:14px; font-weight:600; color:#ececec;">AI Composer Key</h4>
+                <h4 style="margin:0; font-size:14px; font-weight:600; color:#1a1a1a;">AI Composer Key</h4>
               </div>
-              <p style="font-size:13px; color:#999; margin:0 0 12px; line-height:1.5;">Enter your API key (OpenAI or Anthropic) to use the AI Composer. Stored locally in your browser.</p>
+              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">Enter your API key (OpenAI or Anthropic) to use the AI Composer. Stored locally in your browser.</p>
               <div style="display:flex; gap:8px;">
                 <input type="password" id="settings-api-key" placeholder="sk-..." 
-                  style="flex:1; padding:10px 12px; border:1px solid #444; border-radius:8px; font-size:14px; font-family:inherit; background:#3a3a3a; color:#ececec; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
-                  onfocus="this.style.borderColor='#10a37f'; this.style.boxShadow='0 0 0 3px rgba(16,163,127,0.15)'"
-                  onblur="this.style.borderColor='#444'; this.style.boxShadow='none'">
+                  style="flex:1; padding:10px 12px; border:1px solid #e8e8e8; border-radius:8px; font-size:14px; font-family:inherit; background:#fff; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
+                  onfocus="this.style.borderColor='#1a1a1a'; this.style.boxShadow='0 0 0 3px rgba(26,26,26,0.08)'"
+                  onblur="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'">
                 <button id="save-api-key" class="btn-primary" style="padding:10px 16px; font-size:14px; white-space:nowrap;">Save</button>
               </div>
             </div>
-            <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:10px; padding:16px;">
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:16px;">
               <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#dc2626;">Danger Zone</h4>
-              <p style="font-size:13px; color:#999; margin:0 0 12px; line-height:1.5;">
+              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">
                 Clears all projects, tasks, and settings from your browser. This cannot be undone.
               </p>
               <button id="clear-local-storage" class="btn-danger" style="font-size:14px;">Reset All Data</button>
@@ -831,7 +807,7 @@ export class Sidebar {
       </div>
     `;
 
-    // Note: Chat messages now handled by .chat-messages container
+    this.composerResponseArea = this.element.querySelector('.composer-response-area');
   }
 
   private renderTradeList(): string {
@@ -897,7 +873,58 @@ export class Sidebar {
     const closeBtn = this.element.querySelector('.rp-close');
     if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
 
-    // Note: Chat interface event listeners are now handled in setupChatInterface()
+    // Composer button and image upload
+    const aiButton = this.element.querySelector('.ai-composer-button');
+    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
+    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
+    let pendingImage: string | null = null; // base64
+    
+    if (aiButton) {
+      aiButton.addEventListener('click', () => {
+        const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+        if (input.value.trim() || pendingImage) {
+          this.handleAIComposerSubmit(input.value, pendingImage);
+          // Clear pending image after sending
+          pendingImage = null;
+          if (imagePreview) {
+            imagePreview.style.display = 'none';
+            imagePreview.innerHTML = '';
+          }
+          if (imageInput) imageInput.value = '';
+        }
+      });
+    }
+    
+    if (imageInput) {
+      imageInput.addEventListener('change', () => {
+        const file = imageInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          pendingImage = reader.result as string;
+          // Show preview
+          if (imagePreview) {
+            imagePreview.style.display = 'block';
+            imagePreview.innerHTML = `
+              <div style="position:relative; display:inline-block;">
+                <img src="${pendingImage}" style="max-height:100px; border-radius:8px; border:1px solid #e8e8e8;">
+                <button class="remove-image" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
+              </div>
+            `;
+            const removeBtn = imagePreview.querySelector('.remove-image');
+            if (removeBtn) {
+              removeBtn.addEventListener('click', () => {
+                pendingImage = null;
+                imagePreview.style.display = 'none';
+                imagePreview.innerHTML = '';
+                imageInput.value = '';
+              });
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     // Trade toggles, color pickers, delete, select/clear all, add new
     this.setupTradeListEventListeners();
@@ -1053,7 +1080,7 @@ export class Sidebar {
     // Create modal content
     const content = document.createElement('div');
     content.style.cssText = `
-      background: #1a1a1a; border-radius: 8px; padding: 32px;
+      background: #1a1a1a; border-radius: 12px; padding: 32px;
       width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     `;
@@ -1067,7 +1094,7 @@ export class Sidebar {
       <div id="template-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
         <!-- Blank project card -->
         <div class="template-card blank-project" data-template="blank" style="
-          background: #2a2a2a; border: 2px solid #333; border-radius: 6px;
+          background: #2a2a2a; border: 2px solid #333; border-radius: 10px;
           padding: 20px; cursor: pointer; transition: all 0.2s;
         ">
           <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">📋 Blank Project</h3>
@@ -1076,7 +1103,7 @@ export class Sidebar {
         
         ${WBS_TEMPLATES.map(template => `
           <div class="template-card" data-template="${template.id}" style="
-            background: #1a1a1a; border: 2px solid transparent; border-radius: 6px;
+            background: #1a1a1a; border: 2px solid transparent; border-radius: 10px;
             padding: 20px; cursor: pointer; transition: all 0.2s;
           ">
             <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">${template.name}</h3>
@@ -1221,9 +1248,13 @@ export class Sidebar {
   }
 
   private async handleAIComposerSubmit(prompt: string, imageBase64?: string | null) {
+    const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
+    this.addComposerMessage(displayPrompt, true);
+    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    
     if (!this.composer) {
-      this.hideTypingIndicator();
-      this.addChatMessage('Composer not initialized. Please refresh the page.', 'assistant');
+      this.addComposerMessage('Composer not initialized. Please refresh the page.');
       return;
     }
     
@@ -1231,27 +1262,26 @@ export class Sidebar {
     const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
     const isLoggedIn = !!authService.getCurrentUser();
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
-    
     if (!apiKey) {
-      this.hideTypingIndicator();
-      const message = isLoggedIn ? 
-        'AI Composer error — please try again.' : 
-        'Add your API key (OpenAI or Anthropic) in Settings to use AI Composer.';
-      this.addChatMessage(message, 'assistant');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer error — please try again.' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
       return;
     }
-    
     if (this.composer) this.composer.setApiKey(apiKey);
     
     try {
-      const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
+      input.disabled = true;
+      button.disabled = true;
+      button.textContent = 'Processing...';
       const response = await this.composer.processPrompt(displayPrompt, imageBase64 || undefined);
-      this.hideTypingIndicator();
-      this.addChatMessage(response, 'assistant');
+      this.addComposerMessage(response);
     } catch (error: unknown) {
-      this.hideTypingIndicator();
-      const errorMessage = `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`;
-      this.addChatMessage(errorMessage, 'assistant');
+      this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+    } finally {
+      input.disabled = false;
+      button.disabled = false;
+      button.textContent = 'Send Request';
+      input.value = '';
+      input.focus();
     }
   }
 
@@ -1296,7 +1326,7 @@ export class Sidebar {
   isLeftPanelOpen(): boolean { return this.leftPanelVisible; }
 
   private updateStatusBanner() {
-    const banner = this.leftPanel.querySelector('#sidebar-status-banner') as HTMLElement;
+    const banner = this.leftPanel.querySelector('#sidebar-status-banner');
     if (!banner) return;
 
     const currentUser = authService.getCurrentUser();
@@ -1332,55 +1362,21 @@ export class Sidebar {
     const builtInKey = (import.meta.env.VITE_OPENAI_KEY as string) || '';
     const isLoggedIn = !!authService.getCurrentUser();
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
-    
-    // Clear any existing messages and show welcome
-    this.clearChat();
-    this.showWelcomeMessage();
-    
     if (apiKey && this.composer) {
       this.composer.setApiKey(apiKey);
+      this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
     } else {
-      const message = isLoggedIn ? 
-        'AI Composer needs setup. Add your API key in Settings.' : 
-        'Add your API key (OpenAI or Anthropic) in Settings to use AI Composer.';
-      this.addChatMessage(message, 'assistant');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
     }
-    
-    // Set up chat interface
-    this.setupChatInterface();
   }
   
-  private addChatMessage(message: string, type: 'user' | 'assistant', skipFormatting = false) {
-    const chatMessages = this.element.querySelector('.chat-messages');
-    if (!chatMessages) return;
-
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message-bubble ${type}`;
-    
-    if (skipFormatting) {
-      messageDiv.textContent = message;
-    } else {
-      // Parse markdown-like formatting for assistant messages
-      if (type === 'assistant') {
-        messageDiv.innerHTML = this.parseMarkdown(this.stripJsonBlocks(message));
-      } else {
-        messageDiv.textContent = message;
-      }
-    }
-    
-    // Add timestamp
-    const timestamp = document.createElement('div');
-    timestamp.className = 'message-timestamp';
-    timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    messageDiv.appendChild(timestamp);
-    
-    chatMessages.appendChild(messageDiv);
-    this.scrollToBottom();
-  }
-
   private addComposerMessage(message: string, isUserInput = false) {
-    // Legacy method - redirect to new chat message system
-    this.addChatMessage(message, isUserInput ? 'user' : 'assistant');
+    if (!this.composerResponseArea) return;
+    const el = document.createElement('div');
+    el.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
+    el.textContent = isUserInput ? `You: ${message}` : message;
+    this.composerResponseArea.appendChild(el);
+    this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
   }
 
   // ---- Trade management ----
@@ -1801,225 +1797,6 @@ export class Sidebar {
   }
 
   getElement(): HTMLElement { return this.element; }
-
-  // ---- Modern Chat Interface Methods ----
-
-  private showWelcomeMessage() {
-    const chatMessages = this.element.querySelector('.chat-messages');
-    if (!chatMessages) return;
-
-    const welcomeDiv = document.createElement('div');
-    welcomeDiv.className = 'welcome-message';
-    welcomeDiv.innerHTML = `
-      <div class="welcome-title">🚀 Welcome to AI Composer</div>
-      <div class="welcome-subtitle">Describe your project and I'll build the schedule. Try: "datacenter" or "3-story office building"</div>
-      <div class="quick-actions">
-        <div class="quick-action-chip" data-prompt="Datacenter construction project">Datacenter</div>
-        <div class="quick-action-chip" data-prompt="Tenant improvement project">Tenant Improvement</div>
-        <div class="quick-action-chip" data-prompt="Residential construction project">Residential</div>
-        <div class="quick-action-chip" data-prompt="Commercial office building">Commercial Office</div>
-        <div class="quick-action-chip" data-prompt="Add more detail to the schedule">Add more detail</div>
-        <div class="quick-action-chip" data-prompt="Compress the schedule timeline">Compress schedule</div>
-      </div>
-    `;
-    chatMessages.appendChild(welcomeDiv);
-    this.setupQuickActionChips();
-  }
-
-  private setupQuickActionChips() {
-    const chips = this.element.querySelectorAll('.quick-action-chip');
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        const prompt = (chip as HTMLElement).dataset.prompt;
-        if (prompt) {
-          this.sendChatMessage(prompt);
-        }
-      });
-    });
-  }
-
-  private setupChatInterface() {
-    const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
-    const sendBtn = this.element.querySelector('.chat-send-btn') as HTMLButtonElement;
-    const clearBtn = this.element.querySelector('.chat-clear-btn') as HTMLButtonElement;
-    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
-    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
-    
-    let pendingImage: string | null = null;
-
-    if (!input || !sendBtn) return;
-
-    // Auto-growing textarea
-    const adjustTextareaHeight = () => {
-      input.style.height = 'auto';
-      const scrollHeight = Math.min(input.scrollHeight, 120);
-      input.style.height = scrollHeight + 'px';
-      input.style.overflowY = scrollHeight === 120 ? 'auto' : 'hidden';
-    };
-
-    // Input event listeners
-    input.addEventListener('input', () => {
-      adjustTextareaHeight();
-      const hasText = input.value.trim().length > 0;
-      sendBtn.disabled = !hasText && !pendingImage;
-    });
-
-    // Keyboard shortcuts
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (input.value.trim() || pendingImage) {
-          this.sendChatMessage(input.value, pendingImage);
-        }
-      }
-    });
-
-    // Send button
-    sendBtn.addEventListener('click', () => {
-      if (input.value.trim() || pendingImage) {
-        this.sendChatMessage(input.value, pendingImage);
-      }
-    });
-
-    // Clear chat button
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (confirm('Clear chat history?')) {
-          this.clearChat();
-          this.showWelcomeMessage();
-        }
-      });
-    }
-
-    // Image upload
-    if (imageInput && imagePreview) {
-      imageInput.addEventListener('change', () => {
-        const file = imageInput.files?.[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = () => {
-          pendingImage = reader.result as string;
-          sendBtn.disabled = false;
-          
-          // Show preview
-          imagePreview.style.display = 'block';
-          imagePreview.innerHTML = `
-            <div style="position:relative; display:inline-block;">
-              <img src="${pendingImage}" style="max-height:80px; border-radius:8px; border:1px solid #404040;">
-              <button class="remove-image" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#ef4444; color:white; border:none; cursor:pointer; font-size:12px; line-height:1;">×</button>
-            </div>
-          `;
-          
-          const removeBtn = imagePreview.querySelector('.remove-image');
-          if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-              pendingImage = null;
-              imagePreview.style.display = 'none';
-              imagePreview.innerHTML = '';
-              imageInput.value = '';
-              sendBtn.disabled = input.value.trim().length === 0;
-            });
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Focus input when composer opens
-    setTimeout(() => input.focus(), 100);
-  }
-
-  private sendChatMessage(text: string, imageBase64?: string | null) {
-    const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
-    const sendBtn = this.element.querySelector('.chat-send-btn') as HTMLButtonElement;
-    const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
-    const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
-
-    if (!input || !sendBtn) return;
-
-    const message = text.trim();
-    if (!message && !imageBase64) return;
-
-    // Add user message
-    if (message) {
-      this.addChatMessage(message, 'user');
-    } else if (imageBase64) {
-      this.addChatMessage('📷 Image uploaded', 'user');
-    }
-
-    // Clear input
-    input.value = '';
-    input.style.height = 'auto';
-    sendBtn.disabled = true;
-
-    // Clear image preview
-    if (imagePreview && imageInput) {
-      imagePreview.style.display = 'none';
-      imagePreview.innerHTML = '';
-      imageInput.value = '';
-    }
-
-    // Show typing indicator
-    this.showTypingIndicator();
-
-    // Process with AI
-    this.handleAIComposerSubmit(message, imageBase64);
-  }
-
-  private showTypingIndicator() {
-    const indicator = this.element.querySelector('.typing-indicator') as HTMLElement;
-    if (indicator) {
-      indicator.style.display = 'block';
-      indicator.style.opacity = '1';
-      this.scrollToBottom();
-    }
-  }
-
-  private hideTypingIndicator() {
-    const indicator = this.element.querySelector('.typing-indicator') as HTMLElement;
-    if (indicator) {
-      indicator.style.opacity = '0';
-      setTimeout(() => {
-        indicator.style.display = 'none';
-      }, 300);
-    }
-  }
-
-  private clearChat() {
-    const chatMessages = this.element.querySelector('.chat-messages');
-    if (chatMessages) {
-      chatMessages.innerHTML = '';
-    }
-  }
-
-  private scrollToBottom() {
-    const chatMessages = this.element.querySelector('.chat-messages');
-    if (chatMessages) {
-      setTimeout(() => {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }, 100);
-    }
-  }
-
-  private parseMarkdown(text: string): string {
-    return text
-      // Bold
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.*?)__/g, '<strong>$1</strong>')
-      // Simple lists
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-      // Line breaks
-      .replace(/\n/g, '<br>');
-  }
-
-  private stripJsonBlocks(text: string): string {
-    // Remove JSON blocks that are meant for the schedule, not display
-    return text.replace(/```json\s*\{[\s\S]*?\}\s*```/g, '')
-      .replace(/\{[\s\S]*?"tasks"[\s\S]*?\}/g, '')
-      .trim();
-  }
 
   public addSidebarTab(id: SidebarView, title: string, iconSvg: string): HTMLElement | null {
     let container = this.element.querySelector('.sidebar-tabs');

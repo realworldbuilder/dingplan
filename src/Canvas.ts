@@ -61,8 +61,8 @@ export class Canvas {
   constructor(config: CanvasConfig) {
     this.canvas = config.canvas;
     this.ctx = this.canvas.getContext('2d')!;
-    this.backgroundColor = config.backgroundColor || '#212121';
-    this.gridColor = config.gridColor || '#333';
+    this.backgroundColor = config.backgroundColor || '#f0f0f0';
+    this.gridColor = config.gridColor || '#e0e0e0';
     
     if (config.startDate) {
       this.startDate = config.startDate;
@@ -488,13 +488,17 @@ export class Canvas {
     
     // Clear canvas
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.fillStyle = '#1a1a1a';
+    this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     Logger.log("Canvas cleared");
 
     // Draw fixed header background
-    this.ctx.fillStyle = '#2f2f2f';
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.shadowBlur = 4;
+    this.ctx.shadowOffsetY = 2;
     this.ctx.fillRect(0, 0, this.canvas.width, this.timeAxis.getHeaderHeight());
+    this.ctx.shadowColor = 'transparent';
     Logger.log("Header drawn");
 
     // Apply main transform for all content
@@ -651,12 +655,12 @@ export class Canvas {
         this.ctx.textBaseline = 'middle';
         
         // Draw semi-transparent background for better readability
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         const textWidth = this.ctx.measureText(lane.name).width;
         this.ctx.fillRect(labelLeftPadding - 4, screenY + 10, textWidth + 8, 24);
         
-        // Draw label text
-        this.ctx.fillStyle = '#ececec';
+        // Draw label text with better styling
+        this.ctx.fillStyle = '#1f2937';
         this.ctx.fillText(lane.name, labelLeftPadding, screenY + 22);
       }
     });
@@ -667,7 +671,7 @@ export class Canvas {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     
     // Draw header bottom border
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.moveTo(0, this.timeAxis.getHeaderHeight());
@@ -713,10 +717,10 @@ export class Canvas {
     // Create dialog container
     const dialog = document.createElement('div');
     dialog.style.position = 'relative';
-    dialog.style.backgroundColor = '#2f2f2f';
+    dialog.style.backgroundColor = 'white';
     dialog.style.padding = '28px';
     dialog.style.borderRadius = '16px';
-    dialog.style.boxShadow = '0 10px 25px rgba(0,0,0,0.4)';
+    dialog.style.boxShadow = '0 10px 25px rgba(0,0,0,0.08)';
     dialog.style.width = '540px';
     dialog.style.maxWidth = '90vw';
     dialog.style.maxHeight = '90vh';
@@ -731,25 +735,25 @@ export class Canvas {
       <div>
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
           <div style="font-size: 24px;">➕</div>
-          <h2 style="margin: 0; color: #ececec; font-size: 20px; font-weight: 600; letter-spacing: -0.2px;">Add New Task</h2>
+          <h2 style="margin: 0; color: #1a1a1a; font-size: 20px; font-weight: 600; letter-spacing: -0.2px;">Add New Task</h2>
         </div>
         
         <div style="margin-bottom: 24px;">
-          <label for="taskName" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Task Name</label>
+          <label for="taskName" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Task Name</label>
           <input type="text" id="taskName" placeholder="Enter task name" 
-                 style="width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid #444; 
+                 style="width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid #e0e0e0; 
                         border-radius: 8px; font-size: 14px; font-family: inherit; 
-                        background-color: #1a1a1a; color: #ececec; transition: all 0.2s ease;">
+                        background-color: #f8f9fa; transition: all 0.2s ease;">
         </div>
         
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
           <div>
-            <label for="trade" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Trade</label>
+            <label for="trade" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Trade</label>
             <div style="position: relative;">
               <select id="trade" 
                       style="width: 100%; box-sizing: border-box; padding: 10px 14px; 
-                             border: 1px solid #444; border-radius: 8px; font-size: 14px; 
-                             font-family: inherit; background-color: #1a1a1a; color: #ececec; 
+                             border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; 
+                             font-family: inherit; background-color: #f8f9fa; 
                              appearance: none; padding-right: 32px; cursor: pointer;
                              transition: all 0.2s ease;">
                 <option value="" disabled selected>Select a trade</option>
@@ -768,12 +772,12 @@ export class Canvas {
             </div>
           </div>
           <div>
-            <label for="zone" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Zone</label>
+            <label for="zone" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Zone</label>
             <div style="position: relative;">
               <select id="zone" 
                       style="width: 100%; box-sizing: border-box; padding: 10px 14px; 
-                             border: 1px solid #444; border-radius: 8px; font-size: 14px; 
-                             font-family: inherit; background-color: #1a1a1a; color: #ececec; 
+                             border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; 
+                             font-family: inherit; background-color: #f8f9fa; 
                              appearance: none; padding-right: 32px; cursor: pointer;
                              transition: all 0.2s ease;">
                 ${this.taskManager.swimlanes.map(swimlane => `
@@ -795,42 +799,42 @@ export class Canvas {
         <div id="tradeColorPreview" style="margin-top: -8px; margin-bottom: 24px; display: none; align-items: center; 
                                          gap: 10px; padding: 8px 12px; border-radius: 6px;">
           <div id="tradeColorSwatch" style="width: 16px; height: 16px; border-radius: 4px;"></div>
-          <div id="tradeName" style="font-size: 13px; color: #999;"></div>
+          <div id="tradeName" style="font-size: 13px; color: #666;"></div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
           <div>
-            <label for="startDate" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Start Date</label>
+            <label for="startDate" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Start Date</label>
             <input type="date" id="startDate" 
                   style="width: 100%; box-sizing: border-box; padding: 10px 14px; 
-                         border: 1px solid #444; border-radius: 8px; font-size: 14px; 
-                         font-family: inherit; background-color: #1a1a1a; color: #ececec; cursor: pointer;
+                         border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; 
+                         font-family: inherit; background-color: #f8f9fa; cursor: pointer;
                          transition: all 0.2s ease;">
           </div>
           <div>
-            <label for="duration" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Duration</label>
+            <label for="duration" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Duration</label>
             <div style="position: relative;">
               <input type="number" id="duration" min="1" value="1" 
                     style="width: 100%; box-sizing: border-box; padding: 10px 14px; 
-                           padding-right: 48px; border: 1px solid #444; border-radius: 8px; 
-                           font-size: 14px; font-family: inherit; background-color: #1a1a1a; color: #ececec;
+                           padding-right: 48px; border: 1px solid #e0e0e0; border-radius: 8px; 
+                           font-size: 14px; font-family: inherit; background-color: #f8f9fa;
                            transition: all 0.2s ease;">
               <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); 
-                         color: #999; font-size: 14px; font-weight: 400;">days</span>
+                         color: #666; font-size: 14px; font-weight: 400;">days</span>
             </div>
           </div>
           <div>
-            <label for="crewSize" style="display: block; margin-bottom: 8px; color: #999; font-weight: 500; font-size: 14px;">Crew Size</label>
+            <label for="crewSize" style="display: block; margin-bottom: 8px; color: #444; font-weight: 500; font-size: 14px;">Crew Size</label>
             <input type="number" id="crewSize" min="1" value="1" 
                   style="width: 100%; box-sizing: border-box; padding: 10px 14px; 
-                         border: 1px solid #444; border-radius: 8px; font-size: 14px; 
-                         font-family: inherit; background-color: #1a1a1a; color: #ececec;
+                         border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; 
+                         font-family: inherit; background-color: #f8f9fa;
                          transition: all 0.2s ease;">
           </div>
         </div>
 
-        <div style="margin-bottom: 24px; padding: 16px; background-color: #1a1a1a; color: #ececec; border-radius: 8px;">
-          <label style="display: block; margin-bottom: 12px; color: #999; font-weight: 500; font-size: 14px; display: flex; align-items: center;">
+        <div style="margin-bottom: 24px; padding: 16px; background-color: #f8f9fa; border-radius: 8px;">
+          <label style="display: block; margin-bottom: 12px; color: #444; font-weight: 500; font-size: 14px; display: flex; align-items: center;">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="margin-right: 8px;">
               <path d="M12 2H14C14.5523 2 15 2.44772 15 3V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V3C1 2.44772 1.44772 2 2 2H4" stroke="#666" stroke-width="1.5" stroke-linecap="round"/>
               <rect x="4" y="1" width="8" height="4" rx="1" stroke="#666" stroke-width="1.5"/>
@@ -844,7 +848,7 @@ export class Canvas {
             <div style="display: flex; align-items: center;">
               <input type="checkbox" id="workOnSaturday" 
                      style="margin-right: 8px; width: 16px; height: 16px; accent-color: #4CAF50; cursor: pointer;">
-              <label for="workOnSaturday" style="font-size: 14px; color: #999; cursor: pointer;">
+              <label for="workOnSaturday" style="font-size: 14px; color: #444; cursor: pointer;">
                 Work on Saturdays
               </label>
             </div>
@@ -852,7 +856,7 @@ export class Canvas {
             <div style="display: flex; align-items: center;">
               <input type="checkbox" id="workOnSunday" 
                      style="margin-right: 8px; width: 16px; height: 16px; accent-color: #4CAF50; cursor: pointer;">
-              <label for="workOnSunday" style="font-size: 14px; color: #999; cursor: pointer;">
+              <label for="workOnSunday" style="font-size: 14px; color: #444; cursor: pointer;">
                 Work on Sundays
               </label>
             </div>
@@ -862,16 +866,16 @@ export class Canvas {
         <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; 
                     padding-top: 20px; border-top: 1px solid #f0f0f0;">
           <button id="cancelBtn" 
-                 style="padding: 10px 16px; border: 1px solid #444; border-radius: 8px; 
-                        background: #2f2f2f; color: #ccc; cursor: pointer; font-size: 14px; 
+                 style="padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px; 
+                        background: white; color: #555; cursor: pointer; font-size: 14px; 
                         font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Cancel</button>
           <button id="addAndCreateBtn" 
                  style="padding: 10px 16px; border: 1px solid #4CAF50; border-radius: 8px; 
-                        background: #2f2f2f; color: #10a37f; cursor: pointer; font-size: 14px; 
+                        background: white; color: #4CAF50; cursor: pointer; font-size: 14px; 
                         font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Add & Create Another</button>
           <button id="addBtn" 
                  style="padding: 10px 16px; border: none; border-radius: 8px; 
-                        background: #10a37f; color: white; cursor: pointer; font-size: 14px; 
+                        background: #4CAF50; color: white; cursor: pointer; font-size: 14px; 
                         font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Add Task</button>
         </div>
       </div>
@@ -883,12 +887,12 @@ export class Canvas {
       input.addEventListener('focus', () => {
         (input as HTMLElement).style.borderColor = '#4CAF50';
         (input as HTMLElement).style.boxShadow = '0 0 0 3px rgba(76, 175, 80, 0.1)';
-        (input as HTMLElement).style.backgroundColor = '#1a1a1a';
+        (input as HTMLElement).style.backgroundColor = '#ffffff';
       });
       input.addEventListener('blur', () => {
         (input as HTMLElement).style.borderColor = '#e0e0e0';
         (input as HTMLElement).style.boxShadow = 'none';
-        (input as HTMLElement).style.backgroundColor = '#1a1a1a';
+        (input as HTMLElement).style.backgroundColor = '#f8f9fa';
       });
     });
     
@@ -944,24 +948,24 @@ export class Canvas {
 
     // Add hover effects for buttons
     cancelBtn?.addEventListener('mouseover', () => {
-      (cancelBtn as HTMLElement).style.backgroundColor = '#333';
+      (cancelBtn as HTMLElement).style.backgroundColor = '#f8f8f8';
     });
     cancelBtn?.addEventListener('mouseout', () => {
-      (cancelBtn as HTMLElement).style.backgroundColor = '#2f2f2f';
+      (cancelBtn as HTMLElement).style.backgroundColor = 'white';
     });
 
     addAndCreateBtn?.addEventListener('mouseover', () => {
-      (addAndCreateBtn as HTMLElement).style.backgroundColor = '#1a2f1a';
+      (addAndCreateBtn as HTMLElement).style.backgroundColor = '#f0fff0';
     });
     addAndCreateBtn?.addEventListener('mouseout', () => {
-      (addAndCreateBtn as HTMLElement).style.backgroundColor = '#2f2f2f';
+      (addAndCreateBtn as HTMLElement).style.backgroundColor = 'white';
     });
 
     addBtn?.addEventListener('mouseover', () => {
-      (addBtn as HTMLElement).style.backgroundColor = '#10a37f';
+      (addBtn as HTMLElement).style.backgroundColor = '#43a047';
     });
     addBtn?.addEventListener('mouseout', () => {
-      (addBtn as HTMLElement).style.backgroundColor = '#10a37f';
+      (addBtn as HTMLElement).style.backgroundColor = '#4CAF50';
     });
 
     // Set button click handlers
@@ -1077,7 +1081,7 @@ export class Canvas {
         successToast.style.top = '10px';
         successToast.style.left = '50%';
         successToast.style.transform = 'translateX(-50%)';
-        successToast.style.backgroundColor = '#10a37f';
+        successToast.style.backgroundColor = '#4CAF50';
         successToast.style.color = 'white';
         successToast.style.padding = '8px 16px';
         successToast.style.borderRadius = '4px';
@@ -1136,10 +1140,10 @@ export class Canvas {
     // Create dialog container
     const dialog = document.createElement('div');
     dialog.style.position = 'relative';
-    dialog.style.backgroundColor = '#2f2f2f';
+    dialog.style.backgroundColor = 'white';
     dialog.style.padding = '28px';
     dialog.style.borderRadius = '16px';
-    dialog.style.boxShadow = '0 10px 25px rgba(0,0,0,0.4)';
+    dialog.style.boxShadow = '0 10px 25px rgba(0,0,0,0.08)';
     dialog.style.width = '540px';
     dialog.style.maxWidth = '90vw';
     dialog.style.maxHeight = '90vh';
@@ -1154,31 +1158,31 @@ export class Canvas {
       <div>
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
           <div style="font-size: 24px;">🏊</div>
-          <h2 style="margin: 0; color: #ececec; font-size: 20px; font-weight: 600; letter-spacing: -0.2px;">Edit Swimlanes</h2>
+          <h2 style="margin: 0; color: #1a1a1a; font-size: 20px; font-weight: 600; letter-spacing: -0.2px;">Edit Swimlanes</h2>
         </div>
         
         <div id="swimlaneList" style="margin-bottom: 24px;">
           ${this.taskManager.swimlanes.map((lane, index) => `
-            <div class="swimlane-item" style="display: flex; align-items: center; margin-bottom: 12px; padding: 14px; background: #1a1a1a; border-radius: 8px; border: 1px solid #444;">
+            <div class="swimlane-item" style="display: flex; align-items: center; margin-bottom: 12px; padding: 14px; background: #f8f9fa; border-radius: 8px; border: 1px solid #f0f0f0;">
               <div style="width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; background-color: ${lane.color}"></div>
               <input type="text" value="${lane.name}" 
                      data-lane-id="${lane.id}" 
                      class="swimlane-name-input"
-                     style="flex-grow: 1; padding: 8px 12px; border: 1px solid #444; border-radius: 6px; font-size: 14px; background: white; transition: all 0.2s ease;">
+                     style="flex-grow: 1; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; background: white; transition: all 0.2s ease;">
               ${index > 0 ? `
                 <button class="move-up-btn" data-lane-id="${lane.id}"
-                        style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #999; opacity: 0.8; transition: opacity 0.2s ease;">
+                        style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #666; opacity: 0.8; transition: opacity 0.2s ease;">
                   ⬆️
                 </button>
               ` : '<div style="width: 36px;"></div>'}
               ${index < this.taskManager.swimlanes.length - 1 ? `
                 <button class="move-down-btn" data-lane-id="${lane.id}"
-                        style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #999; opacity: 0.8; transition: opacity 0.2s ease;">
+                        style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #666; opacity: 0.8; transition: opacity 0.2s ease;">
                   ⬇️
                 </button>
               ` : '<div style="width: 36px;"></div>'}
               <button class="delete-lane-btn" data-lane-id="${lane.id}"
-                      style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #999; opacity: 0.8; transition: opacity 0.2s ease;">
+                      style="padding: 8px; margin-left: 4px; background: none; border: none; cursor: pointer; color: #666; opacity: 0.8; transition: opacity 0.2s ease;">
                 🗑️
               </button>
             </div>
@@ -1186,9 +1190,9 @@ export class Canvas {
         </div>
 
         <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
-          <button id="cancelBtn" style="padding: 10px 16px; border: 1px solid #444; border-radius: 8px; background: #2f2f2f; color: #ccc; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Cancel</button>
-          <button id="addBtn" style="padding: 10px 16px; border: 1px solid #444; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Add Swimlane</button>
-          <button id="saveBtn" style="padding: 10px 16px; border: none; border-radius: 8px; background: #10a37f; color: white; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Save Changes</button>
+          <button id="cancelBtn" style="padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px; background: white; color: #555; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Cancel</button>
+          <button id="addBtn" style="padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f8f9fa; color: #333; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Add Swimlane</button>
+          <button id="saveBtn" style="padding: 10px 16px; border: none; border-radius: 8px; background: #2196F3; color: white; cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit; transition: all 0.2s ease;">Save Changes</button>
         </div>
       </div>
     `;
@@ -1218,19 +1222,19 @@ export class Canvas {
       
       btn.addEventListener('mouseover', () => {
         if (btn.id === 'cancelBtn') {
-          (btn as HTMLElement).style.backgroundColor = '#333';
+          (btn as HTMLElement).style.backgroundColor = '#f8f8f8';
         } else if (btn.id === 'addBtn') {
-          (btn as HTMLElement).style.backgroundColor = '#444';
+          (btn as HTMLElement).style.backgroundColor = '#f0f0f0';
         } else {
-          (btn as HTMLElement).style.backgroundColor = '#0d8c6d';
+          (btn as HTMLElement).style.backgroundColor = '#1976d2';
         }
       });
       
       btn.addEventListener('mouseout', () => {
         if (btn.id === 'cancelBtn') {
-          (btn as HTMLElement).style.backgroundColor = '#2f2f2f';
+          (btn as HTMLElement).style.backgroundColor = 'white';
         } else if (btn.id === 'addBtn') {
-          (btn as HTMLElement).style.backgroundColor = '#1a1a1a';
+          (btn as HTMLElement).style.backgroundColor = '#f8f9fa';
         } else {
           (btn as HTMLElement).style.backgroundColor = '#2196F3';
         }
@@ -1256,13 +1260,13 @@ export class Canvas {
       input.addEventListener('focus', () => {
         (input as HTMLElement).style.borderColor = '#2196F3';
         (input as HTMLElement).style.boxShadow = '0 0 0 3px rgba(33, 150, 243, 0.1)';
-        (input as HTMLElement).style.backgroundColor = '#1a1a1a';
+        (input as HTMLElement).style.backgroundColor = '#ffffff';
       });
       
       input.addEventListener('blur', () => {
         (input as HTMLElement).style.borderColor = '#e0e0e0';
         (input as HTMLElement).style.boxShadow = 'none';
-        (input as HTMLElement).style.backgroundColor = '#1a1a1a';
+        (input as HTMLElement).style.backgroundColor = '#ffffff';
       });
       
       // Update lane name on input

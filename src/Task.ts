@@ -243,37 +243,55 @@ export class Task {
       // Save current canvas state
       ctx.save();
       
-      // Draw shadow with colored tint
-      ctx.shadowColor = this.isHovered 
-        ? 'rgba(16, 163, 127, 0.4)'
-        : 'rgba(0, 0, 0, 0.6)';
-      ctx.shadowBlur = this.isHovered ? 20 : 12;
-      ctx.shadowOffsetY = 4;
+      // Draw shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+      ctx.shadowBlur = this.isHovered ? 16 : 10;
+      ctx.shadowOffsetY = 3;
       
-      // Draw task bar filled with trade color
-      // Ensure we have a valid color
-      if (!this.color || this.color === '') {
-        this.color = '#3b82f6';
-      }
-      
-      const tradeColor = this.color;
-      ctx.fillStyle = this.isHovered 
-        ? Task.adjustColor(tradeColor, 1.3)
-        : tradeColor;
+      // Create a white background for the card
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       if (ctx.roundRect) {
         ctx.roundRect(startX, y, width, this.height, radius);
       } else {
+        // Fallback for browsers that don't support roundRect
         this.drawRoundedRect(ctx, startX, y, width, this.height, radius);
       }
       ctx.fill();
       
       ctx.restore();
       
-      // Subtle darker border
-      ctx.strokeStyle = this.isHovered 
-        ? 'rgba(255,255,255,0.3)'
-        : 'rgba(0,0,0,0.3)';
+      // Ensure we have a valid color
+      if (!this.color || this.color === '') {
+        this.color = '#3b82f6'; // Default blue
+      }
+      
+      // Draw colored top border (6px) for trade indication
+      ctx.fillStyle = this.isHovered 
+        ? Task.adjustColor(this.color, 1.1) // Lighten on hover
+        : this.color;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y, width, 6, [radius, radius, 0, 0]);
+      } else {
+        // Fallback for browsers that don't support roundRect with radii array
+        this.drawRoundedRectTopOnly(ctx, startX, y, width, 6, radius);
+      }
+      ctx.fill();
+      
+      // Draw very subtle background tint
+      ctx.fillStyle = `${this.color}10`; // 10% opacity of the trade color
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(startX, y + 6, width, this.height - 6, [0, 0, radius, radius]);
+      } else {
+        // Fallback for browsers that don't support roundRect with radii array
+        this.drawRoundedRectBottomOnly(ctx, startX, y + 6, width, this.height - 6, radius);
+      }
+      ctx.fill();
+      
+      // Draw card border
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -297,7 +315,7 @@ export class Task {
         
         // Draw name
         ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = '#1a1a1a';
         
         // Calculate available width for text
         const availableTextWidth = width - (textPadding * 2) - 16;
@@ -308,7 +326,7 @@ export class Task {
         
         // Draw details
         ctx.font = '400 10px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fillStyle = '#666666';
         
         const extraInfo = `${this.duration}d, ${this.crewSize} crew`;
         ctx.fillText(extraInfo, textX, y + this.height - 10); // More space between name and details
@@ -342,20 +360,17 @@ export class Task {
           const progressBarWidth = width - (textPadding * 2) - 16;
           
           // Background track
-          ctx.fillStyle = '#404040';
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
           ctx.beginPath();
           ctx.roundRect(textX, progressBarY, progressBarWidth, progressBarHeight, 2);
           ctx.fill();
           
-          // Progress fill with glow
+          // Progress fill
           const progressWidth = progressBarWidth * (this.progress / 100);
           ctx.fillStyle = this.color;
-          ctx.shadowColor = this.color;
-          ctx.shadowBlur = 4;
           ctx.beginPath();
           ctx.roundRect(textX, progressBarY, progressWidth, progressBarHeight, 2);
           ctx.fill();
-          ctx.shadowBlur = 0; // Reset shadow
         }
       } else if (width > 10) {
         // For very narrow cards, just draw a colored indicator
