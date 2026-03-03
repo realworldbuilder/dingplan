@@ -35,7 +35,7 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-4o';
+    this.model = config.model || 'gpt-4o-mini';
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
@@ -650,6 +650,13 @@ CRITICAL — SWIMLANE ID CONSISTENCY:
         });
       }
       
+      // Retry on rate limit
+      if (response.status === 429) {
+        this.debug('Rate limited, retrying in 2s...');
+        await new Promise(r => setTimeout(r, 2000));
+        return this.callLLMWithFunctions(messages);
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`API request failed: ${response.status} - ${errorText}`);
