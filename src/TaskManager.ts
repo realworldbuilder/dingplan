@@ -1486,7 +1486,7 @@ export class TaskManager {
             ctx.shadowOffsetY = 0;
             
             // Draw a more noticeable outline
-            ctx.strokeStyle = '#4fd1c5'; // Teal for Gen X soft club theme
+            ctx.strokeStyle = '#10a37f'; // Green accent
             ctx.lineWidth = 2.5 / camera.zoom; // Slightly thicker line
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -1535,7 +1535,7 @@ export class TaskManager {
     // Draw selection box if active
     if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
       ctx.save();
-      ctx.strokeStyle = '#4fd1c5';
+      ctx.strokeStyle = '#10a37f';
       ctx.lineWidth = 2 / camera.zoom;
       ctx.setLineDash([5 / camera.zoom, 5 / camera.zoom]);
       ctx.fillStyle = 'rgba(79, 209, 197, 0.1)';

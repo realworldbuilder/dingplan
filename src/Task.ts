@@ -245,15 +245,15 @@ export class Task {
       
       // Draw shadow with colored tint
       ctx.shadowColor = this.isHovered 
-        ? 'rgba(79, 209, 197, 0.4)'
-        : 'rgba(10, 22, 40, 0.6)';
+        ? 'rgba(16, 163, 127, 0.4)'
+        : 'rgba(0, 0, 0, 0.6)';
       ctx.shadowBlur = this.isHovered ? 20 : 12;
       ctx.shadowOffsetY = 4;
       
       // Create a glass background for the card
       ctx.fillStyle = this.isHovered 
-        ? 'rgba(255, 255, 255, 0.12)'
-        : 'rgba(255, 255, 255, 0.08)';
+        ? '#444'
+        : '#3a3a3a';
       ctx.beginPath();
       if (ctx.roundRect) {
         ctx.roundRect(startX, y, width, this.height, radius);
@@ -297,8 +297,8 @@ export class Task {
       
       // Draw card border with subtle glass effect
       ctx.strokeStyle = this.isHovered 
-        ? 'rgba(79, 209, 197, 0.4)'
-        : 'rgba(255, 255, 255, 0.08)';
+        ? 'rgba(16, 163, 127, 0.4)'
+        : '#3a3a3a';
       ctx.lineWidth = 1;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -322,7 +322,7 @@ export class Task {
         
         // Draw name
         ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = '#ccc';
         
         // Calculate available width for text
         const availableTextWidth = width - (textPadding * 2) - 16;
@@ -333,7 +333,7 @@ export class Task {
         
         // Draw details
         ctx.font = '400 10px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#999';
         
         const extraInfo = `${this.duration}d, ${this.crewSize} crew`;
         ctx.fillText(extraInfo, textX, y + this.height - 10); // More space between name and details
@@ -367,7 +367,7 @@ export class Task {
           const progressBarWidth = width - (textPadding * 2) - 16;
           
           // Background track
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.fillStyle = '#404040';
           ctx.beginPath();
           ctx.roundRect(textX, progressBarY, progressBarWidth, progressBarHeight, 2);
           ctx.fill();

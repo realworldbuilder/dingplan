@@ -147,18 +147,18 @@ export class TimeAxis {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     // Draw header background
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.fillStyle = '#333';
     ctx.fillRect(0, 0, camera.width, this.headerHeight);
-    ctx.fillStyle = 'rgba(79, 209, 197, 0.3)';
+    ctx.fillStyle = 'rgba(16, 163, 127, 0.3)';
     ctx.fillRect(0, this.headerHeight - 1, camera.width, 1);
 
     // Draw detail scale
     let currentDate = this.roundToUnit(new Date(leftDate), detailScale.unit);
     let lastMonth: number | null = null;
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px Inter, Arial, sans-serif';
+    ctx.strokeStyle = '#363636';
+    ctx.fillStyle = '#999';
+    ctx.font = '12px Arial, sans-serif';
     ctx.textAlign = 'center';
     
     while (currentDate <= rightDate) {
@@ -170,8 +170,8 @@ export class TimeAxis {
       const currentMonth = currentDate.getMonth();
       if (lastMonth !== currentMonth) {
         // Draw month label
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = 'bold 12px Inter, Arial, sans-serif';
+        ctx.fillStyle = '#ccc';
+        ctx.font = 'bold 12px Arial, sans-serif';
         const monthLabel = currentDate.toLocaleString('default', { month: 'short', year: currentMonth === 0 ? 'numeric' : undefined });
         ctx.fillText(monthLabel, screenX, this.headerHeight - 25);
         lastMonth = currentMonth;
@@ -190,14 +190,14 @@ export class TimeAxis {
       }
 
       // Reset style for day/week labels
-      ctx.fillStyle = this.isWeekend(currentDate) ? '#64748b' : '#94a3b8'; // Slightly dimmer for weekends
-      ctx.font = '12px Inter, Arial, sans-serif';
+      ctx.fillStyle = this.isWeekend(currentDate) ? '#666' : '#999'; // Slightly dimmer for weekends
+      ctx.font = '12px Arial, sans-serif';
       
       // Draw time label (highlight today)
       const label = detailScale.format(currentDate);
       if (this.isToday(currentDate)) {
-        ctx.fillStyle = '#4fd1c5'; // Teal color for today
-        ctx.font = 'bold 12px Inter, Arial, sans-serif';
+        ctx.fillStyle = '#10a37f'; // Teal color for today
+        ctx.font = 'bold 12px Arial, sans-serif';
       }
       ctx.fillText(label, screenX, this.headerHeight - 12);
 
@@ -205,14 +205,14 @@ export class TimeAxis {
       ctx.beginPath();
       if (this.isToday(currentDate)) {
         // Draw today line in teal with glow
-        ctx.strokeStyle = '#4fd1c5';
+        ctx.strokeStyle = '#10a37f';
         ctx.lineWidth = 2;
         ctx.setLineDash([4, 4]); // Dotted line for today
         // Add glow effect
-        ctx.shadowColor = '#4fd1c5';
+        ctx.shadowColor = '#10a37f';
         ctx.shadowBlur = 8;
       } else {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.strokeStyle = '#333';
         ctx.lineWidth = 1;
         ctx.setLineDash([]); // Solid line for other days
         ctx.shadowBlur = 0; // Reset shadow

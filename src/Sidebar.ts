@@ -71,24 +71,21 @@ export class Sidebar {
     const lp = this.leftPanel;
     lp.style.cssText = `
       width: ${LEFT_PANEL_WIDTH}px; height: 100%; 
-      background: rgba(255, 255, 255, 0.04); 
-      backdrop-filter: blur(12px);
-      border-right: 1px solid rgba(79, 209, 197, 0.2); 
+      background: #2f2f2f; border-right: 1px solid #444;
       display: flex; flex-direction: column;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-y: auto; user-select: none;
-      transform: translateX(-${LEFT_PANEL_WIDTH}px); transition: transform 0.3s ease;
-      box-shadow: 2px 0 20px rgba(10, 22, 40, 0.5);
+      transform: translateX(-${LEFT_PANEL_WIDTH}px); transition: transform 0.2s ease;
     `;
 
     lp.innerHTML = `
       <!-- Logo -->
-      <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-        <img src="/logo.png" alt="DingPlan" style="width: 100%; max-width: 220px; object-fit: contain; filter: brightness(1.1);">
+      <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #444;">
+        <img src="/logo.png" alt="DingPlan" style="width: 100%; max-width: 220px; object-fit: contain;">
       </div>
 
       <!-- Project Dropdown -->
-      <div style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+      <div style="padding: 10px 12px; border-bottom: 1px solid #444;">
         <div style="position: relative;">
           <select id="sidebar-project-select" class="sb-select"></select>
         </div>
@@ -128,7 +125,7 @@ export class Sidebar {
         </div>
 
         <!-- Footer -->
-        <div style="padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); margin-top: auto;">
+        <div style="padding: 12px; border-top: 1px solid #444; margin-top: auto;">
           <div id="sidebar-status-banner" style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"></div>
           <button class="sb-btn" data-action="settings">⚙️ Settings</button>
         </div>
@@ -140,108 +137,54 @@ export class Sidebar {
     // Add nav button styles
     const style = document.createElement('style');
     style.textContent = `
-      /* Gen X Soft Club Sidebar Design System */
+      /* Clean dark sidebar */
       .sb-section { margin-bottom: 12px; }
       .sb-label {
         padding: 0 16px 6px; font-size: 11px; font-weight: 600;
-        color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #999; text-transform: uppercase; letter-spacing: 0.5px;
       }
-      .sb-group { padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
+      .sb-group { padding: 0 12px; display: flex; flex-direction: column; gap: 1px; }
       .sb-btn {
         display: flex; align-items: center; width: 100%; text-align: left;
         padding: 8px 12px; border: none; background: transparent;
-        font-size: 13px; color: #e2e8f0; cursor: pointer; border-radius: 10px;
-        font-family: inherit; transition: all 0.3s ease; box-sizing: border-box;
+        font-size: 13px; color: #ccc; cursor: pointer; border-radius: 6px;
+        font-family: inherit; transition: background 0.15s; box-sizing: border-box;
       }
-      .sb-btn:hover { 
-        background: rgba(255, 255, 255, 0.08); 
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.2);
-      }
-      .sb-btn.active { 
-        background: rgba(79, 209, 197, 0.2); 
-        color: #4fd1c5; font-weight: 600;
-        box-shadow: 0 0 20px rgba(79, 209, 197, 0.3);
-      }
+      .sb-btn:hover { background: #3a3a3a; }
+      .sb-btn.active { background: #3a3a3a; color: #fff; font-weight: 600; }
       .sb-btn-sm {
         padding: 6px 10px; font-size: 12px; font-weight: 500;
-        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; 
-        background: rgba(255, 255, 255, 0.04);
-        color: #e2e8f0; text-align: center;
+        border: 1px solid #555; border-radius: 6px; background: transparent;
+        color: #ccc; text-align: center;
       }
-      .sb-btn-sm:hover { 
-        background: rgba(255, 255, 255, 0.08); 
-        border-color: rgba(79, 209, 197, 0.3);
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.2);
-      }
+      .sb-btn-sm:hover { background: #3a3a3a; border-color: #666; }
       .sb-btn-primary {
-        background: linear-gradient(135deg, #4fd1c5 0%, #38b2ac 100%);
-        color: #0d1b2a; font-weight: 500; justify-content: center; gap: 8px;
-        padding: 10px 12px; border-radius: 12px; border: none;
+        background: #10a37f; color: #fff; font-weight: 500;
+        justify-content: center; gap: 8px; padding: 10px 12px;
+        border-radius: 8px; border: none;
       }
-      .sb-btn-primary:hover { 
-        box-shadow: 0 0 25px rgba(79, 209, 197, 0.5);
-        transform: translateY(-1px);
-      }
-      .sb-btn-danger { 
-        color: #f56565; border-color: rgba(245, 101, 101, 0.3); 
-        background: rgba(245, 101, 101, 0.1);
-      }
-      .sb-btn-danger:hover { 
-        background: rgba(245, 101, 101, 0.2); 
-        border-color: #f56565;
-        box-shadow: 0 0 15px rgba(245, 101, 101, 0.3);
-      }
+      .sb-btn-primary:hover { background: #0d8a6a; }
+      .sb-btn-danger { color: #ef4444; border-color: #ef4444; }
+      .sb-btn-danger:hover { background: rgba(239,68,68,0.15); }
       .sb-select {
-        width: 100%; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 10px; background: rgba(255, 255, 255, 0.04); 
-        font-size: 13px; color: #e2e8f0;
+        width: 100%; padding: 8px 10px; border: 1px solid #555;
+        border-radius: 6px; background: #3a3a3a; font-size: 13px; color: #ccc;
         font-family: inherit; cursor: pointer; appearance: auto;
-        transition: all 0.3s ease;
       }
-      .sb-select:hover { border-color: rgba(79, 209, 197, 0.3); }
-      .sb-select:focus { 
-        outline: none; 
-        border-color: #4fd1c5; 
-        background: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 0 20px rgba(79, 209, 197, 0.3);
-      }
+      .sb-select:focus { outline: none; border-color: #10a37f; }
       
-      /* Floating Action Bar */
       .floating-action-bar {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.06);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(10, 22, 40, 0.8), 0 0 40px rgba(79, 209, 197, 0.1);
-        padding: 8px 12px;
-        display: flex;
-        gap: 4px;
-        z-index: 500;
-        transition: all 0.3s ease;
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: #2f2f2f; border: 1px solid #444; border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4); padding: 8px 12px;
+        display: flex; gap: 4px; z-index: 500;
       }
       .floating-action-btn {
-        width: 44px;
-        height: 44px;
-        border: none;
-        background: transparent;
-        border-radius: 10px;
-        font-size: 20px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        color: #e2e8f0;
+        width: 44px; height: 44px; border: none; background: transparent;
+        border-radius: 8px; font-size: 20px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; color: #ccc;
       }
-      .floating-action-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.4);
-        transform: translateY(-2px);
-      }
+      .floating-action-btn:hover { background: #3a3a3a; }
     `;
     document.head.appendChild(style);
   }
@@ -297,12 +240,12 @@ export class Sidebar {
   private setupRightPanel() {
     this.element.style.cssText = `
       position: fixed; top: 0; right: 0; width: ${RIGHT_PANEL_WIDTH}px; height: 100%;
-      background: rgba(255, 255, 255, 0.04); 
-      backdrop-filter: blur(12px);
-      box-shadow: -8px 0 32px rgba(10, 22, 40, 0.8), -2px 0 20px rgba(79, 209, 197, 0.1);
+      background: #333; 
+      
+      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
       display: none; z-index: 1000;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      border-left: 1px solid rgba(79, 209, 197, 0.2); flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      border-left: 1px solid #444; flex-direction: column;
       overflow: hidden; transition: transform 0.3s ease;
       transform: translateX(${RIGHT_PANEL_WIDTH}px);
     `;
@@ -310,21 +253,21 @@ export class Sidebar {
     // Add right panel styles
     const style = document.createElement('style');
     style.textContent = `
-      /* ===== Gen X Soft Club Right Panel Design System ===== */
+      /* ===== Clean dark Right Panel Design System ===== */
       .rp-header {
         padding: 18px 20px; display: flex; justify-content: space-between;
-        align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;
+        align-items: center; border-bottom: 1px solid #3a3a3a; flex-shrink: 0;
       }
-      .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #e2e8f0; letter-spacing: -0.01em; }
+      .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #ccc; letter-spacing: -0.01em; }
       .rp-close {
         border: none; background: none; font-size: 18px; cursor: pointer;
-        padding: 6px 8px; margin: -6px -8px; color: #94a3b8; border-radius: 10px;
-        transition: all 0.3s ease; line-height: 1;
+        padding: 6px 8px; margin: -6px -8px; color: #999; border-radius: 6px;
+        transition: background 0.15s; line-height: 1;
       }
       .rp-close:hover { 
-        background: rgba(255, 255, 255, 0.1); 
-        color: #e2e8f0;
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.2);
+        background: #404040; 
+        color: #ccc;
+        ;
       }
       .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; }
       .rp-view { display: none; }
@@ -334,18 +277,18 @@ export class Sidebar {
       .form-group { margin-bottom: 20px; }
       .form-group label {
         display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500;
-        color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #999; text-transform: uppercase; letter-spacing: 0.5px;
       }
       .form-group input, .form-group select {
-        width: 100%; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, 0.08); 
-        border-radius: 12px; font-size: 14px; font-family: inherit; 
-        background: rgba(255, 255, 255, 0.04); color: #e2e8f0;
-        transition: all 0.3s ease; box-sizing: border-box; height: 40px;
+        width: 100%; padding: 10px 12px; border: 1px solid #3a3a3a; 
+        border-radius: 8px; font-size: 14px; font-family: inherit; 
+        background: #333; color: #ccc;
+        transition: background 0.15s; box-sizing: border-box; height: 40px;
       }
       .form-group input:focus, .form-group select:focus {
-        border-color: #4fd1c5; 
-        background: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 0 20px rgba(79, 209, 197, 0.3);
+        border-color: #10a37f; 
+        background: #3a3a3a;
+        ;
         outline: none;
       }
 
@@ -353,141 +296,141 @@ export class Sidebar {
       .checkbox-group { display: flex; align-items: center; margin-bottom: 10px; }
       .checkbox-group label {
         margin-bottom: 0; margin-left: 10px; cursor: pointer;
-        font-size: 14px; color: #e2e8f0; text-transform: none; letter-spacing: 0; font-weight: 400;
+        font-size: 14px; color: #ccc; text-transform: none; letter-spacing: 0; font-weight: 400;
       }
       .checkbox-group input[type="checkbox"] {
         width: 18px; height: 18px; margin-right: 0; cursor: pointer;
-        accent-color: #4fd1c5; border-radius: 4px;
+        accent-color: #10a37f; border-radius: 4px;
       }
 
       /* Buttons */
-      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #3a3a3a; }
       .btn-primary {
-        padding: 10px 20px; border: none; border-radius: 12px; 
-        background: linear-gradient(135deg, #4fd1c5, #38b2ac);
-        color: #0d1b2a; font-size: 14px; font-weight: 600; cursor: pointer;
-        height: 40px; transition: all 0.3s ease; font-family: inherit;
+        padding: 10px 20px; border: none; border-radius: 8px; 
+        background: #10a37f;
+        color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+        height: 40px; transition: background 0.15s; font-family: inherit;
       }
       .btn-primary:hover { 
-        box-shadow: 0 0 25px rgba(79, 209, 197, 0.4);
+        ;
         transform: translateY(-1px);
       }
       .btn-secondary {
-        padding: 10px 20px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
-        background: rgba(255, 255, 255, 0.04); color: #e2e8f0; font-size: 14px; font-weight: 500; cursor: pointer;
-        height: 40px; transition: all 0.3s ease; font-family: inherit;
+        padding: 10px 20px; border: 1px solid #3a3a3a; border-radius: 8px;
+        background: #333; color: #ccc; font-size: 14px; font-weight: 500; cursor: pointer;
+        height: 40px; transition: background 0.15s; font-family: inherit;
       }
       .btn-secondary:hover { 
-        background: rgba(255, 255, 255, 0.08); 
-        border-color: rgba(79, 209, 197, 0.3);
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.2);
+        background: #3a3a3a; 
+        border-color: rgba(16, 163, 127, 0.3);
+        ;
       }
       .btn-danger {
-        padding: 10px 20px; border: 1px solid rgba(245, 101, 101, 0.3); border-radius: 12px; 
+        padding: 10px 20px; border: 1px solid rgba(245, 101, 101, 0.3); border-radius: 8px; 
         background: rgba(245, 101, 101, 0.1);
         color: #f56565; font-size: 14px; font-weight: 500; cursor: pointer;
-        height: 40px; transition: all 0.3s ease; font-family: inherit;
+        height: 40px; transition: background 0.15s; font-family: inherit;
       }
       .btn-danger:hover { 
         background: rgba(245, 101, 101, 0.2);
         border-color: #f56565;
-        box-shadow: 0 0 15px rgba(245, 101, 101, 0.3);
+        ;
       }
 
       /* Swimlane items — glass card with colored left border */
       .swimlane-item {
         display: flex; align-items: center; margin-bottom: 8px; padding: 12px 14px;
-        background: rgba(255, 255, 255, 0.04); border-radius: 12px; 
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-left: 4px solid #4fd1c5; transition: all 0.3s ease;
-        backdrop-filter: blur(8px);
+        background: #333; border-radius: 8px; 
+        border: 1px solid #363636;
+        border-left: 4px solid #10a37f; transition: background 0.15s;
+        
       }
       .swimlane-item:hover { 
-        background: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 4px 20px rgba(79, 209, 197, 0.2); 
+        background: #3a3a3a;
+        box-shadow: 0 4px 20px #444; 
       }
       .swimlane-color { display: none; }
       .swimlane-name-input {
         flex-grow: 1; padding: 8px 10px; border: 1px solid transparent;
-        border-radius: 8px; font-size: 14px; background: transparent; color: #e2e8f0;
-        font-family: inherit; transition: all 0.3s ease;
+        border-radius: 8px; font-size: 14px; background: transparent; color: #ccc;
+        font-family: inherit; transition: background 0.15s;
       }
-      .swimlane-name-input:hover { background: rgba(255, 255, 255, 0.06); }
+      .swimlane-name-input:hover { background: #363636; }
       .swimlane-name-input:focus {
-        outline: none; background: rgba(255, 255, 255, 0.08); 
-        border-color: #4fd1c5;
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.3);
+        outline: none; background: #3a3a3a; 
+        border-color: #10a37f;
+        ;
       }
       .swimlane-actions { display: flex; margin-left: 4px; gap: 2px; }
       .swimlane-actions button {
         padding: 4px 6px; background: none; border: none; cursor: pointer;
         opacity: 0.6; font-size: 14px; border-radius: 8px; transition: all 0.3s;
-        color: #94a3b8;
+        color: #999;
       }
       .swimlane-actions button:hover { 
         opacity: 1; 
-        background: rgba(255, 255, 255, 0.1);
-        color: #e2e8f0;
+        background: #404040;
+        color: #ccc;
       }
 
       /* Trade management */
       .trade-filter-container { background: transparent; border-radius: 0; padding: 0; margin-top: 8px; }
       .trade-filter-header {
         display: flex; justify-content: space-between; align-items: center;
-        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #3a3a3a;
       }
-      .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+      .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
       .trade-filter-actions { display: flex; gap: 4px; }
       .trade-filter-action {
-        font-size: 12px; color: #94a3b8; background: none; border: none; cursor: pointer;
+        font-size: 12px; color: #999; background: none; border: none; cursor: pointer;
         padding: 4px 8px; border-radius: 8px; font-weight: 500; transition: all 0.3s; font-family: inherit;
       }
       .trade-filter-action:hover { 
-        background: rgba(255, 255, 255, 0.1); 
-        color: #e2e8f0;
+        background: #404040; 
+        color: #ccc;
       }
       .trade-filter-list { display: flex; flex-direction: column; gap: 6px; }
       .trade-filter-item {
         display: flex; align-items: center; padding: 10px 12px; 
-        background: rgba(255, 255, 255, 0.04);
-        border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06); 
-        transition: all 0.3s ease;
-        backdrop-filter: blur(8px);
+        background: #333;
+        border-radius: 8px; border: 1px solid #363636; 
+        transition: background 0.15s;
+        
       }
       .trade-filter-item:hover { 
-        border-color: rgba(79, 209, 197, 0.3); 
-        background: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 4px 15px rgba(79, 209, 197, 0.2);
+        border-color: rgba(16, 163, 127, 0.3); 
+        background: #3a3a3a;
+        box-shadow: 0 4px 15px #444;
       }
       .trade-filter-item.disabled { opacity: 0.45; }
       .trade-filter-color {
         width: 22px; height: 22px; border-radius: 8px; margin-right: 12px; flex-shrink: 0;
-        border: 2px solid transparent; cursor: pointer; transition: all 0.3s ease;
+        border: 2px solid transparent; cursor: pointer; transition: background 0.15s;
       }
       .trade-filter-color:hover { 
-        border-color: rgba(79, 209, 197, 0.4); 
+        border-color: rgba(16, 163, 127, 0.4); 
         transform: scale(1.1);
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.3);
+        ;
       }
       .trade-filter-name {
-        flex-grow: 1; font-size: 14px; color: #e2e8f0; border: none; background: transparent;
+        flex-grow: 1; font-size: 14px; color: #ccc; border: none; background: transparent;
         font-family: inherit; padding: 4px 6px; border-radius: 8px; font-weight: 450;
       }
       .trade-filter-name:focus { 
         outline: none; 
-        background: rgba(255, 255, 255, 0.08); 
-        box-shadow: 0 0 15px rgba(79, 209, 197, 0.2); 
+        background: #3a3a3a; 
+        ; 
       }
       .trade-filter-toggle {
-        width: 40px; height: 22px; background: rgba(255, 255, 255, 0.1); border-radius: 22px;
-        position: relative; cursor: pointer; transition: all 0.3s ease; border: none; padding: 0;
+        width: 40px; height: 22px; background: #404040; border-radius: 22px;
+        position: relative; cursor: pointer; transition: background 0.15s; border: none; padding: 0;
         flex-shrink: 0; margin-left: 8px;
       }
-      .trade-filter-toggle.active { background: #4fd1c5; }
+      .trade-filter-toggle.active { background: #10a37f; }
       .trade-filter-toggle::before {
         content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-        background: #e2e8f0; top: 2px; left: 2px; transition: transform 0.3s ease;
-        box-shadow: 0 2px 8px rgba(10, 22, 40, 0.3);
+        background: #ccc; top: 2px; left: 2px; transition: transform 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
       .trade-filter-toggle.active::before { transform: translateX(18px); }
       .trade-filter-delete {
@@ -498,7 +441,7 @@ export class Sidebar {
 
       /* Color picker */
       .color-picker-dialog {
-        position: absolute; background: white; border-radius: 12px;
+        position: absolute; background: white; border-radius: 8px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
         padding: 14px; z-index: 1001; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
       }
@@ -554,7 +497,7 @@ export class Sidebar {
       /* Welcome Message */
       .welcome-message {
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
-        color: white; padding: 20px; border-radius: 16px; text-align: center;
+        color: white; padding: 20px; border-radius: 6px; text-align: center;
         margin-bottom: 8px; border: none; animation: messageSlideIn 0.5s ease-out;
       }
       .welcome-title {
@@ -571,7 +514,7 @@ export class Sidebar {
       .quick-action-chip {
         background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
         color: white; padding: 8px 12px; border-radius: 20px; font-size: 12px;
-        cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px);
+        cursor: pointer; transition: all 0.2s; 
         font-weight: 500;
       }
       .quick-action-chip:hover {
@@ -626,7 +569,7 @@ export class Sidebar {
 
       /* ===== Task Details Panel ===== */
       .task-details-panel { display: flex; flex-direction: column; gap: 20px; }
-      .td-header { display: flex; gap: 0; border-radius: 10px; overflow: hidden; background: #f8f9fa; }
+      .td-header { display: flex; gap: 0; border-radius: 6px; overflow: hidden; background: #f8f9fa; }
       .td-color-bar { width: 5px; flex-shrink: 0; }
       .td-header-content { padding: 14px 16px; flex: 1; }
       .td-name-input {
@@ -644,7 +587,7 @@ export class Sidebar {
       }
       .td-stats-row {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-        background: #1a1a1a; border-radius: 10px; overflow: hidden;
+        background: #1a1a1a; border-radius: 6px; overflow: hidden;
       }
       .td-stat {
         display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
@@ -670,7 +613,7 @@ export class Sidebar {
       }
       .td-toggle input[type="checkbox"] {
         width: 36px; height: 20px; appearance: none; -webkit-appearance: none;
-        background: #d1d5db; border-radius: 10px; position: relative;
+        background: #d1d5db; border-radius: 6px; position: relative;
         cursor: pointer; transition: background 0.2s;
       }
       .td-toggle input[type="checkbox"]::after {
@@ -1118,7 +1061,7 @@ export class Sidebar {
     // Create modal content
     const content = document.createElement('div');
     content.style.cssText = `
-      background: #1a1a1a; border-radius: 12px; padding: 32px;
+      background: #1a1a1a; border-radius: 8px; padding: 32px;
       width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     `;
@@ -1132,7 +1075,7 @@ export class Sidebar {
       <div id="template-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
         <!-- Blank project card -->
         <div class="template-card blank-project" data-template="blank" style="
-          background: #2a2a2a; border: 2px solid #333; border-radius: 10px;
+          background: #2a2a2a; border: 2px solid #333; border-radius: 6px;
           padding: 20px; cursor: pointer; transition: all 0.2s;
         ">
           <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">📋 Blank Project</h3>
@@ -1141,7 +1084,7 @@ export class Sidebar {
         
         ${WBS_TEMPLATES.map(template => `
           <div class="template-card" data-template="${template.id}" style="
-            background: #1a1a1a; border: 2px solid transparent; border-radius: 10px;
+            background: #1a1a1a; border: 2px solid transparent; border-radius: 6px;
             padding: 20px; cursor: pointer; transition: all 0.2s;
           ">
             <h3 style="color: white; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">${template.name}</h3>
