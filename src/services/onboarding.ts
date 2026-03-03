@@ -1,4 +1,5 @@
 import { generateUUID } from '../utils';
+import { saveProject } from './projectService';
 
 export interface Task {
   id: string;
@@ -140,6 +141,19 @@ export function createWelcomeProject(canvas: any): void {
 
     // Render the canvas
     canvas.render();
+  }
+
+  // Save to project index so dropdown works immediately
+  const projectId = localStorage.getItem('currentProjectId') || 'default';
+  const state = canvas.taskManager?.exportState?.();
+  if (state) {
+    saveProject({
+      id: projectId,
+      name: 'Tenant Improvement — Suite 200',
+      tasks: state.tasks,
+      swimlanes: state.swimlanes,
+      settings: { startDate: today.toISOString() }
+    });
   }
 
   // Mark as visited
