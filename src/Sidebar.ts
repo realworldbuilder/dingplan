@@ -661,7 +661,7 @@ export class Sidebar {
                 <span style="font-size:16px;">🔒</span>
                 <h4 style="margin:0; font-size:14px; font-weight:600; color:#1a1a1a;">AI Composer Key</h4>
               </div>
-              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">Enter your OpenAI API key to use the AI Composer. Stored locally in your browser.</p>
+              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">Enter your API key (OpenAI or Anthropic) to use the AI Composer. Stored locally in your browser.</p>
               <div style="display:flex; gap:8px;">
                 <input type="password" id="settings-api-key" placeholder="sk-..." 
                   style="flex:1; padding:10px 12px; border:1px solid #e8e8e8; border-radius:8px; font-size:14px; font-family:inherit; background:#fff; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
@@ -1138,7 +1138,7 @@ export class Sidebar {
     const isLoggedIn = !!authService.getCurrentUser();
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
     if (!apiKey) {
-      this.addComposerMessage(isLoggedIn ? 'AI Composer error — please try again.' : 'Sign in or add your OpenAI API key in Settings to use AI Composer.');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer error — please try again.' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
       return;
     }
     if (this.composer) this.composer.setApiKey(apiKey);
@@ -1241,7 +1241,7 @@ export class Sidebar {
       this.composer.setApiKey(apiKey);
       this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
     } else {
-      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your OpenAI API key in Settings to use AI Composer.');
+      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
     }
   }
   

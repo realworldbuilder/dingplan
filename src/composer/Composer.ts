@@ -37,7 +37,10 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-4o';
+    // Auto-detect model from API key type
+    const key = config.apiKey || '';
+    const defaultModel = key.startsWith('sk-ant-') ? 'claude-sonnet-4-20250514' : 'gpt-4o';
+    this.model = config.model || defaultModel;
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
@@ -187,72 +190,266 @@ class Composer {
         return 'Please sign in or add your OpenAI API key in Settings to use AI Composer.';
       }
 
-      // Everything goes to GPT — no template matching
+      // Build conversation
       const userMessage = imageBase64 ? {
         role: 'user',
         content: [
-          { type: 'text', text: userInput || 'What do you see in this image? Generate a construction schedule based on it.' },
+          { type: 'text', text: userInput || 'Generate a construction schedule based on this image.' },
           { type: 'image_url', image_url: { url: imageBase64 } }
         ]
       } : { role: 'user', content: userInput };
       
-      // Add user message to conversation history
       this.conversationHistory.push(userMessage);
-      
-      // Keep last 20 messages to avoid token bloat
-      if (this.conversationHistory.length > 20) {
-        this.conversationHistory = this.conversationHistory.slice(-20);
+      if (this.conversationHistory.length > 16) {
+        this.conversationHistory = this.conversationHistory.slice(-16);
       }
 
+      const systemPrompt = this.getOneShotSystemPrompt();
       const messages = [
-        { role: 'system', content: this.getSystemPrompt() },
+        { role: 'system', content: systemPrompt },
         ...this.conversationHistory
       ];
 
-      let response = await this.callLLMWithFunctions(messages);
-      let results: string[] = [];
-
-      // Loop to handle multiple function calls
-      while (response.choices[0].message.function_call) {
-        const fc = response.choices[0].message.function_call;
-        const result = await this.handleFunctionCall(fc);
-        results.push(result);
-        
-        // Add function calls to history so GPT knows what it did
-        this.conversationHistory.push({ role: 'assistant', content: null, function_call: fc });
-        this.conversationHistory.push({ role: 'function', name: fc.name, content: result });
-        
-        messages.push({ role: 'assistant', content: null, function_call: fc });
-        messages.push({ role: 'function', name: fc.name, content: result });
-        response = await this.callLLMWithFunctions(messages);
-      }
-
-      // Final text response from GPT
-      const finalMessage = response.choices[0].message.content || '';
+      // One-shot call — no function calling loop
+      const response = await this.callLLMDirect(messages);
       
-      // Add assistant response to history
-      this.conversationHistory.push({ role: 'assistant', content: finalMessage });
+      // Parse JSON schedule from response if present
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)```/) || response.match(/(\{[\s\S]*"swimlanes"[\s\S]*"tasks"[\s\S]*\})/);
       
-      // Auto-schedule: forward pass to stagger tasks based on dependencies
-      if (results.length > 0) {
-        this.autoSchedule();
-      }
-      
-      // Render and save
-      this.canvas.render();
-      if (this.canvas.saveCurrentProject) {
-        await this.canvas.saveCurrentProject();
+      if (jsonMatch) {
+        try {
+          const schedule = JSON.parse(jsonMatch[1]);
+          const created = this.loadScheduleJSON(schedule);
+          
+          // Strip JSON from display message
+          const textResponse = response.replace(/```json[\s\S]*?```/, '').trim();
+          this.conversationHistory.push({ role: 'assistant', content: textResponse || 'Schedule built.' });
+          
+          // Auto-schedule, render, save
+          this.autoSchedule();
+          this.canvas.render();
+          if (this.canvas.saveCurrentProject) {
+            await this.canvas.saveCurrentProject();
+          }
+          
+          return textResponse || `Built ${created.tasks} tasks across ${created.swimlanes} phases.`;
+        } catch (parseError) {
+          this.debug('JSON parse error:', parseError);
+          // Fall through to return raw text
+        }
       }
       
-      if (results.length > 0) {
-        return `${finalMessage}\n\nCreated ${results.length} items in your schedule.`;
-      }
-      return finalMessage;
+      // No JSON — pure conversational response
+      this.conversationHistory.push({ role: 'assistant', content: response });
+      return response;
     } catch (error: any) {
       return `Error: ${error.message}`;
     }
   }
   
+  private loadScheduleJSON(schedule: any): { swimlanes: number; tasks: number } {
+    let swimlanesCreated = 0;
+    let tasksCreated = 0;
+    
+    // Clear existing if this looks like a full schedule
+    if (schedule.swimlanes && schedule.swimlanes.length > 0) {
+      // Remove existing swimlanes and tasks
+      const existing = this.canvas.taskManager.getAllTasks();
+      existing.forEach((t: any) => this.canvas.taskManager.removeTask(t.id));
+      // Clear swimlanes
+      while (this.canvas.taskManager.swimlanes.length > 0) {
+        const sl = this.canvas.taskManager.swimlanes[0];
+        this.canvas.taskManager.removeSwimlane?.(sl.id);
+        if (this.canvas.taskManager.swimlanes[0]?.id === sl.id) {
+          // removeSwimlane doesn't exist, splice manually
+          this.canvas.taskManager.swimlanes.splice(0, 1);
+        }
+      }
+    }
+    
+    // Create swimlanes
+    const swimlaneMap: Record<string, string> = {};
+    if (schedule.swimlanes) {
+      for (const sl of schedule.swimlanes) {
+        const id = sl.id || sl.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        this.canvas.taskManager.addSwimlane(id, sl.name, sl.color || this.getRandomColor());
+        swimlaneMap[sl.id || sl.name] = id;
+        swimlanesCreated++;
+      }
+    }
+    
+    // Create tasks
+    const taskNameToId: Record<string, string> = {};
+    if (schedule.tasks) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (const t of schedule.tasks) {
+        const taskId = self.crypto?.randomUUID?.() || 'task-' + Math.random().toString(36).substring(2, 15);
+        const trade = Trades.getOrCreate(t.trade || t.tradeId || 'general');
+        
+        // Resolve swimlane
+        let swimlaneId = swimlaneMap[t.swimlane || t.swimlaneId] || t.swimlane || t.swimlaneId;
+        if (!this.canvas.taskManager.swimlanes.find((s: any) => s.id === swimlaneId)) {
+          swimlaneId = this.canvas.taskManager.swimlanes[0]?.id || 'default';
+        }
+        
+        const startDate = t.startDate ? new Date(t.startDate) : new Date(today);
+        
+        this.canvas.taskManager.addTask({
+          id: taskId,
+          name: t.name,
+          duration: t.duration || 5,
+          startDate,
+          tradeId: trade.id,
+          crewSize: t.crewSize || t.crew || 4,
+          color: trade.color,
+          swimlaneId,
+          dependencies: []
+        });
+        
+        taskNameToId[t.name] = taskId;
+        tasksCreated++;
+      }
+      
+      // Wire up dependencies by name
+      if (schedule.tasks) {
+        for (const t of schedule.tasks) {
+          const taskId = taskNameToId[t.name];
+          if (!taskId || !t.dependencies) continue;
+          
+          const task = this.canvas.taskManager.getAllTasks().find((tk: any) => tk.id === taskId);
+          if (!task) continue;
+          
+          for (const depName of t.dependencies) {
+            const depId = taskNameToId[depName];
+            if (depId) {
+              task.dependencies.push(depId);
+            }
+          }
+        }
+      }
+    }
+    
+    return { swimlanes: swimlanesCreated, tasks: tasksCreated };
+  }
+
+  private async callLLMDirect(messages: any[]): Promise<string> {
+    if (!this.apiKey) throw new Error('No API key');
+    
+    const isAnthropic = this.apiKey.startsWith('sk-ant-');
+    
+    let response;
+    if (isAnthropic) {
+      const body = {
+        model: this.model.includes('claude') ? this.model : 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: messages[0].content,
+        messages: messages.slice(1)
+      };
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(body)
+      });
+    } else {
+      const body = {
+        model: this.model || 'gpt-4o',
+        messages,
+        temperature: 0.3,
+        max_tokens: 4096
+      };
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(body)
+      });
+    }
+    
+    if (response.status === 429) {
+      await new Promise(r => setTimeout(r, 2000));
+      return this.callLLMDirect(messages);
+    }
+    
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`API error ${response.status}: ${err}`);
+    }
+    
+    const json = await response.json();
+    
+    if (isAnthropic) {
+      return json.content?.[0]?.text || '';
+    }
+    return json.choices?.[0]?.message?.content || '';
+  }
+
+  private getOneShotSystemPrompt(): string {
+    const currentTasks = this.canvas.taskManager.getAllTasks();
+    const currentSwimlanes = this.canvas.taskManager.swimlanes;
+    const hasSchedule = currentTasks.length > 0;
+    const today = new Date().toISOString().split('T')[0];
+    
+    const existingState = hasSchedule ? `
+EXISTING SCHEDULE (${currentTasks.length} tasks, ${currentSwimlanes.length} phases):
+${currentSwimlanes.map((s: any) => `- ${s.name} (id: ${s.id}): ${currentTasks.filter((t: any) => t.swimlaneId === s.id).map((t: any) => `${t.name} [${t.duration}d]`).join(', ')}`).join('\n')}
+User may want to modify this. You can output a full replacement schedule or just respond conversationally for small changes.` : '';
+
+    return `You are an expert construction CPM scheduler. When asked to build a schedule, output it as JSON immediately. No questions. Make assumptions based on project type.
+
+TODAY'S DATE: ${today}
+
+${existingState}
+
+WHEN BUILDING A SCHEDULE, output a JSON block like this:
+\`\`\`json
+{
+  "swimlanes": [
+    { "id": "sitework", "name": "Sitework", "color": "#8D6E63" },
+    { "id": "foundation", "name": "Foundation", "color": "#BDBDBD" }
+  ],
+  "tasks": [
+    { "name": "Mobilization", "duration": 5, "swimlane": "sitework", "trade": "general", "crew": 6, "dependencies": [] },
+    { "name": "Excavation", "duration": 10, "swimlane": "sitework", "trade": "sitework", "crew": 8, "dependencies": ["Mobilization"] },
+    { "name": "Footings", "duration": 12, "swimlane": "foundation", "trade": "concrete", "crew": 10, "dependencies": ["Excavation"] }
+  ]
+}
+\`\`\`
+
+RULES:
+- Dependencies reference task NAMES (not IDs)
+- Use startDate ONLY if the user specifies a start date, otherwise omit (auto-scheduled from dependencies)  
+- Generate 20-40 tasks for a typical project
+- ALWAYS build immediately. "datacenter" → build a datacenter schedule. "TI" → build a TI. Don't ask questions.
+- If the user gives size/details, adjust durations accordingly. If not, assume medium-scale.
+- Response text should be 1-2 sentences MAX outside the JSON block.
+
+CONSTRUCTION SEQUENCING (non-negotiable):
+- Foundations before structure. Underground MEP before slab.
+- Rough-in order: fire protection → HVAC duct → plumbing → electrical (biggest to smallest)
+- Insulation inspection before drywall. Drywall: hang → tape → finish → prime (separate tasks)
+- Paint before flooring. Ceiling grid before light fixtures. MEP trim after paint.
+- Commissioning/TAB before punch list. Fire alarm test before TCO.
+
+DURATION SCALE:
+- Small TI (5K SF): Demo 3-5d, framing 5d, MEP rough 8-10d, drywall 5-7d
+- Medium commercial (25K SF): Foundation 15-20d, structure 20-30d, MEP rough 25-30d
+- Large (100K+ SF): Foundation 30-45d, structure 45-60d, MEP rough 45-60d
+- Data center: Site 20-30d, foundations 30-40d, structure 35-50d, MEP 50-70d, commissioning 30-45d
+
+TRADES: demolition, concrete, steel, framing, fire-protection, hvac, plumbing, electrical, insulation, drywall, painting, flooring, ceiling, glazing, roofing, elevator, commissioning, sitework, general
+
+For rework requests ("compress", "add detail to X", "remove X"), describe what you'd change conversationally. For full rebuilds, output JSON.`;
+  }
+
   private getSystemPrompt(): string {
     const currentTasks = this.canvas.taskManager.getAllTasks();
     const currentSwimlanes = this.canvas.taskManager.swimlanes;
