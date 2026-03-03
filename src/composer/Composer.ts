@@ -1,4 +1,5 @@
 import { Canvas } from '../Canvas';
+import { Trades } from '../Trades';
 import { getTemplate, getTemplateNames, findTemplateMatches, TEMPLATES } from './Templates';
 import { WBSTemplate, getWBSTemplate, getWBSTemplateIds, getWBSTemplateNames, findBestMatchingWBSTemplate, getAllWBSTemplates } from './WBSTemplates';
 import crypto from 'crypto';
@@ -302,6 +303,8 @@ SWIMLANE ID RULES:
 - In createTask, use the EXACT swimlaneId from createSwimlane
 
 CREW SIZES: 4-6 typical, 8-12 concrete/steel, 2-3 specialties
+
+TRADES: Always set tradeId on every task. Use specific trade names like: demolition, concrete, steel, framing, fire-protection, hvac, plumbing, electrical, insulation, drywall, painting, flooring, ceiling, glazing, roofing, elevator, commissioning, sitework. New trades are auto-created if they don't exist. Tasks inherit their trade's color automatically.
 
 AVAILABLE TEMPLATES: ${getAllWBSTemplates().map(t => t.name).join(', ')}
 TASK TEMPLATES: ${getTemplateNames().join(', ')}`;
@@ -1338,15 +1341,18 @@ After building a section, suggest what to do next. Be a coach, not just a genera
         }
       }
       
+      // Auto-create trade if needed, use trade color for task
+      const trade = Trades.getOrCreate(args.tradeId || 'general');
+      
       // Create the task data structure
       const taskData = {
         id: taskId,
         name: args.name,
         duration: args.duration || 1,
         startDate: startDate,
-        tradeId: args.tradeId || 'general',
-        crewSize: args.crewSize || 1,
-        color: args.color || this.getRandomColor(),
+        tradeId: trade.id,
+        crewSize: args.crewSize || 4,
+        color: args.color || trade.color,
         notes: args.notes || '',
         swimlaneId: swimlaneId
       };
