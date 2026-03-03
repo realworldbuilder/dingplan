@@ -80,7 +80,7 @@ export class Sidebar {
     lp.innerHTML = `
       <!-- Logo -->
       <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-        <img src="/logo.png" alt="DingPlan" style="height: 28px; object-fit: contain;">
+        <img src="/logo.png" alt="DingPlan" style="width: 100%; max-width: 220px; object-fit: contain;">
       </div>
 
       <!-- Project Dropdown -->
