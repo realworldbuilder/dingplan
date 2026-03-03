@@ -117,8 +117,8 @@ export class Canvas {
     // Initialize currentProjectId from localStorage
     this.currentProjectId = localStorage.getItem('currentProjectId') || 'default';
     
-    // Always try to load from localStorage
-    this.loadFromLocalStorage();
+    // Load saved project
+    this.loadSavedProject();
     
     // Set up autosave
     this.setupAutosave();
@@ -1816,6 +1816,50 @@ export class Canvas {
   /**
    * Save current project. Uses projectService for storage.
    */
+  private async loadSavedProject() {
+    try {
+      const projectId = this.currentProjectId || 'default';
+      console.log(`Loading project: ${projectId}`);
+      
+      // Try projectService first (new format: dingplan_project_<id>)
+      const project = await loadProject(projectId);
+      if (project && project.tasks && project.tasks.length > 0) {
+        console.log(`Loaded ${project.tasks.length} tasks from projectService`);
+        this.taskManager.importState({
+          tasks: project.tasks,
+          swimlanes: project.swimlanes || [],
+          settings: project.settings
+        });
+        if (project.name) {
+          localStorage.setItem('dingplan-project-name', project.name);
+        }
+        this.render();
+        return;
+      }
+      
+      // Fallback: try old localStorage format (dingplan_state_<id>)
+      const oldState = loadFromLocalStorage(projectId);
+      if (oldState) {
+        console.log(`Loaded from old localStorage format, migrating...`);
+        this.taskManager.importState(oldState);
+        this.render();
+        // Migrate to new format
+        await this.saveCurrentProject();
+        return;
+      }
+      
+      console.log('No saved project found');
+    } catch (error) {
+      console.error('Error loading project:', error);
+      // Try old format as last resort
+      try {
+        this.loadFromLocalStorage();
+      } catch (e) {
+        console.error('All load attempts failed:', e);
+      }
+    }
+  }
+
   async saveCurrentProject(): Promise<void> {
     try {
       const projectId = this.currentProjectId || 'default';
