@@ -1486,7 +1486,7 @@ export class TaskManager {
             ctx.shadowOffsetY = 0;
             
             // Draw a more noticeable outline
-            ctx.strokeStyle = '#1976D2'; // Darker blue for better contrast
+            ctx.strokeStyle = '#4fd1c5'; // Teal for Gen X soft club theme
             ctx.lineWidth = 2.5 / camera.zoom; // Slightly thicker line
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -1535,10 +1535,10 @@ export class TaskManager {
     // Draw selection box if active
     if (this.isDrawingSelectionBox && this.selectionBoxStart && this.selectionBoxEnd) {
       ctx.save();
-      ctx.strokeStyle = '#2196F3';
+      ctx.strokeStyle = '#4fd1c5';
       ctx.lineWidth = 2 / camera.zoom;
       ctx.setLineDash([5 / camera.zoom, 5 / camera.zoom]);
-      ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+      ctx.fillStyle = 'rgba(79, 209, 197, 0.1)';
       
       const x = Math.min(this.selectionBoxStart.x, this.selectionBoxEnd.x);
       const y = Math.min(this.selectionBoxStart.y, this.selectionBoxEnd.y);
@@ -1622,8 +1622,8 @@ export class TaskManager {
     // Save context state
     ctx.save();
     
-    // Set arrow style
-    ctx.strokeStyle = 'rgba(100, 100, 100, 0.6)';
+    // Set arrow style - soft purple with slight opacity
+    ctx.strokeStyle = 'rgba(159, 122, 234, 0.7)';
     ctx.lineWidth = 1.5 / camera.zoom;
     
     // Loop through all tasks
@@ -1689,7 +1689,7 @@ export class TaskManager {
           taskY - arrowSize * Math.sin(angle + Math.PI/6)
         );
         ctx.closePath();
-        ctx.fillStyle = 'rgba(100, 100, 100, 0.6)';
+        ctx.fillStyle = 'rgba(159, 122, 234, 0.7)';
         ctx.fill();
       });
     });

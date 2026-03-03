@@ -243,13 +243,17 @@ export class Task {
       // Save current canvas state
       ctx.save();
       
-      // Draw shadow
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-      ctx.shadowBlur = this.isHovered ? 16 : 10;
-      ctx.shadowOffsetY = 3;
+      // Draw shadow with colored tint
+      ctx.shadowColor = this.isHovered 
+        ? 'rgba(79, 209, 197, 0.4)'
+        : 'rgba(10, 22, 40, 0.6)';
+      ctx.shadowBlur = this.isHovered ? 20 : 12;
+      ctx.shadowOffsetY = 4;
       
-      // Create a white background for the card
-      ctx.fillStyle = '#ffffff';
+      // Create a glass background for the card
+      ctx.fillStyle = this.isHovered 
+        ? 'rgba(255, 255, 255, 0.12)'
+        : 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath();
       if (ctx.roundRect) {
         ctx.roundRect(startX, y, width, this.height, radius);
@@ -267,9 +271,10 @@ export class Task {
       }
       
       // Draw colored top border (6px) for trade indication
+      const tradeColor = this.color;
       ctx.fillStyle = this.isHovered 
-        ? Task.adjustColor(this.color, 1.1) // Lighten on hover
-        : this.color;
+        ? Task.adjustColor(tradeColor, 1.2) // Brighten on hover
+        : tradeColor;
       ctx.beginPath();
       if (ctx.roundRect) {
         ctx.roundRect(startX, y, width, 6, [radius, radius, 0, 0]);
@@ -279,8 +284,8 @@ export class Task {
       }
       ctx.fill();
       
-      // Draw very subtle background tint
-      ctx.fillStyle = `${this.color}10`; // 10% opacity of the trade color
+      // Draw very subtle background tint with trade color
+      ctx.fillStyle = `${this.color}15`; // 15% opacity of the trade color
       ctx.beginPath();
       if (ctx.roundRect) {
         ctx.roundRect(startX, y + 6, width, this.height - 6, [0, 0, radius, radius]);
@@ -290,8 +295,10 @@ export class Task {
       }
       ctx.fill();
       
-      // Draw card border
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      // Draw card border with subtle glass effect
+      ctx.strokeStyle = this.isHovered 
+        ? 'rgba(79, 209, 197, 0.4)'
+        : 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -315,7 +322,7 @@ export class Task {
         
         // Draw name
         ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#e2e8f0';
         
         // Calculate available width for text
         const availableTextWidth = width - (textPadding * 2) - 16;
@@ -326,7 +333,7 @@ export class Task {
         
         // Draw details
         ctx.font = '400 10px Inter, system-ui, -apple-system, sans-serif';
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#94a3b8';
         
         const extraInfo = `${this.duration}d, ${this.crewSize} crew`;
         ctx.fillText(extraInfo, textX, y + this.height - 10); // More space between name and details
@@ -360,17 +367,20 @@ export class Task {
           const progressBarWidth = width - (textPadding * 2) - 16;
           
           // Background track
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
           ctx.beginPath();
           ctx.roundRect(textX, progressBarY, progressBarWidth, progressBarHeight, 2);
           ctx.fill();
           
-          // Progress fill
+          // Progress fill with glow
           const progressWidth = progressBarWidth * (this.progress / 100);
           ctx.fillStyle = this.color;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 4;
           ctx.beginPath();
           ctx.roundRect(textX, progressBarY, progressWidth, progressBarHeight, 2);
           ctx.fill();
+          ctx.shadowBlur = 0; // Reset shadow
         }
       } else if (width > 10) {
         // For very narrow cards, just draw a colored indicator

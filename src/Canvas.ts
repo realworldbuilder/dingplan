@@ -61,8 +61,8 @@ export class Canvas {
   constructor(config: CanvasConfig) {
     this.canvas = config.canvas;
     this.ctx = this.canvas.getContext('2d')!;
-    this.backgroundColor = config.backgroundColor || '#f0f0f0';
-    this.gridColor = config.gridColor || '#e0e0e0';
+    this.backgroundColor = config.backgroundColor || '#0d1b2a';
+    this.gridColor = config.gridColor || 'rgba(255, 255, 255, 0.04)';
     
     if (config.startDate) {
       this.startDate = config.startDate;
