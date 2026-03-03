@@ -592,7 +592,11 @@ AVAILABLE TEMPLATES AS REFERENCE:
 WBS Templates: ${getAllWBSTemplates().map(t => t.name).join(', ')}
 Task Templates: ${getTemplateNames().join(', ')}
 
-Use these as reference but generate tasks dynamically based on the user's specific project.`;
+Use these as reference but generate tasks dynamically based on the user's specific project.
+
+CRITICAL — SWIMLANE ID CONSISTENCY:
+- Use simple lowercase IDs: "demo", "framing", "mep-rough", "drywall", "finishes", "trim", "closeout"
+- In createTask, use the EXACT swimlaneId you used in createSwimlane. Do NOT change the format.`;
   }
 
   private async callLLMWithFunctions(messages: any[]): Promise<ChatResponse> {
@@ -803,6 +807,10 @@ REALISTIC DURATIONS (scale to project size):
 - Crew sizes: 4-6 typical, 8-12 concrete/steel, 2-3 specialties
 
 ${swimlaneInfo}
+
+CRITICAL — SWIMLANE ID CONSISTENCY:
+- Use simple lowercase IDs: "demo", "framing", "mep-rough", "drywall", "finishes", "trim", "closeout"
+- In createTask, use the EXACT swimlaneId you passed to createSwimlane. Do NOT change the format between calls.
 
 Be concise in your final text response. Focus on building the schedule, not explaining it.`;
       
@@ -2404,7 +2412,7 @@ Be concise in your final text response. Focus on building the schedule, not expl
       // Add the new swimlane
       this.canvas.taskManager.addSwimlane(id, name, swimlaneColor);
       
-      return `Created swimlane: ${name}`;
+      return `Created swimlane "${name}" with id="${id}". Use swimlaneId="${id}" when creating tasks for this swimlane.`;
     } catch (error) {
       return this.handleError("creating swimlane", error);
     }
