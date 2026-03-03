@@ -424,19 +424,19 @@ export class Sidebar {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
       .chat-clear-btn:hover {
-        background: #374151 !important; color: #e5e7eb !important;
+        color: #666 !important;
       }
       .chat-input:focus {
-        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,0.2) !important;
+        border-color: #1a1a1a !important; background: #fff !important;
       }
       .chat-input::placeholder {
-        color: #6b7280;
+        color: #bbb;
       }
       .chat-send-btn:disabled {
-        background: #6b7280 !important; cursor: not-allowed; opacity: 0.6;
+        opacity: 0.2; cursor: default;
       }
       .chat-send-btn:not(:disabled):hover {
-        background: #1d4ed8 !important; transform: translateY(-50%) scale(1.05);
+        background: #333 !important;
       }
       .chat-upload-btn:hover {
         background: #eee !important; border-color: #ccc !important;
@@ -634,67 +634,39 @@ export class Sidebar {
         <div class="rp-body">
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
-            <!-- Modern Chat Interface -->
-            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#fafafa; border-radius:12px; overflow:hidden;">
-              <!-- Chat Header -->
-              <div class="chat-header" style="padding:16px 20px; background:#fff; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.3);"></div>
-                  <span style="color:#1a1a1a; font-size:14px; font-weight:500;">AI Project Composer</span>
-                </div>
-                <button class="chat-clear-btn" style="background:none; border:none; color:#999; cursor:pointer; padding:4px 8px; border-radius:6px; font-size:12px; transition:all 0.15s;" title="Clear chat">Clear</button>
-              </div>
-
+            <div style="display:flex; flex-direction:column; height:100%;">
               <!-- Chat Messages Area -->
-              <div class="chat-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; min-height:0; scroll-behavior:smooth;">
-                <!-- Welcome message and quick actions will be inserted here -->
+              <div class="chat-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; min-height:0;">
+                <!-- Messages inserted here by JS -->
               </div>
 
-              <!-- Typing Indicator -->
-              <div class="typing-indicator" style="display:none; padding:0 20px 16px; opacity:0; transition:all 0.3s;">
-                <div style="background:#f0f0f0; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
-                  <div class="typing-dots" style="display:flex; gap:4px;">
-                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite;"></div>
-                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
-                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Chat Input Area -->
-              <div class="chat-input-area" style="border-top:1px solid #e5e7eb; background:#fff; padding:16px 20px; flex-shrink:0;">
-                <!-- Image preview area -->
-                <div class="composer-image-preview" style="display:none; margin-bottom:12px;"></div>
-                
-                <div style="display:flex; gap:12px; align-items:flex-end;">
-                  <!-- Image Upload Button -->
-                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:10px; cursor:pointer; font-size:18px; color:#666; transition:all 0.15s; flex-shrink:0;" title="Upload image">
+              <!-- Input Area — pinned to bottom -->
+              <div style="border-top:1px solid #e8e8e8; padding:16px 20px; background:#fff; flex-shrink:0;">
+                <div class="composer-image-preview" style="display:none; margin-bottom:10px;"></div>
+                <div style="display:flex; gap:10px; align-items:flex-end;">
+                  <label style="width:38px; height:38px; display:flex; align-items:center; justify-content:center; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:8px; cursor:pointer; font-size:16px; color:#999; transition:all 0.15s; flex-shrink:0;" title="Attach image">
                     <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
-                    📎
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10l-3.5-3.5a1.5 1.5 0 00-2.12 0L2 13" stroke="#999" stroke-width="1.5" stroke-linecap="round"/><rect x="1" y="2" width="14" height="12" rx="2" stroke="#999" stroke-width="1.5"/><circle cx="5" cy="6" r="1.5" stroke="#999" stroke-width="1.5"/></svg>
                   </label>
-                  
-                  <!-- Auto-growing Text Input -->
-                  <div style="flex:1; position:relative; min-height:44px; max-height:120px;">
+                  <div style="flex:1; position:relative;">
                     <textarea 
                       class="chat-input" 
-                      placeholder="Describe your project and I'll build the schedule..."
-                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:22px; color:#1a1a1a; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
+                      placeholder="Describe your project..."
+                      style="width:100%; min-height:38px; max-height:120px; padding:9px 44px 9px 14px; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:10px; color:#1a1a1a; font-size:14px; font-family:inherit; resize:none; outline:none; line-height:1.4; box-sizing:border-box; overflow-y:hidden; transition:border-color 0.15s;"
                       rows="1"
                     ></textarea>
-                    
-                    <!-- Send Button (positioned inside textarea) -->
                     <button 
                       class="chat-send-btn" 
-                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#2563eb; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
+                      style="position:absolute; right:6px; top:50%; transform:translateY(-50%); width:30px; height:30px; background:#1a1a1a; border:none; border-radius:8px; color:white; font-size:13px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
                       disabled
                     >
-                      ▶
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8 2l5 5-5 5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </button>
                   </div>
                 </div>
-                
-                <div style="font-size:12px; color:#999; margin-top:8px; text-align:center;">
-                  Press <kbd style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; border:1px solid #e0e0e0;">Enter</kbd> to send, <kbd style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; border:1px solid #e0e0e0;">Shift+Enter</kbd> for new line
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                  <span style="font-size:11px; color:#bbb;">Enter to send · Shift+Enter for newline</span>
+                  <button class="chat-clear-btn" style="background:none; border:none; color:#bbb; cursor:pointer; font-size:11px; transition:color 0.15s;">Clear</button>
                 </div>
               </div>
             </div>
@@ -1394,14 +1366,28 @@ export class Sidebar {
     const apiKey = userKey || (isLoggedIn ? builtInKey : '');
     if (apiKey && this.composer) {
       this.composer.setApiKey(apiKey);
-      this.addComposerMessage('AI Composer ready. Describe your project to generate a schedule.');
-    } else {
-      this.addComposerMessage(isLoggedIn ? 'AI Composer initializing...' : 'Sign in or add your API key (OpenAI or Anthropic) in Settings to use AI Composer.');
+    }
+    // Show empty state
+    if (this.composerResponseArea) {
+      this.composerResponseArea.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:40px 20px; text-align:center; color:#999;">
+          <div style="font-size:32px; margin-bottom:16px; opacity:0.5;">🏗️</div>
+          <div style="font-size:14px; font-weight:500; color:#666; margin-bottom:8px;">Describe your project</div>
+          <div style="font-size:13px; line-height:1.5; max-width:260px; color:#aaa;">
+            "3-story office buildout, 18 months, MEP + finishes" — and I'll generate the full schedule.
+          </div>
+          ${!apiKey ? '<div style="margin-top:16px; padding:10px 14px; background:#fff8e6; border:1px solid #f0e0b0; border-radius:8px; font-size:12px; color:#92750c;">Add your OpenAI or Anthropic API key in Settings first.</div>' : ''}
+        </div>
+      `;
     }
   }
   
   private addComposerMessage(message: string, isUserInput = false) {
     if (!this.composerResponseArea) return;
+    // Clear empty state on first real message
+    const emptyState = this.composerResponseArea.querySelector('[style*="justify-content:center"]');
+    if (emptyState) emptyState.remove();
+    
     const el = document.createElement('div');
     el.className = `message-bubble ${isUserInput ? 'user' : 'assistant'}`;
     el.innerHTML = `<div class="message-content">${message}</div>`;
