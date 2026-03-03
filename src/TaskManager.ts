@@ -29,7 +29,8 @@ export class TaskManager {
   private taskPositions: Map<string, { x: number; y: number }> = new Map();
   private isDraggingLeftEdge = false;
   private isDraggingRightEdge = false;
-  private readonly EDGE_SENSITIVITY = 10; // Pixels from edge that trigger resize cursor
+  private readonly EDGE_SENSITIVITY_PX = 8; // Fixed pixel threshold for edge detection
+  private readonly HIT_PADDING_PX = 4; // Extra padding around tasks for easier clicking
   private lastMouseWorld = { x: 0, y: 0 };
   readonly swimlanes: Swimlane[] = [];
   readonly DEFAULT_SWIMLANE_HEIGHT = 200; // Minimum height for empty swimlanes
@@ -265,10 +266,31 @@ export class TaskManager {
     
     // Get screen coordinates relative to canvas
     const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top - headerHeight; // Subtract header height
+    const screenY = e.clientY - rect.top - headerHeight; // Subtract header height to match rendering
     
-    // Convert to world coordinates
+    // Convert to world coordinates using the same transform as Canvas rendering
     return camera.screenToWorld(screenX, screenY);
+  }
+
+  private getEdgeSensitivityWorld(camera: Camera): number {
+    // Convert fixed pixel threshold to world coordinates
+    return this.EDGE_SENSITIVITY_PX / camera.zoom;
+  }
+
+  private getHitPaddingWorld(camera: Camera): number {
+    // Convert fixed pixel padding to world coordinates
+    return this.HIT_PADDING_PX / camera.zoom;
+  }
+
+  private snapToDay(worldX: number, timeAxis: any): Date {
+    // Get the date at this world position
+    const date = timeAxis.worldToDate(worldX);
+    
+    // Snap to start of day (midnight)
+    const snappedDate = new Date(date);
+    snappedDate.setHours(0, 0, 0, 0);
+    
+    return snappedDate;
   }
 
   handleMouseDown(e: MouseEvent, canvas: HTMLCanvasElement, camera: Camera, timeAxis: any) {
@@ -294,6 +316,10 @@ export class TaskManager {
     let clickedTask: Task | null = null;
     let clickedSwimlane: Swimlane | null = null;
 
+    // Get hit detection padding in world coordinates
+    const hitPadding = this.getHitPaddingWorld(camera);
+    const edgeSensitivity = this.getEdgeSensitivityWorld(camera);
+
     // Find clicked task within swimlanes
     for (const swimlane of this.swimlanes) {
       if (worldY >= swimlane.y && worldY <= swimlane.y + swimlane.height) {
@@ -305,17 +331,25 @@ export class TaskManager {
           const startX = timeAxis.dateToWorld(task.startDate);
           const endX = timeAxis.dateToWorld(task.getEndDate());
           
-          if (worldX >= startX && worldX <= endX && 
-              worldY >= pos.y && worldY <= pos.y + task.getCurrentHeight()) {
+          // Add padding to hit area for easier clicking
+          const hitStartX = startX - hitPadding;
+          const hitEndX = endX + hitPadding;
+          const hitStartY = pos.y - hitPadding;
+          const hitEndY = pos.y + task.getCurrentHeight() + hitPadding;
+          
+          if (worldX >= hitStartX && worldX <= hitEndX && 
+              worldY >= hitStartY && worldY <= hitEndY) {
             clickedTask = task;
             
-            // Check for edge dragging
-            if (Math.abs(worldX - startX) <= this.EDGE_SENSITIVITY / camera.zoom) {
+            // Check for edge dragging with fixed pixel sensitivity
+            if (Math.abs(worldX - startX) <= edgeSensitivity) {
               this.isDraggingLeftEdge = true;
               canvas.style.cursor = 'ew-resize';
-            } else if (Math.abs(worldX - endX) <= this.EDGE_SENSITIVITY / camera.zoom) {
+            } else if (Math.abs(worldX - endX) <= edgeSensitivity) {
               this.isDraggingRightEdge = true;
               canvas.style.cursor = 'ew-resize';
+            } else {
+              canvas.style.cursor = 'grab';
             }
             break;
           }
@@ -336,6 +370,8 @@ export class TaskManager {
           x: worldX - taskStartX,
           y: worldY - (pos?.y || 0)
         };
+        // Set cursor to indicate dragging will start
+        canvas.style.cursor = 'grabbing';
       }
     } else {
       // Start drawing selection box
@@ -415,9 +451,13 @@ export class TaskManager {
 
     // Handle task dragging
     if (this.draggedTask && this.dragStartPosition) {
-      // Calculate the time difference for the dragged task
-      const newStartDate = timeAxis.worldToDate(worldX - this.dragStartPosition.x);
-      const timeDifference = newStartDate.getTime() - this.draggedTask.startDate.getTime();
+      // Set cursor to grabbing during drag
+      canvas.style.cursor = 'grabbing';
+      
+      // Calculate new position with day snapping
+      const rawWorldX = worldX - this.dragStartPosition.x;
+      const snappedDate = this.snapToDay(rawWorldX, timeAxis);
+      const timeDifference = snappedDate.getTime() - this.draggedTask.startDate.getTime();
       
       // Calculate target Y position
       const targetSwimlane = this.getSwimlaneAt(worldY);
@@ -476,7 +516,7 @@ export class TaskManager {
         const currentSwimlane = this.swimlanes.find(s => s.tasks.includes(task));
         if (!currentSwimlane) return;
         
-        // Apply the same time shift
+        // Apply the same time shift with day boundary snapping
         const taskNewStartDate = new Date(task.startDate.getTime() + timeDifference);
         task.startDate = taskNewStartDate;
         
@@ -527,8 +567,8 @@ export class TaskManager {
         y: newY
       });
 
-      // Update the dragged task's start date
-      draggedTask.startDate = newStartDate;
+      // Update the dragged task's start date (using snapped date)
+      draggedTask.startDate = snappedDate;
       
       // Update task details in real-time while dragging
       this.updateTaskDetails(draggedTask);
@@ -546,10 +586,16 @@ export class TaskManager {
       return;
     }
 
-    // Update cursor based on edge hover
-    if (!this.draggedTask) {
-      let overEdge = false;
+    // Update cursor based on hover state (immediate feedback)
+    if (!this.draggedTask && !this.isDrawingSelectionBox) {
+      const hitPadding = this.getHitPaddingWorld(camera);
+      const edgeSensitivity = this.getEdgeSensitivityWorld(camera);
+      let cursorSet = false;
+      
+      // Check all visible tasks for hover
       for (const swimlane of this.swimlanes) {
+        if (cursorSet) break;
+        
         for (const task of swimlane.tasks) {
           const pos = swimlane.taskPositions.get(task.id);
           if (!pos) continue;
@@ -557,23 +603,36 @@ export class TaskManager {
           const startX = timeAxis.dateToWorld(task.startDate);
           const endX = timeAxis.dateToWorld(task.getEndDate());
           
-          if (worldX >= startX && worldX <= endX && 
-              worldY >= pos.y && worldY <= pos.y + task.getCurrentHeight()) {
-            if (Math.abs(worldX - startX) <= this.EDGE_SENSITIVITY / camera.zoom ||
-                Math.abs(worldX - endX) <= this.EDGE_SENSITIVITY / camera.zoom) {
+          // Use hit area with padding for cursor detection
+          const hitStartX = startX - hitPadding;
+          const hitEndX = endX + hitPadding;
+          const hitStartY = pos.y - hitPadding;
+          const hitEndY = pos.y + task.getCurrentHeight() + hitPadding;
+          
+          if (worldX >= hitStartX && worldX <= hitEndX && 
+              worldY >= hitStartY && worldY <= hitEndY) {
+            
+            // Check for edge resize zones first
+            if (Math.abs(worldX - startX) <= edgeSensitivity) {
               canvas.style.cursor = 'ew-resize';
-              overEdge = true;
+              cursorSet = true;
+              break;
+            } else if (Math.abs(worldX - endX) <= edgeSensitivity) {
+              canvas.style.cursor = 'ew-resize';
+              cursorSet = true;
               break;
             } else {
-              canvas.style.cursor = 'grab';
-              overEdge = true;
+              // Over task body - show pointer for selection, grab for drag
+              canvas.style.cursor = 'pointer';
+              cursorSet = true;
               break;
             }
           }
         }
-        if (overEdge) break;
       }
-      if (!overEdge && !this.isHandMode) {
+      
+      // If not over any task, show default cursor
+      if (!cursorSet && !this.isHandMode) {
         canvas.style.cursor = 'default';
       }
     }
@@ -668,7 +727,7 @@ export class TaskManager {
     }
   }
 
-  handleMouseUp() {
+  handleMouseUp(canvas?: HTMLCanvasElement) {
     this.isDrawingSelectionBox = false;
     this.selectionBoxStart = null;
     this.selectionBoxEnd = null;
@@ -676,6 +735,11 @@ export class TaskManager {
     this.dragStartPosition = null;
     this.isDraggingLeftEdge = false;
     this.isDraggingRightEdge = false;
+    
+    // Reset cursor to default when mouse is released
+    if (canvas) {
+      canvas.style.cursor = 'default';
+    }
   }
 
   handleKeyDown(e: KeyboardEvent) {
@@ -1244,8 +1308,11 @@ export class TaskManager {
     return this.tasks;
   }
   
-  getTasksAtPoint(worldX: number, worldY: number): Task[] {
+  getTasksAtPoint(worldX: number, worldY: number, camera?: Camera): Task[] {
     const result: Task[] = [];
+    
+    // Get hit padding if camera is provided (for more forgiving hover detection)
+    const hitPadding = camera ? this.getHitPaddingWorld(camera) : 0;
     
     for (const swimlane of this.swimlanes) {
       for (const task of swimlane.tasks) {
@@ -1265,8 +1332,14 @@ export class TaskManager {
         const startX = this.timeAxis.dateToWorld(task.startDate);
         const endX = this.timeAxis.dateToWorld(task.getEndDate());
         
-        if (worldX >= startX && worldX <= endX && 
-            worldY >= pos.y && worldY <= pos.y + task.getCurrentHeight()) {
+        // Apply hit padding for easier hover detection
+        const hitStartX = startX - hitPadding;
+        const hitEndX = endX + hitPadding;
+        const hitStartY = pos.y - hitPadding;
+        const hitEndY = pos.y + task.getCurrentHeight() + hitPadding;
+        
+        if (worldX >= hitStartX && worldX <= hitEndX && 
+            worldY >= hitStartY && worldY <= hitEndY) {
           result.push(task);
         }
       }

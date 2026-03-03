@@ -365,7 +365,7 @@ export class Canvas {
 
     // Check for task hover - use the taskManager's new method that respects filters
     let hoveredTask = null;
-    const visibleTasks = this.taskManager.getTasksAtPoint(worldX, worldY);
+    const visibleTasks = this.taskManager.getTasksAtPoint(worldX, worldY, this.camera);
     if (visibleTasks.length > 0) {
       hoveredTask = visibleTasks[0];
     }
@@ -376,13 +376,14 @@ export class Canvas {
       task.setHovered(task === hoveredTask);
     }
 
-    // Update cursor style based on hover state
-    if (hoveredTask) {
-      this.canvas.style.cursor = 'pointer';
-    } else if (e.clientY - this.canvas.offsetTop < this.timeAxis.getHeaderHeight()) {
-      this.canvas.style.cursor = 'default';
-    } else if (!this.isDragging && !this.taskManager.hasSelectedTask()) {
-      this.canvas.style.cursor = 'grab';
+    // Let TaskManager handle cursor for task interactions
+    // Only set cursor for non-task areas
+    if (!hoveredTask) {
+      if (e.clientY - this.canvas.offsetTop < this.timeAxis.getHeaderHeight()) {
+        this.canvas.style.cursor = 'default';
+      } else if (!this.isDragging && !this.taskManager.hasSelectedTask()) {
+        this.canvas.style.cursor = 'grab';
+      }
     }
 
     // Handle task dragging
@@ -391,7 +392,7 @@ export class Canvas {
 
   private handleMouseUp() {
     this.isDragging = false;
-    this.taskManager.handleMouseUp();
+    this.taskManager.handleMouseUp(this.canvas);
     
     // Set cursor based on position and task selection
     const mouseY = this.lastMouseY - this.canvas.offsetTop;

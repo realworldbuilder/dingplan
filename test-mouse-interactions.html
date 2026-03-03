@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DingPlan - Mouse Interaction Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-info h2 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .test-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+        }
+        
+        .test-list li {
+            padding: 5px 0;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+            margin: 5px 0;
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        #ganttCanvas {
+            width: 100%;
+            height: 100%;
+            background: white;
+            cursor: grab;
+        }
+        
+        .status {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        #status-text {
+            font-family: monospace;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-info">
+            <h2>🖱️ Mouse Interaction Test</h2>
+            <p>Test the following mouse interaction improvements:</p>
+            <ul class="test-list">
+                <li><strong>Hit Detection:</strong> Click on tasks should be more reliable, especially at different zoom levels</li>
+                <li><strong>Hit Padding:</strong> Small tasks should be easier to click (4px extra padding around tasks)</li>
+                <li><strong>Day Snapping:</strong> When dragging tasks horizontally, they should snap to day boundaries</li>
+                <li><strong>Edge Resize:</strong> Task edge sensitivity should be consistent (8px) regardless of zoom level</li>
+                <li><strong>Cursor Feedback:</strong> Hover shows 'pointer', near edges shows 'ew-resize', dragging shows 'grabbing'</li>
+                <li><strong>Precise Dragging:</strong> Tasks should follow the mouse exactly with no drift</li>
+            </ul>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="ganttCanvas"></canvas>
+        </div>
+        
+        <div class="status">
+            <h3>Status</h3>
+            <div id="status-text">Ready to test mouse interactions...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { Canvas } from './dist/assets/main-CNnLcF6M.js';
+        
+        // Initialize the canvas when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('ganttCanvas');
+            const container = canvas.parentElement;
+            
+            // Set canvas size
+            const resizeCanvas = () => {
+                const rect = container.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                
+                if (window.ganttCanvas) {
+                    window.ganttCanvas.resize(rect.width, rect.height);
+                }
+            };
+            
+            // Initial resize
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Create the Gantt canvas
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7); // Start a week ago
+            
+            try {
+                window.ganttCanvas = new Canvas({
+                    canvas: canvas,
+                    backgroundColor: '#ffffff',
+                    gridColor: '#e0e0e0',
+                    startDate: startDate
+                });
+                
+                // Add some test tasks with different sizes
+                const tasks = [
+                    {
+                        id: 'test1',
+                        name: 'Small Task (1 day)',
+                        startDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+                        duration: 1,
+                        crewSize: 2,
+                        color: '#FF6B6B',
+                        tradeId: 'electrical'
+                    },
+                    {
+                        id: 'test2', 
+                        name: 'Medium Task (3 days)',
+                        startDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+                        duration: 3,
+                        crewSize: 3,
+                        color: '#4ECDC4',
+                        tradeId: 'plumbing'
+                    },
+                    {
+                        id: 'test3',
+                        name: 'Large Task (7 days)',
+                        startDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+                        duration: 7,
+                        crewSize: 5,
+                        color: '#45B7D1',
+                        tradeId: 'hvac'
+                    },
+                    {
+                        id: 'test4',
+                        name: 'Tiny Task (0.5 day)',
+                        startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+                        duration: 1,
+                        crewSize: 1,
+                        color: '#F9CA24',
+                        tradeId: 'electrical'
+                    }
+                ];
+                
+                // Add the tasks
+                tasks.forEach(task => {
+                    try {
+                        window.ganttCanvas.addTask(task);
+                    } catch (e) {
+                        console.error('Error adding task:', e);
+                    }
+                });
+                
+                updateStatus('✅ Canvas initialized with test tasks. Try the mouse interactions!');
+                
+                // Add event listeners to track interactions
+                let lastAction = '';
+                
+                canvas.addEventListener('mousedown', (e) => {
+                    lastAction = 'Mouse Down';
+                    updateStatus(`🖱️ ${lastAction} - Testing hit detection...`);
+                });
+                
+                canvas.addEventListener('mousemove', (e) => {
+                    if (e.buttons === 1) { // Left mouse button pressed
+                        lastAction = 'Dragging';
+                        updateStatus(`🚚 ${lastAction} - Testing day snapping and precise following...`);
+                    } else {
+                        const style = getComputedStyle(canvas);
+                        updateStatus(`👆 Hovering - Cursor: ${style.cursor}`);
+                    }
+                });
+                
+                canvas.addEventListener('mouseup', (e) => {
+                    lastAction = 'Mouse Up';
+                    updateStatus(`✋ ${lastAction} - Drag completed`);
+                });
+                
+                canvas.addEventListener('wheel', (e) => {
+                    updateStatus(`🔍 Zooming - Testing edge sensitivity consistency at different zoom levels`);
+                });
+                
+            } catch (error) {
+                console.error('Error initializing canvas:', error);
+                updateStatus(`❌ Error initializing canvas: ${error.message}`);
+            }
+        });
+        
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status-text');
+            const timestamp = new Date().toLocaleTimeString();
+            statusEl.textContent = `[${timestamp}] ${message}`;
+        }
+    </script>
+</body>
+</html>
