@@ -439,7 +439,7 @@ export class Sidebar {
         background: #1d4ed8 !important; transform: translateY(-50%) scale(1.05);
       }
       .chat-upload-btn:hover {
-        background: #374151 !important; border-color: #6b7280 !important;
+        background: #eee !important; border-color: #ccc !important;
       }
       
       /* Chat Message Bubbles */
@@ -452,8 +452,8 @@ export class Sidebar {
         border-bottom-right-radius: 6px;
       }
       .message-bubble.assistant {
-        background: #2a2a2a; color: #e5e7eb; align-self: flex-start; margin-right: auto;
-        border-bottom-left-radius: 6px; border: 1px solid #404040;
+        background: #f0f0f0; color: #1a1a1a; align-self: flex-start; margin-right: auto;
+        border-bottom-left-radius: 6px; border: 1px solid #e5e7eb;
       }
       .message-timestamp {
         font-size: 11px; color: #6b7280; margin-top: 6px; text-align: right;
@@ -480,18 +480,18 @@ export class Sidebar {
         display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; justify-content: center;
       }
       .quick-action-chip {
-        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4);
         color: white; padding: 8px 12px; border-radius: 20px; font-size: 12px;
         cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px);
         font-weight: 500;
       }
       .quick-action-chip:hover {
-        background: rgba(255,255,255,0.2); transform: translateY(-1px);
+        background: rgba(255,255,255,0.35); transform: translateY(-1px);
       }
       
       /* Markdown-like formatting in messages */
       .message-content strong, .message-content b {
-        font-weight: 600; color: #f3f4f6;
+        font-weight: 600; color: #1a1a1a;
       }
       .message-content ul {
         margin: 8px 0; padding-left: 16px;
@@ -500,7 +500,7 @@ export class Sidebar {
         margin-bottom: 4px;
       }
       .message-content code {
-        background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
+        background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 4px;
         font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 12px;
       }
       
@@ -526,13 +526,13 @@ export class Sidebar {
         width: 6px;
       }
       .chat-messages::-webkit-scrollbar-track {
-        background: #1a1a1a;
+        background: transparent;
       }
       .chat-messages::-webkit-scrollbar-thumb {
-        background: #404040; border-radius: 3px;
+        background: #ccc; border-radius: 3px;
       }
       .chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #525252;
+        background: #aaa;
       }
 
       /* ===== Task Details Panel ===== */
@@ -635,14 +635,14 @@ export class Sidebar {
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
             <!-- Modern Chat Interface -->
-            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#1a1a1a; border-radius:12px; overflow:hidden;">
+            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#fafafa; border-radius:12px; overflow:hidden;">
               <!-- Chat Header -->
-              <div class="chat-header" style="padding:16px 20px; background:#2a2a2a; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+              <div class="chat-header" style="padding:16px 20px; background:#fff; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:12px;">
-                  <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.5);"></div>
-                  <span style="color:#e5e7eb; font-size:14px; font-weight:500;">AI Project Composer</span>
+                  <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.3);"></div>
+                  <span style="color:#1a1a1a; font-size:14px; font-weight:500;">AI Project Composer</span>
                 </div>
-                <button class="chat-clear-btn" style="background:none; border:none; color:#6b7280; cursor:pointer; padding:4px 8px; border-radius:6px; font-size:12px; transition:all 0.15s;" title="Clear chat">Clear</button>
+                <button class="chat-clear-btn" style="background:none; border:none; color:#999; cursor:pointer; padding:4px 8px; border-radius:6px; font-size:12px; transition:all 0.15s;" title="Clear chat">Clear</button>
               </div>
 
               <!-- Chat Messages Area -->
@@ -652,23 +652,23 @@ export class Sidebar {
 
               <!-- Typing Indicator -->
               <div class="typing-indicator" style="display:none; padding:0 20px 16px; opacity:0; transition:all 0.3s;">
-                <div style="background:#2a2a2a; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
+                <div style="background:#f0f0f0; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
                   <div class="typing-dots" style="display:flex; gap:4px;">
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite;"></div>
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
+                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite;"></div>
+                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
+                    <div style="width:6px; height:6px; background:#9ca3af; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
                   </div>
                 </div>
               </div>
 
               <!-- Chat Input Area -->
-              <div class="chat-input-area" style="border-top:1px solid #333; background:#1a1a1a; padding:16px 20px; flex-shrink:0;">
+              <div class="chat-input-area" style="border-top:1px solid #e5e7eb; background:#fff; padding:16px 20px; flex-shrink:0;">
                 <!-- Image preview area -->
                 <div class="composer-image-preview" style="display:none; margin-bottom:12px;"></div>
                 
                 <div style="display:flex; gap:12px; align-items:flex-end;">
                   <!-- Image Upload Button -->
-                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border:1px solid #404040; border-radius:10px; cursor:pointer; font-size:18px; color:#9ca3af; transition:all 0.15s; flex-shrink:0;" title="Upload image">
+                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:10px; cursor:pointer; font-size:18px; color:#666; transition:all 0.15s; flex-shrink:0;" title="Upload image">
                     <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
                     📎
                   </label>
@@ -678,7 +678,7 @@ export class Sidebar {
                     <textarea 
                       class="chat-input" 
                       placeholder="Describe your project and I'll build the schedule..."
-                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2a2a2a; border:1px solid #404040; border-radius:22px; color:#e5e7eb; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
+                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#f5f5f5; border:1px solid #e0e0e0; border-radius:22px; color:#1a1a1a; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
                       rows="1"
                     ></textarea>
                     
@@ -693,8 +693,8 @@ export class Sidebar {
                   </div>
                 </div>
                 
-                <div style="font-size:12px; color:#6b7280; margin-top:8px; text-align:center;">
-                  Press <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
+                <div style="font-size:12px; color:#999; margin-top:8px; text-align:center;">
+                  Press <kbd style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; border:1px solid #e0e0e0;">Enter</kbd> to send, <kbd style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; border:1px solid #e0e0e0;">Shift+Enter</kbd> for new line
                 </div>
               </div>
             </div>
@@ -807,7 +807,7 @@ export class Sidebar {
       </div>
     `;
 
-    this.composerResponseArea = this.element.querySelector('.composer-response-area');
+    this.composerResponseArea = this.element.querySelector('.chat-messages');
   }
 
   private renderTradeList(): string {
@@ -873,23 +873,56 @@ export class Sidebar {
     const closeBtn = this.element.querySelector('.rp-close');
     if (closeBtn) closeBtn.addEventListener('click', () => this.hide());
 
+    // Clear chat button
+    const chatClearBtn = this.element.querySelector('.chat-clear-btn');
+    if (chatClearBtn) {
+      chatClearBtn.addEventListener('click', () => {
+        if (this.composerResponseArea) this.composerResponseArea.innerHTML = '';
+      });
+    }
+
     // Composer button and image upload
-    const aiButton = this.element.querySelector('.ai-composer-button');
+    const sendBtn = this.element.querySelector('.chat-send-btn');
+    const chatInput = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
     const imageInput = this.element.querySelector('.composer-image-input') as HTMLInputElement;
     const imagePreview = this.element.querySelector('.composer-image-preview') as HTMLElement;
     let pendingImage: string | null = null; // base64
-    
-    if (aiButton) {
-      aiButton.addEventListener('click', () => {
-        const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
+
+    // Enable/disable send button based on input
+    if (chatInput && sendBtn) {
+      chatInput.addEventListener('input', () => {
+        (sendBtn as HTMLButtonElement).disabled = !chatInput.value.trim() && !pendingImage;
+        // Auto-grow textarea
+        chatInput.style.height = 'auto';
+        chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+      });
+      // Enter to send, Shift+Enter for newline
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (chatInput.value.trim() || pendingImage) {
+            this.handleAIComposerSubmit(chatInput.value, pendingImage);
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            (sendBtn as HTMLButtonElement).disabled = true;
+            pendingImage = null;
+            if (imagePreview) { imagePreview.style.display = 'none'; imagePreview.innerHTML = ''; }
+            if (imageInput) imageInput.value = '';
+          }
+        }
+      });
+    }
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
         if (input.value.trim() || pendingImage) {
           this.handleAIComposerSubmit(input.value, pendingImage);
-          // Clear pending image after sending
+          input.value = '';
+          input.style.height = 'auto';
+          (sendBtn as HTMLButtonElement).disabled = true;
           pendingImage = null;
-          if (imagePreview) {
-            imagePreview.style.display = 'none';
-            imagePreview.innerHTML = '';
-          }
+          if (imagePreview) { imagePreview.style.display = 'none'; imagePreview.innerHTML = ''; }
           if (imageInput) imageInput.value = '';
         }
       });
@@ -1250,8 +1283,8 @@ export class Sidebar {
   private async handleAIComposerSubmit(prompt: string, imageBase64?: string | null) {
     const displayPrompt = prompt || (imageBase64 ? 'What do you see in this image? Generate a construction schedule based on it.' : '');
     this.addComposerMessage(displayPrompt, true);
-    const input = this.element.querySelector('.ai-composer-input') as HTMLTextAreaElement;
-    const button = this.element.querySelector('.ai-composer-button') as HTMLButtonElement;
+    const input = this.element.querySelector('.chat-input') as HTMLTextAreaElement;
+    const button = this.element.querySelector('.chat-send-btn') as HTMLButtonElement;
     
     if (!this.composer) {
       this.addComposerMessage('Composer not initialized. Please refresh the page.');
@@ -1277,11 +1310,8 @@ export class Sidebar {
     } catch (error: unknown) {
       this.addComposerMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
     } finally {
-      input.disabled = false;
-      button.disabled = false;
-      button.textContent = 'Send Request';
-      input.value = '';
-      input.focus();
+      if (input) { input.disabled = false; input.value = ''; input.style.height = 'auto'; input.focus(); }
+      if (button) { button.disabled = true; }
     }
   }
 
@@ -1373,8 +1403,8 @@ export class Sidebar {
   private addComposerMessage(message: string, isUserInput = false) {
     if (!this.composerResponseArea) return;
     const el = document.createElement('div');
-    el.className = `composer-message ${isUserInput ? 'user-message' : ''}`;
-    el.textContent = isUserInput ? `You: ${message}` : message;
+    el.className = `message-bubble ${isUserInput ? 'user' : 'assistant'}`;
+    el.innerHTML = `<div class="message-content">${message}</div>`;
     this.composerResponseArea.appendChild(el);
     this.composerResponseArea.scrollTop = this.composerResponseArea.scrollHeight;
   }
