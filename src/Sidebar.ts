@@ -78,108 +78,100 @@ export class Sidebar {
     `;
 
     lp.innerHTML = `
-      <!-- Compact header -->
-      <div style="padding: 16px; text-align: center; border-bottom: 1px solid #e1e5e9;">
-        <img src="/logo.png" alt="DingPlan" style="width: 80%; max-width: 200px; object-fit: contain;">
+      <!-- Logo -->
+      <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+        <img src="/logo.png" alt="DingPlan" style="height: 28px; object-fit: contain;">
       </div>
 
-      <!-- Projects -->
-      <div style="border-bottom: 1px solid #e1e5e9;">
-        <div style="padding: 12px 16px 8px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Projects</span>
-          <button class="left-nav-btn-sm" data-action="new-project" style="padding: 4px 10px; font-size: 12px;">+ New</button>
+      <!-- Project Dropdown -->
+      <div style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
+        <div style="position: relative;">
+          <select id="sidebar-project-select" class="sb-select"></select>
         </div>
-        <div id="sidebar-project-list" style="padding: 0 8px 8px; max-height: 180px; overflow-y: auto;"></div>
+        <div style="display: flex; gap: 6px; margin-top: 6px;">
+          <button class="sb-btn sb-btn-sm" data-action="new-project" style="flex: 1;">+ New</button>
+          <button class="sb-btn sb-btn-sm sb-btn-danger" id="delete-project-btn">Delete</button>
+        </div>
       </div>
 
-      <div class="left-nav" style="padding: 16px 0; flex: 1; display: flex; flex-direction: column;">
-        <!-- SCHEDULE Section -->
-        <div style="margin-bottom: 24px;">
-          <div style="padding: 0 16px 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Schedule</div>
-          <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
-            <button class="left-nav-btn" data-action="add-task">➕ Add Task</button>
-            <button class="left-nav-btn" data-action="edit-swimlanes">🏊 Swimlanes</button>
-            <button class="left-nav-btn" data-action="manage-trades">🛠️ Trades</button>
-            <button class="left-nav-btn" data-action="go-to-today">📅 Go to Today</button>
-            <button class="left-nav-btn" data-action="toggle-deps">🔗 Dependencies</button>
+      <div style="padding: 8px 0; flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
+        <!-- Schedule -->
+        <div class="sb-section">
+          <div class="sb-label">Schedule</div>
+          <div class="sb-group">
+            <button class="sb-btn" data-action="add-task">➕ Add Task</button>
+            <button class="sb-btn" data-action="edit-swimlanes">🏊 Swimlanes</button>
+            <button class="sb-btn" data-action="manage-trades">🛠️ Trades</button>
+            <button class="sb-btn" data-action="go-to-today">📅 Go to Today</button>
+            <button class="sb-btn" data-action="toggle-deps">🔗 Dependencies</button>
           </div>
         </div>
 
-        <!-- AI Composer (Prominent) -->
-        <div style="margin-bottom: 24px; padding: 0 8px;">
-          <button class="ai-composer-btn" data-action="composer" style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s;">
-            🤖 AI Composer
-          </button>
+        <!-- AI Composer -->
+        <div style="padding: 0 12px 12px;">
+          <button class="sb-btn sb-btn-primary" data-action="composer">🤖 AI Composer</button>
         </div>
 
-        <!-- IMPORT / EXPORT Section -->
-        <div style="margin-bottom: auto;">
-          <div style="padding: 0 16px 8px; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Import / Export</div>
-          <div style="padding: 0 8px; display: flex; flex-direction: column; gap: 4px;">
-            <button class="left-nav-btn-compact" data-action="import-xer">📥 Import XER</button>
-            <button class="left-nav-btn-compact" data-action="export-pdf">📄 Export PDF</button>
-            <button class="left-nav-btn-compact" data-action="export-json">💾 Export JSON</button>
-            <button class="left-nav-btn-compact" data-action="share-link">🔗 Share Link</button>
+        <!-- Import / Export -->
+        <div class="sb-section">
+          <div class="sb-label">Import / Export</div>
+          <div class="sb-group">
+            <button class="sb-btn" data-action="import-xer">📥 Import XER</button>
+            <button class="sb-btn" data-action="export-pdf">📄 Export PDF</button>
+            <button class="sb-btn" data-action="export-json">💾 Export JSON</button>
+            <button class="sb-btn" data-action="share-link">🔗 Share Link</button>
           </div>
         </div>
 
         <!-- Footer -->
-        <div style="padding: 16px; border-top: 1px solid #e1e5e9; margin-top: auto;">
-          <div id="sidebar-status-banner" style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <!-- Will be updated dynamically based on auth state -->
-          </div>
-          <button class="left-nav-btn-compact" data-action="settings" style="width: 100%;">⚙️ Settings</button>
+        <div style="padding: 12px; border-top: 1px solid #e5e7eb; margin-top: auto;">
+          <div id="sidebar-status-banner" style="font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"></div>
+          <button class="sb-btn" data-action="settings">⚙️ Settings</button>
         </div>
       </div>
 
-      <!-- Hidden project name input for compatibility -->
       <input id="left-project-name" type="text" value="My Project" style="display: none;">
     `;
 
     // Add nav button styles
     const style = document.createElement('style');
     style.textContent = `
-      .left-nav-btn {
-        display: block; width: 100%; text-align: left; padding: 10px 16px;
-        border: 1px solid #e1e5e9; background: white; font-size: 14px; color: #374151;
-        cursor: pointer; border-radius: 6px; font-family: inherit;
-        transition: all 0.15s; min-height: 44px; box-sizing: border-box;
-        display: flex; align-items: center;
+      /* Unified sidebar design system */
+      .sb-section { margin-bottom: 12px; }
+      .sb-label {
+        padding: 0 16px 6px; font-size: 11px; font-weight: 600;
+        color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;
       }
-      .left-nav-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
-      .left-nav-btn-compact {
-        display: block; width: 100%; text-align: left; padding: 8px 12px;
-        border: 1px solid #e1e5e9; background: white; font-size: 13px; color: #374151;
-        cursor: pointer; border-radius: 6px; font-family: inherit;
-        transition: all 0.15s; min-height: 36px; box-sizing: border-box;
+      .sb-group { padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
+      .sb-btn {
+        display: flex; align-items: center; width: 100%; text-align: left;
+        padding: 8px 12px; border: none; background: transparent;
+        font-size: 13px; color: #374151; cursor: pointer; border-radius: 6px;
+        font-family: inherit; transition: background 0.12s; box-sizing: border-box;
       }
-      .left-nav-btn-compact:hover { background: #f3f4f6; border-color: #d1d5db; }
-      .left-nav-btn-sm {
-        flex: 1; padding: 8px 12px; border: 1px solid #e1e5e9; background: white;
-        font-size: 12px; font-weight: 500; color: #374151; cursor: pointer;
-        border-radius: 6px; font-family: inherit; transition: all 0.15s; text-align: center;
-        min-height: 36px; box-sizing: border-box;
+      .sb-btn:hover { background: #f3f4f6; }
+      .sb-btn.active { background: #e8f0fe; color: #1a56db; font-weight: 600; }
+      .sb-btn-sm {
+        padding: 6px 10px; font-size: 12px; font-weight: 500;
+        border: 1px solid #e1e5e9; border-radius: 6px; background: white;
+        text-align: center;
       }
-      .left-nav-btn-sm:hover { background: #f3f4f6; border-color: #d1d5db; }
-      .ai-composer-btn:hover { 
-        transform: translateY(-1px); 
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      .sb-btn-sm:hover { background: #f3f4f6; border-color: #d1d5db; }
+      .sb-btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; font-weight: 500; justify-content: center; gap: 8px;
+        padding: 10px 12px; border-radius: 8px;
       }
-      .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
-      .sidebar-project {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 8px 10px; border-radius: 6px; cursor: pointer;
-        font-size: 13px; color: #374151; transition: background 0.15s;
+      .sb-btn-primary:hover { opacity: 0.9; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+      .sb-btn-danger { color: #dc2626; border-color: #fecaca; }
+      .sb-btn-danger:hover { background: #fee2e2; border-color: #dc2626; }
+      .sb-select {
+        width: 100%; padding: 8px 10px; border: 1px solid #e1e5e9;
+        border-radius: 6px; background: white; font-size: 13px; color: #374151;
+        font-family: inherit; cursor: pointer; appearance: auto;
       }
-      .sidebar-project:hover { background: #f3f4f6; }
-      .sidebar-project.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-      .sidebar-project-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .sidebar-project-del {
-        padding: 2px 6px; background: none; border: none; color: #9ca3af;
-        cursor: pointer; border-radius: 4px; font-size: 14px; opacity: 0; transition: all 0.15s;
-      }
-      .sidebar-project:hover .sidebar-project-del { opacity: 1; }
-      .sidebar-project-del:hover { background: #fee2e2; color: #dc2626; }
+      .sb-select:hover { border-color: #d1d5db; }
+      .sb-select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
       
       /* Floating Action Bar */
       .floating-action-bar {
@@ -705,22 +697,52 @@ export class Sidebar {
   }
 
   private setupEventListeners() {
-    // LEFT panel nav buttons
-    this.leftPanel.querySelectorAll('.left-nav-btn, .left-nav-btn-compact, .ai-composer-btn').forEach(btn => {
+    // LEFT panel nav buttons (unified class)
+    this.leftPanel.querySelectorAll('.sb-btn[data-action]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const action = (e.currentTarget as HTMLElement).dataset.action;
         if (!action) return;
+        if (action === 'new-project') { this.handleNewProject(); return; }
         this.handleNavAction(action);
       });
     });
 
-    // Project management buttons
-    this.leftPanel.querySelectorAll('.left-nav-btn-sm').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const action = (e.currentTarget as HTMLElement).dataset.action;
-        if (action === 'new-project') this.handleNewProject();
+    // Project dropdown switch
+    const projectSelect = this.leftPanel.querySelector('#sidebar-project-select') as HTMLSelectElement;
+    if (projectSelect) {
+      projectSelect.addEventListener('change', async () => {
+        const id = projectSelect.value;
+        if (!id) return;
+        if (window.canvasApp?.loadProjectById) {
+          const ok = await window.canvasApp.loadProjectById(id);
+          if (ok) {
+            const name = localStorage.getItem('dingplan-project-name');
+            const display = document.getElementById('project-name-display');
+            if (display && name) display.textContent = name;
+          }
+        }
       });
-    });
+    }
+
+    // Delete project button
+    const deleteBtn = this.leftPanel.querySelector('#delete-project-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        const currentId = localStorage.getItem('currentProjectId') || 'default';
+        const projects = await listProjects();
+        if (projects.length <= 1) { alert("Can't delete your only project"); return; }
+        if (!confirm('Delete this project?')) return;
+        // Find another project to switch to
+        const other = projects.find(p => p.id !== currentId);
+        if (other && window.canvasApp?.loadProjectById) {
+          await window.canvasApp.loadProjectById(other.id);
+          const display = document.getElementById('project-name-display');
+          if (display) display.textContent = other.name;
+        }
+        await deleteProject(currentId);
+        this.refreshProjectList();
+      });
+    }
 
     // RIGHT panel close
     const closeBtn = this.element.querySelector('.rp-close');
@@ -901,61 +923,20 @@ export class Sidebar {
   }
 
   async refreshProjectList() {
-    const listEl = this.leftPanel.querySelector('#sidebar-project-list') as HTMLElement;
-    if (!listEl) return;
+    const select = this.leftPanel.querySelector('#sidebar-project-select') as HTMLSelectElement;
+    if (!select) return;
     
     let projects = await listProjects();
     const currentId = localStorage.getItem('currentProjectId') || 'default';
     
-    // Always include current project even if index is empty
     if (projects.length === 0) {
       const name = localStorage.getItem('dingplan-project-name') || 'My Project';
       projects = [{ id: currentId, name, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
     }
     
-    listEl.innerHTML = projects.map(p => `
-      <div class="sidebar-project ${p.id === currentId ? 'active' : ''}" data-id="${p.id}">
-        <span class="sidebar-project-name">${p.name}</span>
-        <button class="sidebar-project-del" data-id="${p.id}" title="Delete">×</button>
-      </div>
-    `).join('');
-    
-    // Click to switch project
-    listEl.querySelectorAll('.sidebar-project').forEach(el => {
-      el.addEventListener('click', async (e) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('sidebar-project-del')) return;
-        const id = (el as HTMLElement).dataset.id;
-        if (!id || id === currentId) return;
-        if (window.canvasApp?.loadProjectById) {
-          const ok = await window.canvasApp.loadProjectById(id);
-          if (ok) {
-            // Update toolbar project name
-            const name = localStorage.getItem('dingplan-project-name');
-            const display = document.getElementById('project-name-display');
-            if (display && name) display.textContent = name;
-            this.refreshProjectList();
-          }
-        }
-      });
-    });
-    
-    // Delete buttons
-    listEl.querySelectorAll('.sidebar-project-del').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = (btn as HTMLElement).dataset.id;
-        if (!id) return;
-        if (id === currentId) {
-          alert("Can't delete the active project");
-          return;
-        }
-        if (confirm('Delete this project?')) {
-          await deleteProject(id);
-          this.refreshProjectList();
-        }
-      });
-    });
+    select.innerHTML = projects.map(p =>
+      `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${p.name}</option>`
+    ).join('');
   }
 
   private handleNewProject() {
