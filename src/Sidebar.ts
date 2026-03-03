@@ -79,7 +79,7 @@ export class Sidebar {
     lp.innerHTML = `
       <!-- Compact header -->
       <div style="padding: 16px; text-align: center; border-bottom: 1px solid #e1e5e9;">
-        <img src="/logo.png" alt="DingPlan" style="height: 40px; object-fit: contain;">
+        <img src="/logo.png" alt="DingPlan" style="width: 80%; max-width: 200px; object-fit: contain;">
       </div>
 
       <!-- Project Switcher -->
@@ -89,7 +89,7 @@ export class Sidebar {
             <span>📁</span>
             <span id="current-project-display">My Project</span>
           </div>
-          <span style="font-size: 12px; color: #9ca3af;">▼</span>
+          <span class="chevron" style="font-size: 12px; color: #9ca3af; transition: transform 0.2s;">▼</span>
         </button>
         <div style="display: flex; gap: 6px; margin-top: 8px;">
           <button class="left-nav-btn-sm" data-action="new-project">+ New</button>
@@ -1073,12 +1073,21 @@ export class Sidebar {
 
   private async toggleProjectsList() {
     const section = this.leftPanel.querySelector('#projects-list-section') as HTMLElement;
-    if (!section) return;
+    if (!section) {
+      console.error('projects-list-section not found!');
+      return;
+    }
     const isVisible = section.style.display !== 'none';
     if (isVisible) {
       section.style.display = 'none';
+      // Flip chevron back
+      const chevron = this.leftPanel.querySelector('#project-switcher .chevron') as HTMLElement;
+      if (chevron) chevron.textContent = '▼';
       return;
     }
+    // Flip chevron
+    const chevron = this.leftPanel.querySelector('#project-switcher .chevron') as HTMLElement;
+    if (chevron) chevron.textContent = '▲';
     // Populate list
     let projects = await listProjects();
     const listEl = this.leftPanel.querySelector('#projects-list') as HTMLElement;
