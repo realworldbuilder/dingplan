@@ -5,7 +5,7 @@ import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
 import { authService } from './services/authService';
 import { 
-  loadProject, listProjects, saveProject, deleteProject, downloadProjectJSON
+  loadProject, saveProject, deleteProject, downloadProjectJSON
 } from './services/projectService';
 import { WBS_TEMPLATES } from './composer/WBSTemplates';
 import { generateUUID } from './utils';
@@ -82,24 +82,9 @@ export class Sidebar {
         <img src="/logo.png" alt="DingPlan" style="width: 80%; max-width: 200px; object-fit: contain;">
       </div>
 
-      <!-- Project Switcher -->
-      <div style="padding: 16px; border-bottom: 1px solid #e1e5e9;">
-        <button id="project-switcher" style="width: 100%; display: flex; align-items: center; justify-content: space-between; background: white; border: 1px solid #e1e5e9; border-radius: 6px; padding: 10px 16px; font-size: 14px; font-weight: 500; color: #374151; cursor: pointer; font-family: inherit; min-height: 44px; box-sizing: border-box;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span>📁</span>
-            <span id="current-project-display">My Project</span>
-          </div>
-          <span class="chevron" style="font-size: 12px; color: #9ca3af; transition: transform 0.2s;">▼</span>
-        </button>
-        <div style="display: flex; gap: 6px; margin-top: 8px;">
-          <button class="left-nav-btn-sm" data-action="new-project">+ New</button>
-          <button class="left-nav-btn-sm" data-action="open-project">Open</button>
-        </div>
-      </div>
-
-      <!-- Saved projects list (collapsible) -->
-      <div id="projects-list-section" style="display: none; padding: 8px 16px; border-bottom: 1px solid #e1e5e9; max-height: 200px; overflow-y: auto;">
-        <div id="projects-list"></div>
+      <!-- Project Actions -->
+      <div style="padding: 12px 16px; border-bottom: 1px solid #e1e5e9; display: flex; gap: 6px;">
+        <button class="left-nav-btn-sm" data-action="new-project" style="flex: 1;">+ New Project</button>
       </div>
 
       <div class="left-nav" style="padding: 16px 0; flex: 1; display: flex; flex-direction: column;">
@@ -175,21 +160,7 @@ export class Sidebar {
         transform: translateY(-1px); 
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       }
-      .project-item {
-        display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
-        border-radius: 6px; cursor: pointer; font-size: 13px; color: #374151; transition: background 0.15s;
-      }
-      .project-item:hover { background: #f3f4f6; }
-      .project-item.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-      .project-item-date { font-size: 11px; color: #9ca3af; }
-      .project-item-delete {
-        padding: 4px 8px; background: none; border: none; color: #dc2626;
-        cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: 500;
-        transition: background 0.15s; margin-left: 8px;
-      }
-      .project-item-delete:hover { background: #fee2e2; }
       .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
-      #project-switcher:hover { background: #f9fafb; border-color: #d1d5db; }
       
       /* Floating Action Bar */
       .floating-action-bar {
@@ -724,38 +695,11 @@ export class Sidebar {
       });
     });
 
-    // Project switcher
-    const projectSwitcher = this.leftPanel.querySelector('#project-switcher');
-    if (projectSwitcher) {
-      projectSwitcher.addEventListener('click', () => {
-        this.toggleProjectsList();
-      });
-    }
-
-    // Project name sync
-    const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-    const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-    if (nameInput && displayEl) {
-      // Load saved project name
-      const saved = localStorage.getItem('dingplan-project-name');
-      if (saved) {
-        nameInput.value = saved;
-        displayEl.textContent = saved;
-      }
-      
-      // Update display when hidden input changes (for compatibility)
-      nameInput.addEventListener('input', () => {
-        displayEl.textContent = nameInput.value;
-        localStorage.setItem('dingplan-project-name', nameInput.value);
-      });
-    }
-
     // Project management buttons
     this.leftPanel.querySelectorAll('.left-nav-btn-sm').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const action = (e.currentTarget as HTMLElement).dataset.action;
         if (action === 'new-project') this.handleNewProject();
-        if (action === 'open-project') this.toggleProjectsList();
       });
     });
 
@@ -1069,83 +1013,6 @@ export class Sidebar {
       if (nameInput) nameInput.value = name;
       if (displayEl) displayEl.textContent = name;
     }
-  }
-
-  private async toggleProjectsList() {
-    const section = this.leftPanel.querySelector('#projects-list-section') as HTMLElement;
-    if (!section) {
-      console.error('projects-list-section not found!');
-      return;
-    }
-    const isVisible = section.style.display !== 'none';
-    if (isVisible) {
-      section.style.display = 'none';
-      // Flip chevron back
-      const chevron = this.leftPanel.querySelector('#project-switcher .chevron') as HTMLElement;
-      if (chevron) chevron.textContent = '▼';
-      return;
-    }
-    // Flip chevron
-    const chevron = this.leftPanel.querySelector('#project-switcher .chevron') as HTMLElement;
-    if (chevron) chevron.textContent = '▲';
-    // Populate list
-    let projects = await listProjects();
-    const listEl = this.leftPanel.querySelector('#projects-list') as HTMLElement;
-    const currentId = localStorage.getItem('currentProjectId') || 'default';
-    
-    // If no projects in index, show current project
-    if (projects.length === 0) {
-      const currentName = localStorage.getItem('dingplan-project-name') || 'My Project';
-      projects = [{ id: currentId, name: currentName, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
-    }
-    {
-      listEl.innerHTML = projects.map(p => `
-        <div class="project-item ${p.id === currentId ? 'active' : ''}" data-project-id="${p.id}">
-          <div style="flex: 1; cursor: pointer;">
-            <div>${p.name}</div>
-            <div class="project-item-date">${new Date(p.updatedAt).toLocaleDateString()}</div>
-          </div>
-          <button class="project-item-delete" data-project-id="${p.id}" title="Delete project">×</button>
-        </div>
-      `).join('');
-      
-      // Click to load project
-      listEl.querySelectorAll('.project-item > div:first-child').forEach(item => {
-        item.addEventListener('click', async () => {
-          const projectItem = item.closest('.project-item') as HTMLElement;
-          const id = projectItem?.dataset.projectId;
-          if (!id) return;
-          
-          // Use the new unified project loading method
-          if (window.canvasApp && window.canvasApp.loadProjectById) {
-            const success = await window.canvasApp.loadProjectById(id);
-            if (success) {
-              // Update UI
-              const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-              const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-              const projectName = localStorage.getItem('dingplan-project-name');
-              if (nameInput && projectName) nameInput.value = projectName;
-              if (displayEl && projectName) displayEl.textContent = projectName;
-              section.style.display = 'none';
-            }
-          }
-        });
-      });
-      
-      // Delete project buttons
-      listEl.querySelectorAll('.project-item-delete').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const id = (btn as HTMLElement).dataset.projectId;
-          if (!id) return;
-          if (confirm('Delete this project? This cannot be undone.')) {
-            await deleteProject(id);
-            this.toggleProjectsList(); // Refresh the list
-          }
-        });
-      });
-    }
-    section.style.display = 'block';
   }
 
   private async handleImportXER() {
