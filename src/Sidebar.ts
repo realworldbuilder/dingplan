@@ -195,12 +195,12 @@ export class Sidebar {
     
     // Create floating action buttons
     const actions = [
-      { emoji: '➕', action: 'add-task', needsPanel: true },
-      { emoji: '🏊', action: 'edit-swimlanes', needsPanel: true },
-      { emoji: '🛠️', action: 'manage-trades', needsPanel: true },
-      { emoji: '📅', action: 'go-to-today', needsPanel: false },
-      { emoji: '🔗', action: 'toggle-deps', needsPanel: false },
-      { emoji: '🤖', action: 'composer', needsPanel: true },
+      { emoji: '+', action: 'add-task', needsPanel: true },
+      { emoji: '◫', action: 'edit-swimlanes', needsPanel: true },
+      { emoji: '⚙', action: 'manage-trades', needsPanel: true },
+      { emoji: '⊙', action: 'go-to-today', needsPanel: false },
+      { emoji: '⋯', action: 'toggle-deps', needsPanel: false },
+      { emoji: 'AI', action: 'composer', needsPanel: true },
     ];
 
     actions.forEach(({ emoji, action, needsPanel }) => {

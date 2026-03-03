@@ -33,7 +33,7 @@ export class TaskManager {
   private readonly HIT_PADDING_PX = 4; // Extra padding around tasks for easier clicking
   private lastMouseWorld = { x: 0, y: 0 };
   swimlanes: Swimlane[] = [];
-  SWIMLANE_HEIGHT = 200; // Minimum height for empty swimlanes
+  SWIMLANE_HEIGHT = 80; // Minimum height for empty swimlanes
   private readonly SWIMLANE_LABEL_WIDTH = 160;
   private isHandMode = false; // New mode flag
   private copiedTasks: TaskConfig[] = []; // Changed type to TaskConfig[]
@@ -195,11 +195,11 @@ export class TaskManager {
   }
 
   private recalculateSwimlaneHeights(): void {
-    const MIN_HEIGHT = 200; // So empty swimlanes aren't tiny
-    const topPadding = 40;
-    const rowHeight = 60;
-    const taskSpacing = 15;
-    const bottomPadding = 60;
+    const MIN_HEIGHT = 80;
+    const topPadding = 30;
+    const rowHeight = 44;
+    const taskSpacing = 6;
+    const bottomPadding = 20;
     
     // First, calculate heights based on task count
     this.swimlanes.forEach(swimlane => {
