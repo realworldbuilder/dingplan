@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/rbush": "^3.0.0",
+    "@types/uuid": "^10.0.0",
     "terser": "^5.39.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
@@ -29,6 +30,7 @@
     "@pixi/math": "^7.3.2",
     "@supabase/supabase-js": "^2.98.0",
     "jspdf": "^3.0.0",
-    "rbush": "^3.0.1"
+    "rbush": "^3.0.1",
+    "uuid": "^13.0.0"
   }
 }

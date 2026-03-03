@@ -252,12 +252,16 @@ export class Canvas {
         
         // Reset to default swimlane
         if (this.taskManager.swimlanes) {
-          this.taskManager.swimlanes = [{
+          this.taskManager.swimlanes.length = 0;
+          this.taskManager.swimlanes.push({
             id: 'default',
             name: 'Default',
             color: '#4285F4',
-            position: 0
-          }];
+            y: 0,
+            height: this.taskManager.SWIMLANE_HEIGHT,
+            tasks: [],
+            taskPositions: new Map()
+          });
         }
       }
       

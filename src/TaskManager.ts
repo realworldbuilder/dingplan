@@ -21,7 +21,7 @@ interface Swimlane {
 }
 
 export class TaskManager {
-  private tasks: Task[] = [];
+  tasks: Task[] = [];
   private selectedTasks: Set<Task> = new Set();
   private selectedTasksInOrder: Task[] = [];
   private draggedTask: Task | null = null;
@@ -32,8 +32,8 @@ export class TaskManager {
   private readonly EDGE_SENSITIVITY_PX = 8; // Fixed pixel threshold for edge detection
   private readonly HIT_PADDING_PX = 4; // Extra padding around tasks for easier clicking
   private lastMouseWorld = { x: 0, y: 0 };
-  readonly swimlanes: Swimlane[] = [];
-  readonly DEFAULT_SWIMLANE_HEIGHT = 200; // Minimum height for empty swimlanes
+  swimlanes: Swimlane[] = [];
+  SWIMLANE_HEIGHT = 200; // Minimum height for empty swimlanes
   private readonly SWIMLANE_LABEL_WIDTH = 160;
   private isHandMode = false; // New mode flag
   private copiedTasks: TaskConfig[] = []; // Changed type to TaskConfig[]
@@ -98,7 +98,7 @@ export class TaskManager {
       id,
       name,
       y,
-      height: this.DEFAULT_SWIMLANE_HEIGHT,
+      height: this.SWIMLANE_HEIGHT,
       color,
       tasks: [],
       taskPositions: new Map()
@@ -1306,6 +1306,24 @@ export class TaskManager {
   
   getAllTasksUnfiltered(): Task[] {
     return this.tasks;
+  }
+
+  clearSelection(): void {
+    this.selectedTasks.clear();
+    this.selectedTasksInOrder = [];
+  }
+
+  clearSwimlanes(): void {
+    this.swimlanes.length = 0;
+  }
+
+  removeSwimlane(id: string): boolean {
+    const idx = this.swimlanes.findIndex(s => s.id === id);
+    if (idx >= 0) {
+      this.swimlanes.splice(idx, 1);
+      return true;
+    }
+    return false;
   }
   
   getTasksAtPoint(worldX: number, worldY: number, camera?: Camera): Task[] {
