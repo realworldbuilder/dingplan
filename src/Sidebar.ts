@@ -240,7 +240,7 @@ export class Sidebar {
   private setupRightPanel() {
     this.element.style.cssText = `
       position: fixed; top: 0; right: 0; width: ${RIGHT_PANEL_WIDTH}px; height: 100%;
-      background: #333; 
+      background: #212121; 
       
       box-shadow: 2px 0 10px rgba(0,0,0,0.3);
       display: none; z-index: 1000;
@@ -256,7 +256,7 @@ export class Sidebar {
       /* ===== Clean dark Right Panel Design System ===== */
       .rp-header {
         padding: 18px 20px; display: flex; justify-content: space-between;
-        align-items: center; border-bottom: 1px solid #3a3a3a; flex-shrink: 0;
+        align-items: center; border-bottom: 1px solid #444; flex-shrink: 0; background: #2f2f2f;
       }
       .rp-title { margin: 0; font-size: 16px; font-weight: 600; color: #ccc; letter-spacing: -0.01em; }
       .rp-close {
@@ -269,7 +269,7 @@ export class Sidebar {
         color: #ccc;
         ;
       }
-      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; }
+      .rp-body { padding: 20px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; background: #212121; }
       .rp-view { display: none; }
       .rp-view.active { display: flex; flex-direction: column; }
 
@@ -280,15 +280,14 @@ export class Sidebar {
         color: #999; text-transform: uppercase; letter-spacing: 0.5px;
       }
       .form-group input, .form-group select {
-        width: 100%; padding: 10px 12px; border: 1px solid #3a3a3a; 
+        width: 100%; padding: 10px 12px; border: 1px solid #444; 
         border-radius: 8px; font-size: 14px; font-family: inherit; 
-        background: #333; color: #ccc;
+        background: #2f2f2f; color: #ececec;
         transition: background 0.15s; box-sizing: border-box; height: 40px;
       }
       .form-group input:focus, .form-group select:focus {
         border-color: #10a37f; 
         background: #3a3a3a;
-        ;
         outline: none;
       }
 
@@ -296,7 +295,7 @@ export class Sidebar {
       .checkbox-group { display: flex; align-items: center; margin-bottom: 10px; }
       .checkbox-group label {
         margin-bottom: 0; margin-left: 10px; cursor: pointer;
-        font-size: 14px; color: #ccc; text-transform: none; letter-spacing: 0; font-weight: 400;
+        font-size: 14px; color: #ececec; text-transform: none; letter-spacing: 0; font-weight: 400;
       }
       .checkbox-group input[type="checkbox"] {
         width: 18px; height: 18px; margin-right: 0; cursor: pointer;
@@ -304,7 +303,7 @@ export class Sidebar {
       }
 
       /* Buttons */
-      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #3a3a3a; }
+      .form-actions { display: flex; gap: 10px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #444; }
       .btn-primary {
         padding: 10px 20px; border: none; border-radius: 8px; 
         background: #10a37f;
@@ -316,14 +315,13 @@ export class Sidebar {
         transform: translateY(-1px);
       }
       .btn-secondary {
-        padding: 10px 20px; border: 1px solid #3a3a3a; border-radius: 8px;
-        background: #333; color: #ccc; font-size: 14px; font-weight: 500; cursor: pointer;
+        padding: 10px 20px; border: 1px solid #444; border-radius: 8px;
+        background: #2f2f2f; color: #ececec; font-size: 14px; font-weight: 500; cursor: pointer;
         height: 40px; transition: background 0.15s; font-family: inherit;
       }
       .btn-secondary:hover { 
         background: #3a3a3a; 
         border-color: rgba(16, 163, 127, 0.3);
-        ;
       }
       .btn-danger {
         padding: 10px 20px; border: 1px solid rgba(245, 101, 101, 0.3); border-radius: 8px; 
@@ -340,26 +338,23 @@ export class Sidebar {
       /* Swimlane items — glass card with colored left border */
       .swimlane-item {
         display: flex; align-items: center; margin-bottom: 8px; padding: 12px 14px;
-        background: #333; border-radius: 8px; 
-        border: 1px solid #363636;
+        background: #2f2f2f; border-radius: 8px; 
+        border: 1px solid #444;
         border-left: 4px solid #10a37f; transition: background 0.15s;
-        
       }
       .swimlane-item:hover { 
         background: #3a3a3a;
-        box-shadow: 0 4px 20px #444; 
       }
       .swimlane-color { display: none; }
       .swimlane-name-input {
         flex-grow: 1; padding: 8px 10px; border: 1px solid transparent;
-        border-radius: 8px; font-size: 14px; background: transparent; color: #ccc;
+        border-radius: 8px; font-size: 14px; background: transparent; color: #ececec;
         font-family: inherit; transition: background 0.15s;
       }
-      .swimlane-name-input:hover { background: #363636; }
+      .swimlane-name-input:hover { background: #3a3a3a; }
       .swimlane-name-input:focus {
         outline: none; background: #3a3a3a; 
         border-color: #10a37f;
-        ;
       }
       .swimlane-actions { display: flex; margin-left: 4px; gap: 2px; }
       .swimlane-actions button {
@@ -377,7 +372,7 @@ export class Sidebar {
       .trade-filter-container { background: transparent; border-radius: 0; padding: 0; margin-top: 8px; }
       .trade-filter-header {
         display: flex; justify-content: space-between; align-items: center;
-        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #3a3a3a;
+        margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #444;
       }
       .trade-filter-header > span { font-size: 13px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
       .trade-filter-actions { display: flex; gap: 4px; }
@@ -392,15 +387,13 @@ export class Sidebar {
       .trade-filter-list { display: flex; flex-direction: column; gap: 6px; }
       .trade-filter-item {
         display: flex; align-items: center; padding: 10px 12px; 
-        background: #333;
-        border-radius: 8px; border: 1px solid #363636; 
+        background: #2f2f2f;
+        border-radius: 8px; border: 1px solid #444; 
         transition: background 0.15s;
-        
       }
       .trade-filter-item:hover { 
         border-color: rgba(16, 163, 127, 0.3); 
         background: #3a3a3a;
-        box-shadow: 0 4px 15px #444;
       }
       .trade-filter-item.disabled { opacity: 0.45; }
       .trade-filter-color {
@@ -413,23 +406,22 @@ export class Sidebar {
         ;
       }
       .trade-filter-name {
-        flex-grow: 1; font-size: 14px; color: #ccc; border: none; background: transparent;
+        flex-grow: 1; font-size: 14px; color: #ececec; border: none; background: transparent;
         font-family: inherit; padding: 4px 6px; border-radius: 8px; font-weight: 450;
       }
       .trade-filter-name:focus { 
         outline: none; 
         background: #3a3a3a; 
-        ; 
       }
       .trade-filter-toggle {
-        width: 40px; height: 22px; background: #404040; border-radius: 22px;
+        width: 40px; height: 22px; background: #444; border-radius: 22px;
         position: relative; cursor: pointer; transition: background 0.15s; border: none; padding: 0;
         flex-shrink: 0; margin-left: 8px;
       }
       .trade-filter-toggle.active { background: #10a37f; }
       .trade-filter-toggle::before {
         content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-        background: #ccc; top: 2px; left: 2px; transition: transform 0.3s ease;
+        background: #ececec; top: 2px; left: 2px; transition: transform 0.3s ease;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
       .trade-filter-toggle.active::before { transform: translateX(18px); }
@@ -684,23 +676,23 @@ export class Sidebar {
 
               <!-- Typing Indicator -->
               <div class="typing-indicator" style="display:none; padding:0 20px 16px; opacity:0; transition:all 0.3s;">
-                <div style="background:#2a2a2a; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
+                <div style="background:#2f2f2f; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px; border:1px solid #444;">
                   <div class="typing-dots" style="display:flex; gap:4px;">
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite;"></div>
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
-                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
+                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite;"></div>
+                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
+                    <div style="width:6px; height:6px; background:#999; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
                   </div>
                 </div>
               </div>
 
               <!-- Chat Input Area -->
-              <div class="chat-input-area" style="border-top:1px solid #333; background:#1a1a1a; padding:16px 20px; flex-shrink:0;">
+              <div class="chat-input-area" style="border-top:1px solid #444; background:#212121; padding:16px 20px; flex-shrink:0;">
                 <!-- Image preview area -->
                 <div class="composer-image-preview" style="display:none; margin-bottom:12px;"></div>
                 
                 <div style="display:flex; gap:12px; align-items:flex-end;">
                   <!-- Image Upload Button -->
-                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border:1px solid #404040; border-radius:10px; cursor:pointer; font-size:18px; color:#9ca3af; transition:all 0.15s; flex-shrink:0;" title="Upload image">
+                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2f2f2f; border:1px solid #444; border-radius:10px; cursor:pointer; font-size:18px; color:#999; transition:all 0.15s; flex-shrink:0;" title="Upload image">
                     <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
                     📎
                   </label>
@@ -710,14 +702,14 @@ export class Sidebar {
                     <textarea 
                       class="chat-input" 
                       placeholder="Describe your project and I'll build the schedule..."
-                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2a2a2a; border:1px solid #404040; border-radius:22px; color:#e5e7eb; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
+                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2f2f2f; border:1px solid #444; border-radius:22px; color:#ececec; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
                       rows="1"
                     ></textarea>
                     
                     <!-- Send Button (positioned inside textarea) -->
                     <button 
                       class="chat-send-btn" 
-                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#2563eb; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
+                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#10a37f; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
                       disabled
                     >
                       ▶
@@ -725,8 +717,8 @@ export class Sidebar {
                   </div>
                 </div>
                 
-                <div style="font-size:12px; color:#6b7280; margin-top:8px; text-align:center;">
-                  Press <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
+                <div style="font-size:12px; color:#999; margin-top:8px; text-align:center;">
+                  Press <kbd style="background:#2f2f2f; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2f2f2f; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
                 </div>
               </div>
             </div>
@@ -763,7 +755,7 @@ export class Sidebar {
               </div>
               <div class="form-group">
                 <label>Work Schedule</label>
-                <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:14px;">
+                <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:14px;">
                   <div class="checkbox-group">
                     <input type="checkbox" id="sidebar-work-saturday" name="workOnSaturday">
                     <label for="sidebar-work-saturday">Work on Saturdays</label>
@@ -808,28 +800,28 @@ export class Sidebar {
             </div>
           </div>
           <div id="settings-view" class="rp-view">
-            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
-              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600; color:#1a1a1a;">About</h4>
-              <p style="font-size:13px; color:#6b7280; margin:0 0 4px; line-height:1.5;">DingPlan — Free construction scheduling for subcontractors.</p>
-              <p style="font-size:12px; color:#9ca3af; margin:0;">Open source · No account required · All data stored locally</p>
+            <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:16px; margin-bottom:20px;">
+              <h4 style="margin:0 0 6px; font-size:14px; font-weight:600; color:#ececec;">About</h4>
+              <p style="font-size:13px; color:#999; margin:0 0 4px; line-height:1.5;">DingPlan — Free construction scheduling for subcontractors.</p>
+              <p style="font-size:12px; color:#666; margin:0;">Open source · No account required · All data stored locally</p>
             </div>
-            <div style="background:#fafafa; border:1px solid #f0f0f0; border-radius:10px; padding:16px; margin-bottom:20px;">
+            <div style="background:#2f2f2f; border:1px solid #444; border-radius:10px; padding:16px; margin-bottom:20px;">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
                 <span style="font-size:16px;">🔒</span>
-                <h4 style="margin:0; font-size:14px; font-weight:600; color:#1a1a1a;">AI Composer Key</h4>
+                <h4 style="margin:0; font-size:14px; font-weight:600; color:#ececec;">AI Composer Key</h4>
               </div>
-              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">Enter your API key (OpenAI or Anthropic) to use the AI Composer. Stored locally in your browser.</p>
+              <p style="font-size:13px; color:#999; margin:0 0 12px; line-height:1.5;">Enter your API key (OpenAI or Anthropic) to use the AI Composer. Stored locally in your browser.</p>
               <div style="display:flex; gap:8px;">
                 <input type="password" id="settings-api-key" placeholder="sk-..." 
-                  style="flex:1; padding:10px 12px; border:1px solid #e8e8e8; border-radius:8px; font-size:14px; font-family:inherit; background:#fff; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
-                  onfocus="this.style.borderColor='#1a1a1a'; this.style.boxShadow='0 0 0 3px rgba(26,26,26,0.08)'"
-                  onblur="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'">
+                  style="flex:1; padding:10px 12px; border:1px solid #444; border-radius:8px; font-size:14px; font-family:inherit; background:#3a3a3a; color:#ececec; height:40px; box-sizing:border-box; transition: border-color 0.15s, box-shadow 0.15s;"
+                  onfocus="this.style.borderColor='#10a37f'; this.style.boxShadow='0 0 0 3px rgba(16,163,127,0.15)'"
+                  onblur="this.style.borderColor='#444'; this.style.boxShadow='none'">
                 <button id="save-api-key" class="btn-primary" style="padding:10px 16px; font-size:14px; white-space:nowrap;">Save</button>
               </div>
             </div>
-            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:16px;">
+            <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:10px; padding:16px;">
               <h4 style="margin:0 0 8px; font-size:14px; font-weight:600; color:#dc2626;">Danger Zone</h4>
-              <p style="font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.5;">
+              <p style="font-size:13px; color:#999; margin:0 0 12px; line-height:1.5;">
                 Clears all projects, tasks, and settings from your browser. This cannot be undone.
               </p>
               <button id="clear-local-storage" class="btn-danger" style="font-size:14px;">Reset All Data</button>
@@ -1304,7 +1296,7 @@ export class Sidebar {
   isLeftPanelOpen(): boolean { return this.leftPanelVisible; }
 
   private updateStatusBanner() {
-    const banner = this.leftPanel.querySelector('#sidebar-status-banner');
+    const banner = this.leftPanel.querySelector('#sidebar-status-banner') as HTMLElement;
     if (!banner) return;
 
     const currentUser = authService.getCurrentUser();
