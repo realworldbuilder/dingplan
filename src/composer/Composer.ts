@@ -35,392 +35,84 @@ class Composer {
 
   constructor(config: ComposerConfig) {
     this.apiKey = config.apiKey || '';
-    this.model = config.model || 'gpt-4o-mini';
+    this.model = config.model || 'gpt-4o';
     this.canvas = config.canvas;
     
     // Define the functions the LLM can call
     this.functions = [
       {
-        name: "createTask",
-        description: "Create a new task in the construction plan",
-        parameters: {
-          type: "object",
-          properties: {
-            name: {
-              type: "string",
-              description: "Name of the task"
-            },
-            duration: {
-              type: "integer",
-              description: "Duration in days"
-            },
-            startDate: {
-              type: "string",
-              description: "Start date in YYYY-MM-DD format, defaults to today if not specified"
-            },
-            tradeId: {
-              type: "string",
-              description: "The trade performing this task"
-            },
-            crewSize: {
-              type: "integer",
-              description: "Number of crew members assigned to this task"
-            },
-            color: {
-              type: "string",
-              description: "Color for the task (hex code)"
-            },
-            swimlaneId: {
-              type: "string",
-              description: "ID of the swimlane/zone to place the task in (e.g., 'zone1', 'zone2', 'zone3')"
-            }
-          },
-          required: ["name", "duration"]
-        }
-      },
-      {
-        name: "createMultipleTasks",
-        description: "Create multiple tasks at once",
-        parameters: {
-          type: "object",
-          properties: {
-            tasks: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: {
-                    type: "string",
-                    description: "Name of the task"
-                  },
-                  duration: {
-                    type: "integer",
-                    description: "Duration in days"
-                  },
-                  startDate: {
-                    type: "string",
-                    description: "Start date in YYYY-MM-DD format"
-                  },
-                  tradeId: {
-                    type: "string",
-                    description: "The trade performing this task"
-                  },
-                  crewSize: {
-                    type: "integer",
-                    description: "Number of crew members assigned to this task"
-                  },
-                  color: {
-                    type: "string",
-                    description: "Color for the task (hex code)"
-                  },
-                  swimlaneId: {
-                    type: "string",
-                    description: "ID of the swimlane/zone to place the task in (e.g., 'zone1', 'zone2', 'zone3')"
-                  }
-                },
-                required: ["name", "duration"]
-              }
-            }
-          },
-          required: ["tasks"]
-        }
-      },
-      {
-        name: "createTaskSequence",
-        description: "Create a sequence of related tasks with dependencies",
-        parameters: {
-          type: "object",
-          properties: {
-            sequenceName: {
-              type: "string",
-              description: "Overall name for the sequence"
-            },
-            startDate: {
-              type: "string",
-              description: "Start date for the first task in the sequence (YYYY-MM-DD), defaults to today if not specified"
-            },
-            location: {
-              type: "string",
-              description: "Optional location identifier for the sequence (e.g., 'Main Bathroom', 'Kitchen 1')"
-            },
-            swimlaneId: {
-              type: "string",
-              description: "ID of the swimlane/zone to place tasks in (e.g., 'zone1', 'zone2', 'zone3')"
-            },
-            tasks: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { 
-                    type: "string",
-                    description: "Name of the task"
-                  },
-                  duration: { 
-                    type: "integer",
-                    description: "Duration in days"
-                  },
-                  tradeId: { 
-                    type: "string",
-                    description: "Trade responsible for the task"
-                  },
-                  crewSize: { 
-                    type: "integer",
-                    description: "Number of people in the crew"
-                  },
-                  dependsOnPrevious: { 
-                    type: "boolean",
-                    description: "Whether this task depends on the completion of the previous task"
-                  }
-                },
-                required: ["name", "duration"]
-              }
-            }
-          },
-          required: ["sequenceName", "tasks"]
-        }
-      },
-      {
-        name: "createFromTemplate",
-        description: "Create a set of tasks from a predefined template",
-        parameters: {
-          type: "object",
-          properties: {
-            templateName: {
-              type: "string",
-              description: `Name of the template to use. Must be exactly one of these: ${getTemplateNames().join(", ")}`
-            },
-            startDate: { 
-              type: "string",
-              description: "Start date for the sequence (YYYY-MM-DD), defaults to today if not specified"
-            },
-            location: { 
-              type: "string",
-              description: "Optional location identifier (e.g., 'Master Bathroom')"
-            },
-            swimlaneId: {
-              type: "string",
-              description: "ID of the swimlane/zone to place tasks in (e.g., 'zone1', 'zone2', 'zone3')"
-            },
-            scaleFactor: { 
-              type: "number",
-              description: "Scale factor to apply to standard durations (e.g., 1.5 makes everything take 50% longer)"
-            },
-            inAllSwimlanes: {
-              type: "boolean",
-              description: "Whether to create the template in all swimlanes"
-            }
-          },
-          required: ["templateName"]
-        }
-      },
-      {
-        name: "addDependency",
-        description: "Add a dependency between two tasks (predecessor -> successor)",
-        parameters: {
-          type: "object",
-          properties: {
-            predecessorName: {
-              type: "string",
-              description: "Name of the predecessor task"
-            },
-            successorName: {
-              type: "string",
-              description: "Name of the successor task"
-            }
-          },
-          required: ["predecessorName", "successorName"]
-        }
-      },
-      {
-        name: "listTasks",
-        description: "List all tasks or tasks matching a filter",
-        parameters: {
-          type: "object",
-          properties: {
-            tradeId: {
-              type: "string",
-              description: "Filter tasks by trade ID"
-            },
-            startDateAfter: {
-              type: "string",
-              description: "Filter tasks that start after this date (YYYY-MM-DD)"
-            },
-            startDateBefore: {
-              type: "string",
-              description: "Filter tasks that start before this date (YYYY-MM-DD)"
-            },
-            swimlaneId: {
-              type: "string",
-              description: "Filter tasks by swimlane/zone ID"
-            }
-          }
-        }
-      },
-      {
-        name: "deleteTask",
-        description: "Delete a task by ID",
-        parameters: {
-          type: "object",
-          properties: {
-            taskId: {
-              type: "string",
-              description: "ID of the task to delete"
-            }
-          },
-          required: ["taskId"]
-        }
-      },
-      {
-        name: "listTemplates",
-        description: "List all available construction sequence templates",
-        parameters: {
-          type: "object",
-          properties: {}
-        }
-      },
-      {
-        name: "listSwimlanes",
-        description: "List all available swimlanes/zones in the plan",
-        parameters: {
-          type: "object",
-          properties: {}
-        }
-      },
-      {
         name: "createSwimlane",
-        description: "Create a new swimlane/phase in the schedule",
+        description: "Create a new swimlane/phase. Do this FIRST before creating tasks.",
         parameters: {
           type: "object",
           properties: {
-            id: {
-              type: "string",
-              description: "Unique ID for the swimlane (e.g., 'site-prep', 'structure')"
-            },
-            name: {
-              type: "string",
-              description: "Display name for the swimlane"
-            },
-            color: {
-              type: "string",
-              description: "Hex color code for the swimlane"
-            }
+            id: { type: "string", description: "Simple lowercase ID (e.g., 'demo', 'framing', 'mep-rough')" },
+            name: { type: "string", description: "Display name (e.g., 'MEP Rough-In')" },
+            color: { type: "string", description: "Hex color code" }
           },
           required: ["id", "name"]
         }
       },
       {
-        name: "updateSwimlane",
-        description: "Update an existing swimlane properties",
+        name: "createTask",
+        description: "Create a task. Use the exact swimlaneId from createSwimlane.",
         parameters: {
           type: "object",
           properties: {
-            id: {
-              type: "string",
-              description: "ID of the swimlane to update"
-            },
-            name: {
-              type: "string",
-              description: "New name for the swimlane"
-            },
-            color: {
-              type: "string",
-              description: "New color for the swimlane (hex code)"
-            }
+            name: { type: "string", description: "Task name" },
+            duration: { type: "integer", description: "Duration in working days" },
+            swimlaneId: { type: "string", description: "Swimlane ID to place task in (must match a created swimlane)" },
+            tradeId: { type: "string", description: "Trade performing this task" },
+            crewSize: { type: "integer", description: "Crew size (default 4)" },
+            color: { type: "string", description: "Hex color" },
+            startDate: { type: "string", description: "Start date YYYY-MM-DD (default: today)" }
           },
-          required: ["id"]
+          required: ["name", "duration", "swimlaneId"]
         }
       },
       {
-        name: "reorderSwimlanes",
-        description: "Change the order of swimlanes in the plan",
+        name: "addDependency",
+        description: "Link two tasks. Predecessor must finish/start before successor can finish/start.",
         parameters: {
           type: "object",
           properties: {
-            swimlaneIds: {
-              type: "array",
-              description: "Array of swimlane IDs in the desired order",
-              items: {
-                type: "string"
-              }
-            }
+            predecessorName: { type: "string", description: "Name of predecessor task" },
+            successorName: { type: "string", description: "Name of successor task" }
           },
-          required: ["swimlaneIds"]
+          required: ["predecessorName", "successorName"]
+        }
+      },
+      {
+        name: "deleteTask",
+        description: "Delete a task by name or ID. Use for reworking sections.",
+        parameters: {
+          type: "object",
+          properties: {
+            taskId: { type: "string", description: "Task ID or name to delete" }
+          },
+          required: ["taskId"]
+        }
+      },
+      {
+        name: "listTasks",
+        description: "List current tasks, optionally filtered by swimlane",
+        parameters: {
+          type: "object",
+          properties: {
+            swimlaneId: { type: "string", description: "Filter by swimlane ID" }
+          }
         }
       },
       {
         name: "adjustPlan",
-        description: "Make high-level adjustments to the construction plan",
+        description: "Bulk adjust the schedule",
         parameters: {
           type: "object",
           properties: {
-            action: {
-              type: "string",
-              description: "Type of adjustment to make",
-              enum: ["shiftDates", "scaleDurations", "addBuffer", "optimizeSequence"]
-            },
-            affectedTaskIds: {
-              type: "array",
-              description: "IDs of tasks to adjust (empty for all tasks)",
-              items: {
-                type: "string"
-              }
-            },
-            startDate: {
-              type: "string",
-              description: "New start date for shifting (YYYY-MM-DD)"
-            },
-            endDate: {
-              type: "string",
-              description: "Target end date for adjustments (YYYY-MM-DD)"
-            },
-            scaleFactor: {
-              type: "number",
-              description: "Factor to scale durations by (e.g., 0.8 for 20% shorter)"
-            },
-            bufferDays: {
-              type: "integer",
-              description: "Number of buffer days to add between tasks"
-            }
-          },
-          required: ["action"]
-        }
-      },
-      {
-        name: "listWBSTemplates",
-        description: "List available Work Breakdown Structure templates for construction projects",
-        parameters: {
-          type: "object",
-          properties: {
-            projectType: { type: "string", description: "Optional project type to filter templates (e.g., 'commercial', 'residential', 'industrial')" }
-          },
-          required: []
-        }
-      },
-      {
-        name: "applyWBSTemplate",
-        description: "Apply a Work Breakdown Structure template to create swimlanes for a construction project",
-        parameters: {
-          type: "object",
-          properties: {
-            templateId: { type: "string", description: "ID of the WBS template to apply, or a project type to find a matching template" },
-            clearExisting: { type: "boolean", description: "Whether to clear existing swimlanes before applying the template (default: false)" },
-            customNames: { type: "array", items: { type: "string" }, description: "Optional custom names to override the default category names" }
-          },
-          required: ["templateId"]
-        }
-      },
-      {
-        name: "customizeSwimlaneTemplate",
-        description: "Customize swimlanes by adding, removing, or reordering categories",
-        parameters: {
-          type: "object",
-          properties: {
-            action: { type: "string", description: "Action to perform: 'add', 'remove', 'rename', or 'reorder'" },
-            category: { type: "string", description: "For add/remove/rename: The category name to act upon" },
-            newName: { type: "string", description: "For rename: The new name for the category" },
-            position: { type: "number", description: "For add: Position to insert (0-based index, -1 for end)" },
-            newOrder: { type: "array", items: { type: "string" }, description: "For reorder: New order of category names" }
+            action: { type: "string", enum: ["shiftDates", "scaleDurations", "addBuffer", "optimizeSequence"] },
+            scaleFactor: { type: "number", description: "e.g., 0.8 for 20% shorter" },
+            bufferDays: { type: "integer", description: "Buffer days between tasks" },
+            startDate: { type: "string", description: "New start date YYYY-MM-DD" }
           },
           required: ["action"]
         }
