@@ -223,8 +223,11 @@ class Composer {
         this.autoSchedule();
       }
       
-      // Render the canvas
+      // Render and save
       this.canvas.render();
+      if (this.canvas.saveCurrentProject) {
+        await this.canvas.saveCurrentProject();
+      }
       
       if (results.length > 0) {
         return `${finalMessage}\n\nCreated ${results.length} items in your schedule.`;
