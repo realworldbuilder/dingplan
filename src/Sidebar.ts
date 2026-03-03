@@ -81,7 +81,7 @@ export class Sidebar {
     lp.innerHTML = `
       <!-- Logo -->
       <div style="padding: 14px 16px; text-align: center; border-bottom: 1px solid #444;">
-        <img src="/logo.png" alt="DingPlan" style="width: 100%; max-width: 220px; object-fit: contain;">
+        <span style="font-size:18px; font-weight:700; color:#ececec; letter-spacing:0.5px;">DingPlan</span>
       </div>
 
       <!-- Project Dropdown -->
@@ -456,22 +456,22 @@ export class Sidebar {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
       .chat-clear-btn:hover {
-        background: #374151 !important; color: #e5e7eb !important;
+        background: #3a3a3a !important; color: #ececec !important;
       }
       .chat-input:focus {
-        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,0.2) !important;
+        border-color: #10a37f !important; box-shadow: 0 0 0 2px rgba(16,163,127,0.2) !important;
       }
       .chat-input::placeholder {
-        color: #6b7280;
+        color: #999;
       }
       .chat-send-btn:disabled {
-        background: #6b7280 !important; cursor: not-allowed; opacity: 0.6;
+        background: #666 !important; cursor: not-allowed; opacity: 0.6;
       }
       .chat-send-btn:not(:disabled):hover {
-        background: #1d4ed8 !important; transform: translateY(-50%) scale(1.05);
+        background: #0d8c6d !important; transform: translateY(-50%) scale(1.05);
       }
       .chat-upload-btn:hover {
-        background: #374151 !important; border-color: #6b7280 !important;
+        background: #3a3a3a !important; border-color: #666 !important;
       }
       
       /* Chat Message Bubbles */
@@ -480,15 +480,15 @@ export class Sidebar {
         line-height: 1.4; word-wrap: break-word; position: relative; animation: messageSlideIn 0.3s ease-out;
       }
       .message-bubble.user {
-        background: #2563eb; color: white; align-self: flex-end; margin-left: auto;
+        background: #10a37f; color: white; align-self: flex-end; margin-left: auto;
         border-bottom-right-radius: 6px;
       }
       .message-bubble.assistant {
-        background: #2a2a2a; color: #e5e7eb; align-self: flex-start; margin-right: auto;
-        border-bottom-left-radius: 6px; border: 1px solid #404040;
+        background: #2f2f2f; color: #ececec; align-self: flex-start; margin-right: auto;
+        border-bottom-left-radius: 6px; border: 1px solid #444;
       }
       .message-timestamp {
-        font-size: 11px; color: #6b7280; margin-top: 6px; text-align: right;
+        font-size: 11px; color: #999; margin-top: 6px; text-align: right;
       }
       .message-bubble.user .message-timestamp {
         color: rgba(255,255,255,0.7);
@@ -496,7 +496,7 @@ export class Sidebar {
       
       /* Welcome Message */
       .welcome-message {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+        background: #10a37f; 
         color: white; padding: 20px; border-radius: 6px; text-align: center;
         margin-bottom: 8px; border: none; animation: messageSlideIn 0.5s ease-out;
       }
@@ -558,28 +558,28 @@ export class Sidebar {
         width: 6px;
       }
       .chat-messages::-webkit-scrollbar-track {
-        background: #1a1a1a;
+        background: #212121;
       }
       .chat-messages::-webkit-scrollbar-thumb {
-        background: #404040; border-radius: 3px;
+        background: #444; border-radius: 3px;
       }
       .chat-messages::-webkit-scrollbar-thumb:hover {
-        background: #525252;
+        background: #666;
       }
 
       /* ===== Task Details Panel ===== */
       .task-details-panel { display: flex; flex-direction: column; gap: 20px; }
-      .td-header { display: flex; gap: 0; border-radius: 6px; overflow: hidden; background: #f8f9fa; }
+      .td-header { display: flex; gap: 0; border-radius: 6px; overflow: hidden; background: #2f2f2f; }
       .td-color-bar { width: 5px; flex-shrink: 0; }
       .td-header-content { padding: 14px 16px; flex: 1; }
       .td-name-input {
-        width: 100%; font-size: 17px; font-weight: 600; color: #1a1a1a;
+        width: 100%; font-size: 17px; font-weight: 600; color: #ececec;
         border: 1.5px solid transparent; padding: 6px 8px; border-radius: 6px;
         background: transparent; font-family: inherit; box-sizing: border-box;
         transition: all 0.15s ease;
       }
-      .td-name-input:hover { background: #fff; border-color: #e8e8e8; }
-      .td-name-input:focus { background: #fff; border-color: #1a1a1a; outline: none; box-shadow: 0 0 0 3px rgba(26,26,26,0.06); }
+      .td-name-input:hover { background: #3a3a3a; border-color: #444; }
+      .td-name-input:focus { background: #3a3a3a; border-color: #10a37f; outline: none; box-shadow: 0 0 0 3px rgba(16,163,127,0.15); }
       .td-meta { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
       .td-swimlane-badge, .td-status-badge {
         font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 5px;
@@ -587,71 +587,71 @@ export class Sidebar {
       }
       .td-stats-row {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-        background: #1a1a1a; border-radius: 6px; overflow: hidden;
+        background: #212121; border-radius: 6px; overflow: hidden;
       }
       .td-stat {
         display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
-        border-right: 1px solid #333;
+        border-right: 1px solid #444;
       }
       .td-stat:last-child { border-right: none; }
-      .td-stat-value { color: #fff; font-size: 15px; font-weight: 700; }
-      .td-stat-label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+      .td-stat-value { color: #ececec; font-size: 15px; font-weight: 700; }
+      .td-stat-label { color: #999; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
       .td-section-label {
-        font-size: 11px; font-weight: 600; color: #9ca3af; letter-spacing: 0.8px;
+        font-size: 11px; font-weight: 600; color: #999; letter-spacing: 0.8px;
         text-transform: uppercase; margin-bottom: -12px;
       }
       .td-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .td-readonly-field {
-        padding: 10px 12px; border: 1px solid #e8e8e8; border-radius: 8px;
-        font-size: 14px; background: #f8f9fa; color: #6b7280; height: 40px;
+        padding: 10px 12px; border: 1px solid #444; border-radius: 8px;
+        font-size: 14px; background: #2f2f2f; color: #999; height: 40px;
         box-sizing: border-box; display: flex; align-items: center;
       }
       .td-toggle-group { display: flex; flex-direction: column; gap: 10px; }
       .td-toggle {
         display: flex; align-items: center; gap: 10px; cursor: pointer;
-        font-size: 14px; color: #374151;
+        font-size: 14px; color: #ececec;
       }
       .td-toggle input[type="checkbox"] {
         width: 36px; height: 20px; appearance: none; -webkit-appearance: none;
-        background: #d1d5db; border-radius: 6px; position: relative;
+        background: #444; border-radius: 6px; position: relative;
         cursor: pointer; transition: background 0.2s;
       }
       .td-toggle input[type="checkbox"]::after {
         content: ''; position: absolute; top: 2px; left: 2px;
-        width: 16px; height: 16px; background: #fff; border-radius: 50%;
+        width: 16px; height: 16px; background: #ececec; border-radius: 50%;
         transition: transform 0.2s;
       }
-      .td-toggle input[type="checkbox"]:checked { background: #1a1a1a; }
+      .td-toggle input[type="checkbox"]:checked { background: #10a37f; }
       .td-toggle input[type="checkbox"]:checked::after { transform: translateX(16px); }
       .td-dep-add { display: flex; gap: 6px; }
       .td-dep-add select { flex: 1; }
       .td-add-btn {
         width: 40px; height: 40px; border: none; border-radius: 8px;
-        background: #1a1a1a; color: #fff; font-size: 18px; cursor: pointer;
+        background: #10a37f; color: #fff; font-size: 18px; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         transition: background 0.15s;
       }
-      .td-add-btn:hover { background: #333; }
+      .td-add-btn:hover { background: #0d8c6d; }
       .td-dep-list { display: flex; flex-direction: column; gap: 6px; }
       .td-dep-item {
         display: flex; align-items: center; justify-content: space-between;
-        padding: 10px 12px; background: #f8f9fa; border-radius: 8px;
-        border: 1px solid #f0f0f0; transition: border-color 0.15s;
+        padding: 10px 12px; background: #2f2f2f; border-radius: 8px;
+        border: 1px solid #444; transition: border-color 0.15s;
       }
-      .td-dep-item:hover { border-color: #d1d5db; }
+      .td-dep-item:hover { border-color: #666; }
       .td-dep-info { display: flex; align-items: center; gap: 8px; }
       .td-dep-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
-      .td-dep-name { font-size: 13px; font-weight: 500; color: #1a1a1a; }
+      .td-dep-name { font-size: 13px; font-weight: 500; color: #ececec; }
       .td-dep-type {
-        font-size: 11px; font-weight: 600; background: #e8e8e8; padding: 2px 6px;
-        border-radius: 4px; color: #6b7280; font-family: monospace;
+        font-size: 11px; font-weight: 600; background: #444; padding: 2px 6px;
+        border-radius: 4px; color: #999; font-family: monospace;
       }
       .td-dep-remove {
-        border: none; background: none; color: #9ca3af; cursor: pointer;
+        border: none; background: none; color: #999; cursor: pointer;
         font-size: 16px; padding: 4px 8px; border-radius: 4px; transition: all 0.15s;
       }
-      .td-dep-remove:hover { background: #fee2e2; color: #ef4444; }
-      .td-dep-empty { padding: 10px 12px; font-size: 13px; color: #9ca3af; font-style: italic; }
+      .td-dep-remove:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+      .td-dep-empty { padding: 10px 12px; font-size: 13px; color: #999; font-style: italic; }
     `;
     document.head.appendChild(style);
   }
@@ -667,9 +667,9 @@ export class Sidebar {
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
             <!-- Modern Chat Interface -->
-            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#1a1a1a; border-radius:12px; overflow:hidden;">
+            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#212121; border-radius:12px; overflow:hidden;">
               <!-- Chat Header -->
-              <div class="chat-header" style="padding:16px 20px; background:#2a2a2a; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+              <div class="chat-header" style="padding:16px 20px; background:#2f2f2f; border-bottom:1px solid #444; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.5);"></div>
                   <span style="color:#e5e7eb; font-size:14px; font-weight:500;">AI Project Composer</span>
