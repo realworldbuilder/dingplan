@@ -273,7 +273,11 @@ class Composer {
       for (const sl of schedule.swimlanes) {
         const id = sl.id || sl.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         this.canvas.taskManager.addSwimlane(id, sl.name, sl.color || this.getRandomColor());
-        swimlaneMap[sl.id || sl.name] = id;
+        // Map every possible reference to the actual ID
+        swimlaneMap[id] = id;
+        if (sl.id) swimlaneMap[sl.id] = id;
+        if (sl.name) swimlaneMap[sl.name] = id;
+        swimlaneMap[sl.name?.toLowerCase()] = id;
         swimlanesCreated++;
       }
     }
@@ -306,7 +310,7 @@ class Composer {
           color: trade.color,
           swimlaneId,
           dependencies: []
-        });
+        }, swimlaneId);
         
         taskNameToId[t.name] = taskId;
         tasksCreated++;
@@ -325,6 +329,8 @@ class Composer {
             const depId = taskNameToId[depName];
             if (depId) {
               task.dependencies.push(depId);
+            } else {
+              console.warn(`Dependency "${depName}" not found for task "${t.name}"`);
             }
           }
         }

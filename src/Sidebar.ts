@@ -419,46 +419,121 @@ export class Sidebar {
       }
       .color-swatch:hover { transform: scale(1.15); border-color: rgba(0,0,0,0.1); }
 
-      /* AI Composer — chat-style */
-      .composer-response-area:empty::before {
-        content: 'Describe your project and AI will generate a full schedule with tasks, dependencies, and trade assignments.';
-        color: #9ca3af; font-size: 13px; line-height: 1.6; display: block; padding: 20px 0;
+      /* Modern Chat Interface Styles */
+      .chat-container {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      .composer-response-area {
-        overflow-y: auto;
-        border: none; border-radius: 0; padding: 0;
-        background: transparent; font-size: 14px; line-height: 1.6; white-space: pre-wrap;
-        color: #1a1a1a;
+      .chat-clear-btn:hover {
+        background: #374151 !important; color: #e5e7eb !important;
       }
-      .composer-response-area p { color: #6b7280; }
-      .composer-message {
-        margin-bottom: 12px; padding: 10px 14px; border-radius: 10px;
-        background: #f3f4f6; color: #1a1a1a; font-size: 13px; line-height: 1.5;
+      .chat-input:focus {
+        border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,0.2) !important;
       }
-      .composer-message.user-message {
-        background: #1a1a1a; color: #fff;
-        margin-left: 24px; border-radius: 10px;
+      .chat-input::placeholder {
+        color: #6b7280;
       }
-      .ai-composer-input {
-        width: 100%; height: 80px; padding: 10px 12px; margin-bottom: 10px;
-        border: 1px solid #e8e8e8; border-radius: 8px; resize: vertical;
-        font-family: inherit; font-size: 14px; color: #1a1a1a; background: #fff;
-        transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box;
+      .chat-send-btn:disabled {
+        background: #6b7280 !important; cursor: not-allowed; opacity: 0.6;
       }
-      .ai-composer-input:focus { border-color: #1a1a1a; box-shadow: 0 0 0 3px rgba(26,26,26,0.08); outline: none; }
-      .ai-composer-button {
-        width: 100%; padding: 10px; background: #1a1a1a; color: white;
-        border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
-        font-family: inherit; height: 42px; transition: all 0.15s ease;
+      .chat-send-btn:not(:disabled):hover {
+        background: #1d4ed8 !important; transform: translateY(-50%) scale(1.05);
       }
-      .ai-composer-button:hover { background: #333; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
-      .ai-composer-button:disabled { background: #9ca3af; transform: none; box-shadow: none; cursor: not-allowed; }
-      .composer-upload-btn {
-        height: 44px; width: 44px; display: flex; align-items: center; justify-content: center;
-        border: 1px solid #e8e8e8; border-radius: 10px; cursor: pointer; font-size: 18px;
-        flex-shrink: 0; transition: all 0.15s; background: #f8f9fa;
+      .chat-upload-btn:hover {
+        background: #374151 !important; border-color: #6b7280 !important;
       }
-      .composer-upload-btn:hover { background: #e8e8e8; }
+      
+      /* Chat Message Bubbles */
+      .message-bubble {
+        max-width: 85%; padding: 12px 16px; border-radius: 18px; font-size: 14px; 
+        line-height: 1.4; word-wrap: break-word; position: relative; animation: messageSlideIn 0.3s ease-out;
+      }
+      .message-bubble.user {
+        background: #2563eb; color: white; align-self: flex-end; margin-left: auto;
+        border-bottom-right-radius: 6px;
+      }
+      .message-bubble.assistant {
+        background: #2a2a2a; color: #e5e7eb; align-self: flex-start; margin-right: auto;
+        border-bottom-left-radius: 6px; border: 1px solid #404040;
+      }
+      .message-timestamp {
+        font-size: 11px; color: #6b7280; margin-top: 6px; text-align: right;
+      }
+      .message-bubble.user .message-timestamp {
+        color: rgba(255,255,255,0.7);
+      }
+      
+      /* Welcome Message */
+      .welcome-message {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+        color: white; padding: 20px; border-radius: 16px; text-align: center;
+        margin-bottom: 8px; border: none; animation: messageSlideIn 0.5s ease-out;
+      }
+      .welcome-title {
+        font-size: 16px; font-weight: 600; margin-bottom: 8px;
+      }
+      .welcome-subtitle {
+        font-size: 14px; opacity: 0.9; line-height: 1.4;
+      }
+      
+      /* Quick Action Chips */
+      .quick-actions {
+        display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; justify-content: center;
+      }
+      .quick-action-chip {
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        color: white; padding: 8px 12px; border-radius: 20px; font-size: 12px;
+        cursor: pointer; transition: all 0.2s; backdrop-filter: blur(10px);
+        font-weight: 500;
+      }
+      .quick-action-chip:hover {
+        background: rgba(255,255,255,0.2); transform: translateY(-1px);
+      }
+      
+      /* Markdown-like formatting in messages */
+      .message-content strong, .message-content b {
+        font-weight: 600; color: #f3f4f6;
+      }
+      .message-content ul {
+        margin: 8px 0; padding-left: 16px;
+      }
+      .message-content li {
+        margin-bottom: 4px;
+      }
+      .message-content code {
+        background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 12px;
+      }
+      
+      /* Typing animation */
+      @keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+        30% { transform: translateY(-6px); opacity: 1; }
+      }
+      
+      /* Message slide-in animation */
+      @keyframes messageSlideIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      /* Auto-scroll hint */
+      .messages-container {
+        scroll-behavior: smooth;
+      }
+      
+      /* Scrollbar styling for dark theme */
+      .chat-messages::-webkit-scrollbar {
+        width: 6px;
+      }
+      .chat-messages::-webkit-scrollbar-track {
+        background: #1a1a1a;
+      }
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: #404040; border-radius: 3px;
+      }
+      .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #525252;
+      }
 
       /* ===== Task Details Panel ===== */
       .task-details-panel { display: flex; flex-direction: column; gap: 20px; }
@@ -559,19 +634,69 @@ export class Sidebar {
         <div class="rp-body">
           <div id="details-view" class="rp-view active"></div>
           <div id="composer-view" class="rp-view" style="flex:1; overflow:hidden;">
-            <div class="ai-composer" style="display:flex; flex-direction:column; height:100%;">
-              <div class="composer-response-area" style="flex:1; margin-bottom:12px; overflow-y:auto;">
+            <!-- Modern Chat Interface -->
+            <div class="chat-container" style="display:flex; flex-direction:column; height:100%; background:#1a1a1a; border-radius:12px; overflow:hidden;">
+              <!-- Chat Header -->
+              <div class="chat-header" style="padding:16px 20px; background:#2a2a2a; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="width:10px; height:10px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px rgba(34,197,94,0.5);"></div>
+                  <span style="color:#e5e7eb; font-size:14px; font-weight:500;">AI Project Composer</span>
+                </div>
+                <button class="chat-clear-btn" style="background:none; border:none; color:#6b7280; cursor:pointer; padding:4px 8px; border-radius:6px; font-size:12px; transition:all 0.15s;" title="Clear chat">Clear</button>
               </div>
-              <div style="display:flex; gap:8px; align-items:flex-end;">
-                <label class="composer-upload-btn" title="Upload image">
-                  <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
-                  📎
-                </label>
-                <textarea class="ai-composer-input" placeholder="Describe your project..." rows="2" style="flex:1; resize:none;"></textarea>
-                <button class="ai-composer-button" style="height:44px; width:44px; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0; border-radius:10px;">▶</button>
+
+              <!-- Chat Messages Area -->
+              <div class="chat-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; min-height:0; scroll-behavior:smooth;">
+                <!-- Welcome message and quick actions will be inserted here -->
               </div>
-              <!-- Image preview area -->
-              <div class="composer-image-preview" style="display:none; margin-top:8px;"></div>
+
+              <!-- Typing Indicator -->
+              <div class="typing-indicator" style="display:none; padding:0 20px 16px; opacity:0; transition:all 0.3s;">
+                <div style="background:#2a2a2a; padding:12px 16px; border-radius:18px; display:inline-flex; align-items:center; gap:8px; max-width:80px;">
+                  <div class="typing-dots" style="display:flex; gap:4px;">
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite;"></div>
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.3s;"></div>
+                    <div style="width:6px; height:6px; background:#6b7280; border-radius:50%; animation:typing 1.5s infinite 0.6s;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chat Input Area -->
+              <div class="chat-input-area" style="border-top:1px solid #333; background:#1a1a1a; padding:16px 20px; flex-shrink:0;">
+                <!-- Image preview area -->
+                <div class="composer-image-preview" style="display:none; margin-bottom:12px;"></div>
+                
+                <div style="display:flex; gap:12px; align-items:flex-end;">
+                  <!-- Image Upload Button -->
+                  <label class="chat-upload-btn" style="width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:#2a2a2a; border:1px solid #404040; border-radius:10px; cursor:pointer; font-size:18px; color:#9ca3af; transition:all 0.15s; flex-shrink:0;" title="Upload image">
+                    <input type="file" accept="image/*" class="composer-image-input" style="display:none;">
+                    📎
+                  </label>
+                  
+                  <!-- Auto-growing Text Input -->
+                  <div style="flex:1; position:relative; min-height:44px; max-height:120px;">
+                    <textarea 
+                      class="chat-input" 
+                      placeholder="Describe your project and I'll build the schedule..."
+                      style="width:100%; min-height:44px; max-height:120px; padding:12px 56px 12px 16px; background:#2a2a2a; border:1px solid #404040; border-radius:22px; color:#e5e7eb; font-size:14px; font-family:inherit; resize:none; outline:none; transition:all 0.15s; line-height:1.4; box-sizing:border-box; overflow-y:hidden;"
+                      rows="1"
+                    ></textarea>
+                    
+                    <!-- Send Button (positioned inside textarea) -->
+                    <button 
+                      class="chat-send-btn" 
+                      style="position:absolute; right:8px; top:50%; transform:translateY(-50%); width:36px; height:36px; background:#2563eb; border:none; border-radius:50%; color:white; font-size:16px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center;"
+                      disabled
+                    >
+                      ▶
+                    </button>
+                  </div>
+                </div>
+                
+                <div style="font-size:12px; color:#6b7280; margin-top:8px; text-align:center;">
+                  Press <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Enter</kbd> to send, <kbd style="background:#2a2a2a; padding:2px 6px; border-radius:4px; font-size:11px;">Shift+Enter</kbd> for new line
+                </div>
+              </div>
             </div>
           </div>
           <div id="add-task-view" class="rp-view">
