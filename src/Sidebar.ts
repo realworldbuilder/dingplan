@@ -5,7 +5,7 @@ import { clearLocalStorage } from './utils/localStorage';
 import { XerImporter } from './XerImporter';
 import { authService } from './services/authService';
 import { 
-  loadProject, saveProject, deleteProject, downloadProjectJSON
+  loadProject, listProjects, saveProject, deleteProject, downloadProjectJSON
 } from './services/projectService';
 import { WBS_TEMPLATES } from './composer/WBSTemplates';
 import { generateUUID } from './utils';
@@ -55,6 +55,7 @@ export class Sidebar {
 
     this.setupEventListeners();
     this.updateStatusBanner();
+    this.refreshProjectList();
     
     this.trades.forEach(trade => {
       this.tradeFilters.set(trade.id, true);
@@ -82,9 +83,13 @@ export class Sidebar {
         <img src="/logo.png" alt="DingPlan" style="width: 80%; max-width: 200px; object-fit: contain;">
       </div>
 
-      <!-- Project Actions -->
-      <div style="padding: 12px 16px; border-bottom: 1px solid #e1e5e9; display: flex; gap: 6px;">
-        <button class="left-nav-btn-sm" data-action="new-project" style="flex: 1;">+ New Project</button>
+      <!-- Projects -->
+      <div style="border-bottom: 1px solid #e1e5e9;">
+        <div style="padding: 12px 16px 8px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Projects</span>
+          <button class="left-nav-btn-sm" data-action="new-project" style="padding: 4px 10px; font-size: 12px;">+ New</button>
+        </div>
+        <div id="sidebar-project-list" style="padding: 0 8px 8px; max-height: 180px; overflow-y: auto;"></div>
       </div>
 
       <div class="left-nav" style="padding: 16px 0; flex: 1; display: flex; flex-direction: column;">
@@ -161,6 +166,20 @@ export class Sidebar {
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       }
       .left-nav-btn.active { background: #e8f0fe; color: #1a56db; }
+      .sidebar-project {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 10px; border-radius: 6px; cursor: pointer;
+        font-size: 13px; color: #374151; transition: background 0.15s;
+      }
+      .sidebar-project:hover { background: #f3f4f6; }
+      .sidebar-project.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+      .sidebar-project-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sidebar-project-del {
+        padding: 2px 6px; background: none; border: none; color: #9ca3af;
+        cursor: pointer; border-radius: 4px; font-size: 14px; opacity: 0; transition: all 0.15s;
+      }
+      .sidebar-project:hover .sidebar-project-del { opacity: 1; }
+      .sidebar-project-del:hover { background: #fee2e2; color: #dc2626; }
       
       /* Floating Action Bar */
       .floating-action-bar {
@@ -881,6 +900,64 @@ export class Sidebar {
     if (view) this.show(view, window.canvasApp);
   }
 
+  async refreshProjectList() {
+    const listEl = this.leftPanel.querySelector('#sidebar-project-list') as HTMLElement;
+    if (!listEl) return;
+    
+    let projects = await listProjects();
+    const currentId = localStorage.getItem('currentProjectId') || 'default';
+    
+    // Always include current project even if index is empty
+    if (projects.length === 0) {
+      const name = localStorage.getItem('dingplan-project-name') || 'My Project';
+      projects = [{ id: currentId, name, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+    }
+    
+    listEl.innerHTML = projects.map(p => `
+      <div class="sidebar-project ${p.id === currentId ? 'active' : ''}" data-id="${p.id}">
+        <span class="sidebar-project-name">${p.name}</span>
+        <button class="sidebar-project-del" data-id="${p.id}" title="Delete">×</button>
+      </div>
+    `).join('');
+    
+    // Click to switch project
+    listEl.querySelectorAll('.sidebar-project').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('sidebar-project-del')) return;
+        const id = (el as HTMLElement).dataset.id;
+        if (!id || id === currentId) return;
+        if (window.canvasApp?.loadProjectById) {
+          const ok = await window.canvasApp.loadProjectById(id);
+          if (ok) {
+            // Update toolbar project name
+            const name = localStorage.getItem('dingplan-project-name');
+            const display = document.getElementById('project-name-display');
+            if (display && name) display.textContent = name;
+            this.refreshProjectList();
+          }
+        }
+      });
+    });
+    
+    // Delete buttons
+    listEl.querySelectorAll('.sidebar-project-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = (btn as HTMLElement).dataset.id;
+        if (!id) return;
+        if (id === currentId) {
+          alert("Can't delete the active project");
+          return;
+        }
+        if (confirm('Delete this project?')) {
+          await deleteProject(id);
+          this.refreshProjectList();
+        }
+      });
+    });
+  }
+
   private handleNewProject() {
     this.showTemplatePickerModal();
   }
@@ -1007,11 +1084,10 @@ export class Sidebar {
     if (window.canvasApp && window.canvasApp.createNewProject) {
       await window.canvasApp.createNewProject(name, swimlanes);
       
-      // Update UI
-      const nameInput = this.leftPanel.querySelector('#left-project-name') as HTMLInputElement;
-      const displayEl = this.leftPanel.querySelector('#current-project-display') as HTMLElement;
-      if (nameInput) nameInput.value = name;
-      if (displayEl) displayEl.textContent = name;
+      // Update toolbar
+      const display = document.getElementById('project-name-display');
+      if (display) display.textContent = name;
+      this.refreshProjectList();
     }
   }
 
@@ -1131,7 +1207,8 @@ export class Sidebar {
   showLeftPanel() {
     this.leftPanelVisible = true;
     this.leftPanel.style.transform = 'translateX(0)';
-    this.floatingBar.style.display = 'none'; // Hide floating bar when sidebar opens
+    this.floatingBar.style.display = 'none';
+    this.refreshProjectList();
   }
 
   hideLeftPanel() {
